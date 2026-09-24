@@ -9,7 +9,8 @@
 //   - 語末/音節末の l → 母音化 w(ウ)  (Brasil→ブラジウ, sal→サウ)
 //   - r: 語頭・rr・n/l/s後→強いr(/h/ハ行) / 母音間→弾き音(/ɾ/ラ行) / 語末→脱落
 //   - s: 母音間→有声化 z(ザ行)
-//   - ch→ʃ, lh→ʎ, nh→ɲ, qu/gu(+e,i)→k/g(u黙字), ç→s
+//   - ch→ʃ, lh→ʎ, nh→ɲ(直前の母音は鼻音コーダにしない), qu/gu(+e,i,ê)→k/g(u黙字。-quência は kw), ç→s
+//   - c/g(+e,i,ê)→s/ʒ（você→ヴォセ, gênero→ジェネル）
 // 不規則・借用語は overrides(pronunciation-overrides.json)で個別補正可能。
 // ============================================================================
 
@@ -66,6 +67,14 @@ type Phon =
 const VOWEL_CHARS = "aeiouáàâãéêíóôõúüy";
 const isVowelChar = (c: string) => c.length === 1 && VOWEL_CHARS.includes(c);
 const VOICED = "bdgmnlrvz";
+// 前舌母音(e/i 系)。c/g の軟音化(ce→セ, ge→ジェ)と qu/gu の u 黙字判定に使う。
+// ê・î も含める（você→ヴォセ, conhecê→コニェセ）。
+const isFront = (c: string) => c.length === 1 && "eiéíêî".includes(c);
+// i 系母音。t/d の口蓋化(ti→チ, di→ジ)に使う。
+const isI = (c: string) => c.length === 1 && "iíî".includes(c);
+// qu/gu の u が黙字か（s[i] が q/g）。前舌母音の前では読まない(queijo→ケイジュ, quê→ケ)。
+// ただし -quência 系(frequência, sequência)は u を読む（旧綴り qüência。ラテン語 -quentia 由来）。
+const isSilentU = (s: string, i: number) => isFront(s[i + 2] ?? "") && !s.startsWith("ênci", i + 2);
 
 function vowelToken(c: string): Phon {
   switch (c) {
@@ -103,7 +112,6 @@ function phonemize(word: string): Phon[] {
   while (i < n) {
     const c = s[i];
     const c2 = s[i + 1] ?? "";
-    const c3 = s[i + 2] ?? "";
     const next = c2;
     const atStart = out.length === 0;
 
@@ -126,17 +134,21 @@ function phonemize(word: string): Phon[] {
     if (c === "s" && c2 === "s") { out.push({ t: "c", v: "s" }); i += 2; continue; }
     if (c === "q" && c2 === "u") {
       out.push({ t: "c", v: "k" });
-      if (!(c3 === "e" || c3 === "i" || c3 === "é" || c3 === "í")) out.push({ t: "g", g: "w" });
+      if (!isSilentU(s, i)) out.push({ t: "g", g: "w" });
       i += 2; continue;
     }
-    if (c === "g" && c2 === "u" && (c3 === "e" || c3 === "i" || c3 === "é" || c3 === "í")) {
+    if (c === "g" && c2 === "u" && isSilentU(s, i)) {
       out.push({ t: "c", v: "g" }); i += 2; continue;
     }
 
     // --- 母音 ---
     if (isVowelChar(c)) {
       const after2 = s[i + 2] ?? "";
-      if ((c2 === "m" || c2 === "n") && (after2 === "" || !isVowelChar(after2))) {
+      if (
+        (c2 === "m" || c2 === "n") &&
+        (after2 === "" || !isVowelChar(after2)) &&
+        !(c2 === "n" && after2 === "h") // nh は次の子音(ɲ)。ここで n を消費しない（minha→ミニャ）
+      ) {
         // 母音 + 鼻子音コーダ
         out.push(vowelToken(c), { t: "n" });
         i += 2;
@@ -151,11 +163,11 @@ function phonemize(word: string): Phon[] {
     let cons: Cons | null = null;
     switch (c) {
       case "b": cons = "b"; break;
-      case "c": cons = next === "e" || next === "i" || next === "é" || next === "í" ? "s" : "k"; break;
+      case "c": cons = isFront(next) ? "s" : "k"; break;
       case "ç": cons = "s"; break;
-      case "d": cons = next === "i" || next === "í" ? "dʒ" : "d"; break;
+      case "d": cons = isI(next) ? "dʒ" : "d"; break;
       case "f": cons = "f"; break;
-      case "g": cons = next === "e" || next === "i" || next === "é" || next === "í" ? "ʒ" : "g"; break;
+      case "g": cons = isFront(next) ? "ʒ" : "g"; break;
       case "h": i++; continue;
       case "j": cons = "ʒ"; break;
       case "k": cons = "k"; break;
@@ -181,7 +193,7 @@ function phonemize(word: string): Phon[] {
         else cons = "s";
         break;
       }
-      case "t": cons = next === "i" || next === "í" ? "tʃ" : "t"; break;
+      case "t": cons = isI(next) ? "tʃ" : "t"; break;
       case "v": cons = "v"; break;
       case "w": out.push({ t: "g", g: "w" }); i++; continue;
       case "x": cons = "ʃ"; break;

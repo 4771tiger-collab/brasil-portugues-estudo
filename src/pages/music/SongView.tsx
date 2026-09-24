@@ -8,12 +8,12 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { SONGS, SONG_BY_ID, getLemmatizer, prepareLemmatizer, songIndex } from "../../data/music";
-import type { SrsLevel } from "../../data/types";
-import { isCovered, type Lemmatizer, type Token } from "../../services/lemmatize";
+import { isCovered, isGrammarWord, type Lemmatizer, type Token } from "../../services/lemmatize";
 import { lineHash, lineKey, type LyricLine as Line } from "../../services/lyrics";
 import { toKana } from "../../services/pronunciation";
 import { translateLines } from "../../services/translate";
 import { YT_STATE } from "../../services/youtube";
+import { isKnownForLyrics } from "../../srs/scheduler";
 import { useMusic, userWordId } from "../../store/useMusic";
 import { useProgress } from "../../store/useProgress";
 import { useSettings } from "../../store/useSettings";
@@ -251,13 +251,20 @@ function VocabTab({
   // 「追加済み」はこの曲で追加したかで判定（別の曲で追加した語もこの曲のデッキに入れられる）
   const inThisSong = (ids: string[]) => addedWords.some((w) => w.videoId === videoId && ids.includes(w.id));
   const shown = onlyNew ? items.filter((w) => !studiedId(w.ids)) : items;
-  const candidatesToAdd = items.filter((w) => !studiedId(w.ids) && !inThisSong(w.ids)).slice(0, 10);
+  // 一括追加は冠詞・前置詞・接続詞・目的格/再帰の代名詞を除く（o, a, do, na, pra… で枠を埋めない）。一覧からの個別追加はできる
+  const candidatesToAdd = items
+    .filter((w) => !studiedId(w.ids) && !inThisSong(w.ids) && !isGrammarWord(w.pos, w.ja))
+    .slice(0, 10);
   const add = (w: (typeof items)[number]) => addWord(studiedId(w.ids) ?? w.ids[0], videoId, w.surface);
 
   function bulkAdd() {
     if (!candidatesToAdd.length) return;
-    const list = candidatesToAdd.map((w) => w.lemma).join("、");
-    if (!confirm(`出現回数の多い未学習語 ${candidatesToAdd.length} 語を単語帳に追加します。\n${list}`)) return;
+    const short = (s: string) => (s.length > 18 ? s.slice(0, 18) + "…" : s);
+    const list = candidatesToAdd.map((w) => `・${w.lemma}（${w.pos}）${short(w.ja)}`).join("\n");
+    const msg =
+      `出現回数の多い未学習語 ${candidatesToAdd.length} 語を単語帳に追加します。\n` +
+      `（冠詞・前置詞・接続詞・目的格や再帰の代名詞は除いています）\n\n${list}`;
+    if (!confirm(msg)) return;
     for (const w of candidatesToAdd) add(w);
   }
 
@@ -360,16 +367,16 @@ export default function SongView() {
   const analyzed = useMemo(() => (lem ? lines.map((l) => lem.analyzeLine(l.text)) : null), [lem, lines]);
   const kana = useMemo(() => lines.map((l) => (l.text ? toKana(l.text) : "")), [lines]);
 
-  // 単語の学習状況（色分け用）
+  // 単語の学習状況（色分け用）。緑は isKnownForLyrics（評価済み・間隔3日以上）で、習熟度の「定着」とは別基準
   const addedSet = useMemo(() => new Set(addedWords.map((w) => w.id)), [addedWords]);
   const userIds = useMusic((s) => s.userWords);
   const statuses = useMemo<TokenStatus[][] | null>(() => {
     if (!lem || !analyzed) return null;
-    const levelOf = (lv: SrsLevel): TokenStatus => (lv === "young" || lv === "mature" ? "known" : "learning");
     const userSet = new Set(userIds.map((u) => u.id));
     const statusOf = (ids: string[]): TokenStatus => {
-      const cardId = ids.find((id) => cards[id]?.last);
-      if (cardId) return levelOf(cards[cardId].level);
+      // 同義の見出し（単語帳とカポエイラ単語帳の同じ語など）のどれかで覚えていれば緑
+      if (ids.some((id) => isKnownForLyrics(cards[id]))) return "known";
+      if (ids.some((id) => cards[id]?.last)) return "learning";
       if (ids.some((id) => addedSet.has(id))) return "added";
       return "plain";
     };

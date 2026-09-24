@@ -1,11 +1,15 @@
 import { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, Navigate, useParams, useSearchParams } from "react-router-dom";
 import { DICTATIONS } from "../data/content";
 import type { DictationItem } from "../data/types";
 import { useSettings } from "../store/useSettings";
 import { audio } from "../services/audio";
 import { toKana } from "../services/pronunciation";
 import SpeakerButton from "../components/SpeakerButton";
+import { useBack } from "../hooks/useBack";
+
+/** 一覧の URL。詳細は /practice/dictation/:id（id は DICTATIONS の id） */
+const LIST_PATH = "/practice/dictation";
 
 const LEVELS = [
   { v: "all", label: "すべて" },
@@ -13,6 +17,17 @@ const LEVELS = [
   { v: "medium", label: "中文" },
   { v: "long", label: "長文" },
 ] as const;
+type LevelFilter = (typeof LEVELS)[number]["v"];
+const isLevelFilter = (v: string | null): v is LevelFilter => LEVELS.some((l) => l.v === v);
+
+/** 書き取りの入力欄: 端末の自動修正・先頭の大文字化・予測変換を止め、pt-BR のキーボードを促す */
+const PT_INPUT_PROPS = {
+  autoCapitalize: "none",
+  autoCorrect: "off",
+  autoComplete: "off",
+  spellCheck: false,
+  lang: "pt-BR",
+} as const;
 
 function norm(s: string): string {
   return s
@@ -59,7 +74,7 @@ function Runner({ item, onBack }: { item: DictationItem; onBack: () => void }) {
 
   return (
     <div className="animate-fade-in space-y-4">
-      <button onClick={onBack} className="text-sm text-brand-green">‹ 一覧</button>
+      <button onClick={onBack} className="min-h-11 pr-2 text-sm text-brand-green">‹ 一覧</button>
 
       {/* ステップ表示 */}
       <div className="flex items-center gap-1">
@@ -89,6 +104,7 @@ function Runner({ item, onBack }: { item: DictationItem; onBack: () => void }) {
             <textarea
               value={input1}
               onChange={(e) => setInput1(e.target.value)}
+              {...PT_INPUT_PROPS}
               rows={2}
               placeholder="ここに入力…"
               className="w-full rounded-xl border border-slate-200 p-3"
@@ -133,6 +149,7 @@ function Runner({ item, onBack }: { item: DictationItem; onBack: () => void }) {
             <textarea
               value={input3}
               onChange={(e) => setInput3(e.target.value)}
+              {...PT_INPUT_PROPS}
               rows={2}
               placeholder="頭文字と文字数を手がかりに入力…"
               className="w-full rounded-xl border border-slate-200 p-3"
@@ -199,12 +216,29 @@ function Result({ user, item }: { user: string; item: DictationItem }) {
   );
 }
 
-export default function Dictation() {
-  const [level, setLevel] = useState<(typeof LEVELS)[number]["v"]>("all");
-  const [selected, setSelected] = useState<DictationItem | null>(null);
-  const list = useMemo(() => (level === "all" ? DICTATIONS : DICTATIONS.filter((d) => d.level === level)), [level]);
+/**
+ * 詳細画面（/practice/dictation/:id）。URL の ID で問題を開く。
+ * Android の戻る操作で一覧に戻れるよう、画面の切替は state ではなくルートで行う。
+ * 見つからない ID は一覧へ置き換えで戻す。
+ */
+export function DictationDetail() {
+  const { id } = useParams();
+  const item = DICTATIONS.find((d) => d.id === id);
+  const back = useBack(LIST_PATH);
 
-  if (selected) return <Runner item={selected} onBack={() => setSelected(null)} />;
+  if (!item) return <Navigate to={LIST_PATH} replace />;
+  // 別の問題へ移ったら入力やステップを持ち越さないよう作り直す
+  return <Runner key={item.id} item={item} onBack={back} />;
+}
+
+export default function Dictation() {
+  // 難易度の絞り込みは URL（?level=）に持つ。一覧は詳細を開くとアンマウントされるので、
+  // state だと戻ったときに「すべて」に戻ってしまう。履歴を増やさないよう replace で書き換える
+  const [params, setParams] = useSearchParams();
+  const q = params.get("level");
+  const level: LevelFilter = isLevelFilter(q) ? q : "all";
+  const setLevel = (v: LevelFilter) => setParams(v === "all" ? {} : { level: v }, { replace: true });
+  const list = useMemo(() => (level === "all" ? DICTATIONS : DICTATIONS.filter((d) => d.level === level)), [level]);
 
   const levelLabel: Record<string, string> = { short: "短文", medium: "中文", long: "長文" };
 
@@ -227,7 +261,7 @@ export default function Dictation() {
         {list.map((d) => {
           const no = DICTATIONS.filter((x) => x.level === d.level).findIndex((x) => x.id === d.id) + 1;
           return (
-            <button key={d.id} onClick={() => setSelected(d)} className="card flex w-full items-center gap-3 p-3 text-left transition hover:ring-brand-green/40">
+            <Link key={d.id} to={`${LIST_PATH}/${encodeURIComponent(d.id)}`} className="card flex w-full items-center gap-3 p-3 text-left transition hover:ring-brand-green/40">
               <span className="text-xl">✍️</span>
               <div className="min-w-0 flex-1">
                 <div className="font-medium text-brand-ink">
@@ -236,7 +270,7 @@ export default function Dictation() {
                 <div className="text-xs text-slate-400">音声を聴いて書き取り（約{d.text.split(/\s+/).length}語）</div>
               </div>
               <span className="text-slate-300">›</span>
-            </button>
+            </Link>
           );
         })}
       </div>

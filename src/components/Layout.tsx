@@ -1,6 +1,8 @@
 import { useEffect, useRef } from "react";
 import { NavLink, useLocation } from "react-router-dom";
-import { useProgress } from "../store/useProgress";
+import { currentStreak, studiedToday, useProgress } from "../store/useProgress";
+import { useToday } from "../hooks/useToday";
+import { useUi } from "../store/useUi";
 
 const tabs = [
   { to: "/", label: "ホーム", icon: "M3 11.5 12 4l9 7.5M5 10v9h14v-9", exact: true },
@@ -12,8 +14,12 @@ const tabs = [
 ];
 
 export default function Layout({ children }: { children: React.ReactNode }) {
-  const streak = useProgress((s) => s.streak);
+  // 表示用の連続記録（途切れていれば 0）。日付の切替は useToday が拾う
+  const today = useToday();
+  const streak = useProgress((s) => currentStreak(s, today));
+  const doneToday = useProgress((s) => studiedToday(s, today));
   const loc = useLocation();
+  const immersive = useUi((s) => s.immersive);
   const headerRef = useRef<HTMLElement>(null);
 
   // ヘッダーの実高さを CSS 変数 --hdr に（sticky 要素の top 位置合わせ用）
@@ -29,20 +35,37 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="mx-auto flex min-h-full max-w-2xl flex-col">
-      <header ref={headerRef} className="sticky top-0 z-20 flex items-center justify-between border-b border-slate-200 bg-white/90 px-4 py-3 backdrop-blur">
+      {/* 横向きのノッチ端末でも切れないよう、左右に safe-area を足す（px-4 の代わりに calc） */}
+      <header
+        ref={headerRef}
+        className="sticky top-0 z-20 flex items-center justify-between border-b border-slate-200 bg-white/90 py-3 pl-[calc(1rem+env(safe-area-inset-left))] pr-[calc(1rem+env(safe-area-inset-right))] backdrop-blur"
+      >
         <NavLink to="/" className="flex items-center gap-2">
           <span className="text-lg">🇧🇷</span>
           <span className="font-bold text-brand-ink">ポル語学習帳</span>
         </NavLink>
-        <div className="flex items-center gap-1 rounded-full bg-orange-50 px-3 py-1 text-sm font-bold text-orange-600">
-          <span>🔥</span>
+        {/* 今日まだ学習していなければ炎をグレーに */}
+        <div
+          className={`flex items-center gap-1 rounded-full px-3 py-1 text-sm font-bold ${
+            doneToday ? "bg-orange-50 text-orange-600" : "bg-slate-100 text-slate-400"
+          }`}
+          title={doneToday ? `連続 ${streak}日（今日は学習済み）` : "今日はまだ学習していません"}
+        >
+          <span className={doneToday ? "" : "opacity-60 grayscale"} aria-hidden="true">
+            🔥
+          </span>
           <span>{streak}</span>
+          <span className="sr-only">{doneToday ? "日連続。今日は学習済み" : "日連続。今日はまだ学習していません"}</span>
         </div>
       </header>
 
-      <main className="flex-1 px-4 pb-24 pt-4">{children}</main>
+      <main className="flex-1 pb-24 pl-[calc(1rem+env(safe-area-inset-left))] pr-[calc(1rem+env(safe-area-inset-right))] pt-4">{children}</main>
 
-      <nav className="fixed inset-x-0 bottom-0 z-20 mx-auto max-w-2xl border-t border-slate-200 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur">
+      {/* 1枚ずつ学習の間（immersive）は下部ナビを隠す。親指ゾーンは学習の操作バーが使う */}
+      <nav
+        hidden={immersive}
+        className="fixed inset-x-0 bottom-0 z-20 mx-auto max-w-2xl border-t border-slate-200 bg-white/95 pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] backdrop-blur"
+      >
         <div className="grid grid-cols-6">
           {tabs.map((t) => {
             const active = t.exact ? loc.pathname === "/" : loc.pathname.startsWith(t.to);

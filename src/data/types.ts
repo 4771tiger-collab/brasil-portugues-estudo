@@ -124,6 +124,12 @@ export interface DictationItem {
   isDialogue?: boolean;
 }
 
+/** 単語帳「今日の学習」の表示（1枚ずつのセッション / 一覧） */
+export type StudyViewMode = "session" | "list";
+
+/** 1枚ずつ学習の出題方向（表面に出す言語）。mixed は語と日付で決まる */
+export type StudyDirection = "pt2ja" | "ja2pt" | "mixed";
+
 /** 設定 */
 export interface Settings {
   rate: number; // 既定の再生速度
@@ -136,4 +142,10 @@ export interface Settings {
   musicNewLimit: number;
   /** 歌詞の単語をタップした時に動画を一時停止する */
   pauseOnWordTap: boolean;
+  /** 「今日の学習」を開いたときの表示（他のデッキは一覧が既定） */
+  studyView: StudyViewMode;
+  /** 1枚ずつ学習の出題方向 */
+  studyDirection: StudyDirection;
+  /** 1枚ずつ学習で答えを開いたとき・新しい語の紹介時に発音を自動で再生する */
+  autoPlayOnReveal: boolean;
 }

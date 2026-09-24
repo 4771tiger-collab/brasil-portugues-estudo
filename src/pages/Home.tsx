@@ -1,10 +1,14 @@
-import { useEffect, useMemo } from "react";
+import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import { ALL_WORDS, STATS, reviewPool } from "../data/loadWords";
-import { todayCounters, useProgress } from "../store/useProgress";
+import { currentStreak, studiedToday, todayCounters, useProgress } from "../store/useProgress";
 import { useSettings } from "../store/useSettings";
 import { useAddedIds, useUserWordMap } from "../store/useMusic";
 import { countAddedNew, countReview, masteryBreakdown } from "../srs/queue";
+import { useToday } from "../hooks/useToday";
+import UpdateBanner from "../components/UpdateBanner";
+import InstallCard from "../components/InstallCard";
+import BackupNudge from "../components/BackupNudge";
 
 function Bar({ value, className = "" }: { value: number; className?: string }) {
   return (
@@ -15,32 +19,39 @@ function Bar({ value, className = "" }: { value: number; className?: string }) {
 }
 
 export default function Home() {
+  // 日付の読み直しと daily の切替（ensureToday）は useToday が行う。翌日に戻っても数字が更新される
+  const today = useToday();
   const cards = useProgress((s) => s.cards);
   const daily = todayCounters(useProgress((s) => s.daily));
   const bestStreak = useProgress((s) => s.bestStreak);
-  const ensureToday = useProgress((s) => s.ensureToday);
+  const streak = useProgress((s) => currentStreak(s, today));
+  const doneToday = useProgress((s) => studiedToday(s, today));
   const dailyNewLimit = useSettings((s) => s.dailyNewLimit);
   const dailyGoal = useSettings((s) => s.dailyGoal);
   const musicNewLimit = useSettings((s) => s.musicNewLimit);
   const addedIds = useAddedIds();
   const userMap = useUserWordMap();
 
-  useEffect(() => {
-    ensureToday();
-  }, [ensureToday]);
-
   // 復習数は曲から追加した語も含める（習熟度は単語帳のカリキュラム進捗なので ALL_WORDS のまま）
   const pool = useMemo(() => reviewPool(addedIds, userMap), [addedIds, userMap]);
-  const due = useMemo(() => countReview(pool, cards), [pool, cards]);
-  const addedNew = useMemo(() => countAddedNew(pool, cards), [pool, cards]);
+  const due = useMemo(() => countReview(pool, cards, today), [pool, cards, today]);
+  const addedNew = useMemo(() => countAddedNew(pool, cards, today), [pool, cards, today]);
   const mastery = useMemo(() => masteryBreakdown(ALL_WORDS, cards), [cards]);
   const newRemaining = Math.max(0, dailyNewLimit - daily.newIntroduced);
   const musicNew = Math.min(addedNew, Math.max(0, musicNewLimit - (daily.musicIntroduced ?? 0)));
   const musicLearned = addedIds.filter((id) => cards[id]?.last).length;
   const goalRatio = dailyGoal ? Math.min(1, daily.studied / dailyGoal) : 0;
+  // 今日の分があれば単語帳の一覧を経ずに「今日の学習」へ直行する
+  const hasToday = due + newRemaining + musicNew > 0;
 
   return (
     <div className="animate-fade-in space-y-5">
+      {/* 新しい版が待機中なら「更新」（学習の画面では出さない） */}
+      <UpdateBanner />
+
+      {/* アプリとしてのインストール案内（ホーム画面のアプリで開いているときは出ない） */}
+      <InstallCard />
+
       {/* 今日の学習 */}
       <section className="card overflow-hidden">
         <div className="bg-gradient-to-br from-brand-green to-emerald-600 p-5 text-white">
@@ -66,10 +77,10 @@ export default function Home() {
             )}
           </div>
           <Link
-            to="/flashcards"
+            to={hasToday ? "/flashcards/today" : "/flashcards"}
             className="mt-4 inline-flex w-full items-center justify-center rounded-xl bg-white py-3 font-bold text-brand-green shadow-sm transition active:scale-95"
           >
-            {due + newRemaining + musicNew > 0 ? "学習をはじめる" : "追加で学習する"}
+            {hasToday ? "学習をはじめる" : "追加で学習する"}
           </Link>
         </div>
         <div className="grid grid-cols-2 gap-3 p-4">
@@ -87,10 +98,26 @@ export default function Home() {
               <span>連続記録</span>
               <span>最高 {bestStreak}日</span>
             </div>
-            <div className="text-sm font-bold text-orange-600">🔥 学習を続けよう</div>
+            {/* 途切れていれば 0。今日まだなら炎をグレーにして一言添える */}
+            <div
+              className={`flex flex-wrap items-baseline gap-x-1.5 text-sm font-bold ${
+                doneToday ? "text-orange-600" : "text-slate-500"
+              }`}
+            >
+              <span className={doneToday ? "" : "opacity-60 grayscale"} aria-hidden="true">
+                🔥
+              </span>
+              <span>{streak}日</span>
+              <span className="text-xs font-medium text-slate-400">
+                {doneToday ? "今日は達成" : streak > 0 ? "今日学習して継続" : "今日から始めよう"}
+              </span>
+            </div>
           </div>
         </div>
       </section>
+
+      {/* バックアップの催促（前回から7日以上、または200回以上評価したとき） */}
+      <BackupNudge />
 
       {/* 習熟度 */}
       <section className="card p-4">
@@ -104,13 +131,14 @@ export default function Home() {
         </div>
         <Bar value={mastery.startedRatio} className="bg-brand-blue" />
         <div className="mb-1 mt-3 flex justify-between text-xs text-slate-500">
-          <span>定着(中期記憶以上)</span>
+          <span>定着（復習間隔7日以上）</span>
           <span>{Math.round(mastery.retainedRatio * 100)}%</span>
         </div>
         <Bar value={mastery.retainedRatio} className="bg-brand-green" />
+        {/* 4マスの合計は全語数。レベルは保存値ではなく現在の間隔から導く（displayLevel） */}
         <div className="mt-3 grid grid-cols-4 gap-2 text-center text-xs">
           {[
-            { label: "新規", n: mastery.new, c: "text-slate-500" },
+            { label: "未学習", n: mastery.unstudied, c: "text-slate-500" },
             { label: "学習中", n: mastery.learning, c: "text-amber-600" },
             { label: "定着中", n: mastery.young, c: "text-blue-600" },
             { label: "習得", n: mastery.mature, c: "text-emerald-600" },
@@ -121,6 +149,7 @@ export default function Home() {
             </div>
           ))}
         </div>
+        <p className="mt-1.5 text-center text-[11px] text-slate-400">学習中＝間隔7日未満 ／ 定着中＝7〜20日 ／ 習得＝21日以上</p>
         {addedIds.length > 0 && (
           <Link to="/flashcards/music" className="mt-3 flex items-center justify-between rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">
             <span>🎵 曲の単語 {addedIds.length}語（うち学習済み {musicLearned}）</span>

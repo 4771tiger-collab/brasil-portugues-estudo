@@ -1,10 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, Navigate, useParams } from "react-router-dom";
 import { PASSAGES } from "../data/content";
 import type { Passage } from "../data/types";
 import { useProgress } from "../store/useProgress";
 import { useSettings } from "../store/useSettings";
 import { audio } from "../services/audio";
+import { useWakeLock } from "../hooks/useWakeLock";
+import { useBack } from "../hooks/useBack";
+
+/** 一覧の URL。詳細は /practice/chunk/:id（id は custom_… か psg_…） */
+const LIST_PATH = "/practice/chunk";
 
 const SPEEDS = [0.8, 1.0, 1.2];
 
@@ -19,6 +24,8 @@ function Reader({ passage, onBack }: { passage: Passage; onBack: () => void }) {
   const [playing, setPlaying] = useState(false);
   const [speed, setSpeed] = useState(settingsRate || 1);
   const abortRef = useRef<AbortController | null>(null);
+  // 全文再生の間は画面を消さない
+  useWakeLock(playing);
 
   const jaVisible = (i: number) => (showJaAll ? !jaFlips.has(i) : jaFlips.has(i));
   const toggleJa = (i: number) =>
@@ -54,25 +61,26 @@ function Reader({ passage, onBack }: { passage: Passage; onBack: () => void }) {
 
   return (
     <div className="animate-fade-in space-y-4">
-      <button onClick={onBack} className="text-sm text-brand-green">‹ 一覧</button>
+      <button onClick={onBack} className="min-h-11 pr-2 text-sm text-brand-green">‹ 一覧</button>
       <div className="flex items-center gap-2">
         <h1 className="text-lg font-bold text-brand-ink">{passage.title}</h1>
         <span className="chip bg-slate-100 text-slate-500">{LEVEL_LABEL[passage.level]}</span>
         {passage.source !== "original" && <span className="chip bg-amber-100 text-amber-600">取込</span>}
       </div>
 
-      <div className="sticky top-[57px] z-10 -mx-4 flex items-center gap-2 border-b border-slate-200 bg-white/95 px-4 py-2 backdrop-blur">
-        <button onClick={playing ? stop : playAll} className={`btn ${playing ? "bg-rose-500 text-white" : "btn-primary"} px-3 py-1.5 text-sm`}>
+      {/* top はヘッダーの実高さ --hdr。ボタンは指で押せる 44px 以上 */}
+      <div className="sticky top-[var(--hdr,53px)] z-10 -mx-4 flex flex-wrap items-center gap-2 border-b border-slate-200 bg-white/95 px-4 py-1.5 backdrop-blur">
+        <button onClick={playing ? stop : playAll} className={`btn ${playing ? "bg-rose-500 text-white" : "btn-primary"} min-h-11 px-3 py-1.5 text-sm`}>
           {playing ? "■ 停止" : "▶ 全文再生"}
         </button>
         <div className="flex items-center rounded-lg bg-slate-100 p-0.5 text-xs">
           {SPEEDS.map((s) => (
-            <button key={s} onClick={() => setSpeed(s)} className={`rounded px-1.5 py-1 ${speed === s ? "bg-white font-bold shadow-sm" : "text-slate-500"}`}>
+            <button key={s} onClick={() => setSpeed(s)} className={`min-h-11 min-w-11 rounded px-1.5 ${speed === s ? "bg-white font-bold shadow-sm" : "text-slate-500"}`}>
               {s.toFixed(1)}x
             </button>
           ))}
         </div>
-        <button onClick={() => { setShowJaAll((v) => !v); setJaFlips(new Set()); }} className="btn-ghost ml-auto px-3 py-1.5 text-sm">
+        <button onClick={() => { setShowJaAll((v) => !v); setJaFlips(new Set()); }} className="btn-ghost ml-auto min-h-11 px-3 py-1.5 text-sm">
           訳 {showJaAll ? "隠す" : "表示"}
         </button>
       </div>
@@ -97,7 +105,11 @@ function Reader({ passage, onBack }: { passage: Passage; onBack: () => void }) {
                   {c.pt}
                 </button>
                 <span className="select-none text-lg font-bold text-brand-green/40">/</span>
-                <button onClick={() => toggleJa(i)} className="ml-auto shrink-0 text-[11px] text-brand-blue">
+                {/* 押せる範囲は 44px。行の高さは増やさない（上下の余白に食い込ませる） */}
+                <button
+                  onClick={() => toggleJa(i)}
+                  className="-my-1.5 ml-auto flex min-h-11 min-w-11 shrink-0 items-center justify-center self-center text-[11px] text-brand-blue"
+                >
                   {jaVisible(i) ? "訳を隠す" : "訳"}
                 </button>
               </div>
@@ -110,12 +122,30 @@ function Reader({ passage, onBack }: { passage: Passage; onBack: () => void }) {
   );
 }
 
-export default function ChunkReading() {
+/** 自作教材を先頭に、同梱の教材を続けた一覧（一覧と詳細の ID 解決で共通） */
+function useAllPassages(): Passage[] {
   const customPassages = useProgress((s) => s.customPassages);
-  const all = useMemo(() => [...customPassages, ...PASSAGES], [customPassages]);
-  const [selected, setSelected] = useState<Passage | null>(null);
+  return useMemo(() => [...customPassages, ...PASSAGES], [customPassages]);
+}
 
-  if (selected) return <Reader passage={selected} onBack={() => setSelected(null)} />;
+/**
+ * 詳細画面（/practice/chunk/:id）。URL の ID で教材を開く。
+ * Android の戻る操作で一覧に戻れるよう、画面の切替は state ではなくルートで行う。
+ * 見つからない ID（削除した自作教材など）は一覧へ置き換えで戻す。
+ */
+export function ChunkReadingDetail() {
+  const { id } = useParams();
+  const all = useAllPassages();
+  const passage = all.find((p) => p.id === id);
+  const back = useBack(LIST_PATH);
+
+  if (!passage) return <Navigate to={LIST_PATH} replace />;
+  // 別の教材へ移ったら再生状態などを持ち越さないよう作り直す
+  return <Reader key={passage.id} passage={passage} onBack={back} />;
+}
+
+export default function ChunkReading() {
+  const all = useAllPassages();
 
   return (
     <div className="animate-fade-in space-y-4">
@@ -126,7 +156,7 @@ export default function ChunkReading() {
       </div>
       <div className="space-y-2">
         {all.map((p) => (
-          <button key={p.id} onClick={() => setSelected(p)} className="card flex w-full items-center gap-3 p-3 text-left transition hover:ring-brand-green/40">
+          <Link key={p.id} to={`${LIST_PATH}/${encodeURIComponent(p.id)}`} className="card flex w-full items-center gap-3 p-3 text-left transition hover:ring-brand-green/40">
             <span className="text-xl">📖</span>
             <div className="min-w-0 flex-1">
               <div className="truncate font-medium text-brand-ink">{p.title}</div>
@@ -134,7 +164,7 @@ export default function ChunkReading() {
             </div>
             {p.source !== "original" && <span className="chip bg-amber-100 text-amber-600">取込</span>}
             <span className="text-slate-300">›</span>
-          </button>
+          </Link>
         ))}
       </div>
       <Link to="/practice/add" className="btn-ghost w-full">➕ 教材を追加する</Link>

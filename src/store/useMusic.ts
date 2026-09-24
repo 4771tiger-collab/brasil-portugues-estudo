@@ -58,7 +58,11 @@ interface MusicState extends MusicExport {
   mergeTranslations: (videoId: string, map: Record<string, string>) => void;
   editTranslation: (videoId: string, key: string, text: string) => void;
   addWord: (id: string, videoId: string, surface: string) => void;
-  removeWord: (id: string) => void;
+  /**
+   * 曲の単語から外す。videoId を渡すとその曲の記録だけ（他の曲で追加した記録は残す）。
+   * どの曲にも残らなくなった時だけ、この機能が作った未評価のカードを SRS から消す。
+   */
+  removeWord: (id: string, videoId?: string) => void;
   /** 辞書に無い語を意味入力して追加。戻り値は単語ID */
   addUserWord: (pt: string, ja: string, pos: string) => string;
   clearAddedWords: () => void;
@@ -137,15 +141,26 @@ export const useMusic = create<MusicState>()(
         });
       },
 
-      removeWord: (id) => {
+      removeWord: (id, videoId) => {
         const state = get();
-        const entries = state.addedWords.filter((w) => w.id === id);
-        if (!entries.length) return;
-        const progress = useProgress.getState();
-        const card = progress.cards[id];
-        // この機能が作ったカードで、まだ一度も評価していない時だけカードも消す（学習履歴は消さない）
-        if (entries.some((w) => w.createdCard) && card && card.last === null) progress.removeCard(id);
-        set({ addedWords: state.addedWords.filter((w) => w.id !== id) });
+        // videoId があればその曲の記録だけ、無ければその語の全記録を外す
+        const hit = (w: AddedWord) => w.id === id && (videoId === undefined || w.videoId === videoId);
+        const removed = state.addedWords.filter(hit);
+        if (!removed.length) return;
+        let rest = state.addedWords.filter((w) => !hit(w));
+        const created = removed.some((w) => w.createdCard);
+        const remaining = rest.filter((w) => w.id === id);
+        if (!remaining.length) {
+          // どの曲にも残っていない。この機能が作ったカードで、まだ一度も評価していない時だけカードも消す（学習履歴は消さない）
+          const progress = useProgress.getState();
+          const card = progress.cards[id];
+          if (created && card && card.last === null) progress.removeCard(id);
+        } else if (created && !remaining.some((w) => w.createdCard)) {
+          // 他の曲に記録が残る → 「カードを作った」印を残る記録へ引き継ぐ（最後に外した時に未評価カードを片付けるため）
+          const heir = remaining[0];
+          rest = rest.map((w) => (w === heir ? { ...w, createdCard: true } : w));
+        }
+        set({ addedWords: rest });
       },
 
       addUserWord: (pt, ja, pos) => {

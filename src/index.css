@@ -12,6 +12,17 @@ body,
   height: 100%;
 }
 
+/* タップ時の青いハイライトを消す（押下の見た目は active:scale などで出す） */
+html {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ダブルタップ拡大の判定待ち（約300ms の遅延）をなくす */
+button,
+a {
+  touch-action: manipulation;
+}
+
 body {
   margin: 0;
   background: #f3f5f9;

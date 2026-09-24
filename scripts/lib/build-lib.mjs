@@ -31,3 +31,20 @@ export function viteBuild(outDir) {
   console.log(`[build] vite build → ${outDir}`);
   return sh("npx", ["vite", "build", "--outDir", outDir, "--emptyOutDir"]) === 0;
 }
+
+/**
+ * GitHub のリモート URL から GitHub Pages の公開 URL を導く。GitHub 以外は null
+ *   https://github.com/<owner>/<repo>(.git)  /  git@github.com:<owner>/<repo>(.git)
+ *   ssh://git@github.com/<owner>/<repo>(.git)
+ * <owner>.github.io という名前のリポジトリはサブパス無しで公開される。
+ */
+export function pagesUrlFromRemote(remoteUrl) {
+  const m = String(remoteUrl)
+    .trim()
+    .match(/github\.com[:/]+([^/]+)\/([^/]+?)(?:\.git)?\/?$/i);
+  if (!m) return null;
+  const owner = m[1].toLowerCase();
+  const repo = m[2];
+  if (repo.toLowerCase() === `${owner}.github.io`) return `https://${owner}.github.io/`;
+  return `https://${owner}.github.io/${repo}/`;
+}

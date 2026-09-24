@@ -172,6 +172,16 @@ export function isCovered(c: Candidate): boolean {
   return !!c.parts?.length && c.parts.every((p) => p.top && isCovered(p.top));
 }
 
+/**
+ * 文法の機能語か（曲の単語の一括追加から外す）。
+ * 冠詞・前置詞・接続詞と、目的格・再帰の代名詞（me/te/se/lhe/o/a…）。
+ * 縮約（do = de + o、pra = para + a）は構成要素ごとに判定される。個別の「＋追加」は制限しない。
+ */
+export function isGrammarWord(pos: string, ja: string): boolean {
+  if (/^(冠詞|前置詞|接続詞)/.test(pos)) return true;
+  return pos.startsWith("代名詞") && /目的格|再帰/.test(ja);
+}
+
 export interface LemmatizerInput {
   entries: LexRef[];
   irregular: IrregularTable;

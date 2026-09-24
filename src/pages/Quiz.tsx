@@ -1,7 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import { WORDS_CAPOEIRA, WORDS_GENERAL, ALL_WORDS, resolveWord, reviewPool } from "../data/loadWords";
 import type { Word } from "../data/types";
-import { useProgress } from "../store/useProgress";
+import { todayCounters, useProgress } from "../store/useProgress";
+import type { QuizEffect } from "../store/useProgress";
 import { useSettings } from "../store/useSettings";
 import { useAddedIds, useUserWordMap } from "../store/useMusic";
 import { reviewDueWords } from "../srs/queue";
@@ -45,9 +47,21 @@ function buildQuestions(pool: Word[], distractorPool: Word[], mode: Mode, count 
   });
 }
 
+/** 結果画面の各行に出す「SRS への反映」ラベル */
+const EFFECT_LABEL: Record<QuizEffect, { label: string; cls: string }> = {
+  reviewed: { label: "反映", cls: "bg-emerald-50 text-emerald-700" },
+  lapsed: { label: "反映・再学習", cls: "bg-rose-50 text-rose-600" },
+  unchanged: { label: "変更なし", cls: "bg-slate-100 text-slate-500" },
+  untracked: { label: "未学習", cls: "bg-amber-50 text-amber-700" },
+};
+
 export default function Quiz() {
   const cards = useProgress((s) => s.cards);
-  const rate = useProgress((s) => s.rate);
+  const rateQuiz = useProgress((s) => s.rateQuiz);
+  const pinNew = useProgress((s) => s.pinNew);
+  const pinnedNew = useProgress((s) => s.pinnedNew);
+  const daily = todayCounters(useProgress((s) => s.daily));
+  const dailyNewLimit = useSettings((s) => s.dailyNewLimit);
   const voiceURI = useSettings((s) => s.voiceURI);
   const settingsRate = useSettings((s) => s.rate);
 
@@ -69,6 +83,16 @@ export default function Quiz() {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [idx, setIdx] = useState(0);
   const [selected, setSelected] = useState<(number | null)[]>([]);
+  // 1問ごとの SRS への反映結果（未解答は null）
+  const [effects, setEffects] = useState<(QuizEffect | null)[]>([]);
+  // rateQuiz は同じ語に2回呼ぶと練習量を二重に数えるので、連打でも1問1回に限る
+  const answeredRef = useRef<Set<number>>(new Set());
+
+  /** リスニング問題の読み上げ。自動再生の制限を避けるため、必ずクリック処理の中から呼ぶ */
+  function speakQuestion(q: Question | undefined) {
+    if (mode !== "listen" || !q) return;
+    void audio.speak(q.word.ptForSpeech, { rate: settingsRate, voiceURI });
+  }
 
   function start() {
     let pool: Word[];
@@ -83,35 +107,47 @@ export default function Quiz() {
     const qs = buildQuestions(pool, ALL_WORDS, mode);
     setQuestions(qs);
     setSelected(new Array(qs.length).fill(null));
+    setEffects(new Array(qs.length).fill(null));
+    answeredRef.current = new Set();
     setIdx(0);
     setPhase("playing");
+    // リスニングの1問目は「スタート」のタップの中で読み上げる
+    speakQuestion(qs[0]);
   }
 
-  // リスニング問題は表示時に自動再生
-  useEffect(() => {
-    if (phase === "playing" && mode === "listen" && questions[idx]) {
-      audio.speak(questions[idx].word.ptForSpeech, { rate: settingsRate, voiceURI });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase, idx, mode]);
-
+  /** 解答したその場で SRS に反映する（途中で離れても答えた分は残る） */
   function choose(choiceIdx: number) {
-    if (selected[idx] != null) return;
-    const next = [...selected];
-    next[idx] = choiceIdx;
-    setSelected(next);
+    const q = questions[idx];
+    if (!q || selected[idx] != null || answeredRef.current.has(idx)) return;
+    answeredRef.current.add(idx);
+    const i = idx;
+    // 未学習語・今日評価済み・期限前の正解は SRS に書かない（判定は useProgress.rateQuiz / quizDecision）
+    const effect = rateQuiz(q.word.id, choiceIdx === q.answer ? "good" : "again");
+    setSelected((prev) => {
+      const next = [...prev];
+      next[i] = choiceIdx;
+      return next;
+    });
+    setEffects((prev) => {
+      const next = [...prev];
+      next[i] = effect;
+      return next;
+    });
   }
 
   function nextQuestion() {
-    if (idx < questions.length - 1) setIdx(idx + 1);
-    else {
-      // SRSへ反映
-      questions.forEach((q, i) => {
-        const ok = selected[i] === q.answer;
-        rate(q.word.id, ok ? "good" : "again");
-      });
+    if (idx < questions.length - 1) {
+      setIdx(idx + 1);
+      speakQuestion(questions[idx + 1]);
+    } else {
       setPhase("result");
     }
+  }
+
+  /** 中断: 1問でも答えていれば結果画面へ（反映済みの結果を見せる）、未解答なら出題設定へ */
+  function quit() {
+    audio.cancel();
+    setPhase(selected.some((s) => s != null) ? "result" : "setup");
   }
 
   // ---------- setup ----------
@@ -181,26 +217,88 @@ export default function Quiz() {
 
   // ---------- result ----------
   if (phase === "result") {
-    const correct = questions.filter((q, i) => selected[i] === q.answer).length;
+    // 解答済みの問題だけを集計する（「中断」したときは途中まで）
+    const answered = questions.map((q, i) => ({ q, i })).filter(({ i }) => selected[i] != null);
+    const total = answered.length;
+    const correct = answered.filter(({ q, i }) => selected[i] === q.answer).length;
+    const count = (...kinds: QuizEffect[]) => answered.filter(({ i }) => kinds.includes(effects[i]!)).length;
+    const nReviewed = count("reviewed", "lapsed");
+    const nUnchanged = count("unchanged");
+    const nUntracked = count("untracked");
+    // 未学習（カード無し）で間違えた語 → 「今日の学習」の新規枠へ優先して入れられる
+    const wrongNew = [
+      ...new Set(
+        answered
+          .filter(({ q, i }) => effects[i] === "untracked" && selected[i] !== q.answer && !cards[q.word.id])
+          .map(({ q }) => q.word.id)
+      ),
+    ];
+    const toPin = wrongNew.filter((id) => !pinnedNew.includes(id));
+    const newRemaining = Math.max(0, dailyNewLimit - daily.newIntroduced);
     return (
       <div className="animate-fade-in space-y-4">
         <div className="card bg-gradient-to-br from-brand-blue to-indigo-600 p-6 text-center text-white">
           <div className="text-sm opacity-90">結果</div>
           <div className="my-1 text-5xl font-extrabold">
-            {correct}/{questions.length}
+            {correct}/{total}
           </div>
-          <div className="text-sm opacity-90">正答率 {Math.round((correct / questions.length) * 100)}%</div>
+          <div className="text-sm opacity-90">正答率 {total ? Math.round((correct / total) * 100) : 0}%</div>
+          {total < questions.length && (
+            <div className="mt-1 text-xs opacity-80">
+              {questions.length}問中 {total}問で中断
+            </div>
+          )}
         </div>
+
+        {/* SRS への反映の内訳 */}
+        <div className="card space-y-1 p-4">
+          <div className="text-sm font-bold text-brand-ink">
+            SRSに反映: 復習 {nReviewed} ／ 変更なし {nUnchanged} ／ 未学習 {nUntracked}
+          </div>
+          <p className="text-xs text-slate-500">
+            復習日が来た語だけを予定に反映します。今日すでに評価した語と復習日前の正解は予定を変えず、未学習の語は4択の正解だけでは記録しません。
+          </p>
+        </div>
+
+        {wrongNew.length > 0 && (
+          <div className="card space-y-2 p-4">
+            <div className="text-sm text-brand-ink">
+              未学習で間違えた語が <span className="font-bold">{wrongNew.length}語</span> あります。
+            </div>
+            <p className="text-xs text-slate-500">
+              「今日の学習」の新しい語の枠で優先して出題します。
+              {newRemaining <= 0 && "今日の新しい語の枠は使い切っているため、次の枠（明日）で先に出ます。"}
+            </p>
+            {toPin.length > 0 ? (
+              <button onClick={() => pinNew(toPin)} className="btn-primary w-full py-3">
+                今日の学習に追加（{toPin.length}語）
+              </button>
+            ) : (
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-sm font-bold text-brand-green">✓ 今日の学習に追加しました</span>
+                {newRemaining > 0 && (
+                  <Link to="/flashcards/today" className="text-sm font-bold text-brand-green">
+                    今日の学習へ ›
+                  </Link>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         <h2 className="px-1 text-sm font-bold text-slate-500">復習</h2>
         <div className="space-y-2">
-          {questions.map((q, i) => {
+          {answered.map(({ q, i }) => {
             const ok = selected[i] === q.answer;
+            const eff = effects[i] ? EFFECT_LABEL[effects[i]!] : null;
             return (
               <div key={i} className={`card flex items-center gap-3 p-3 ${ok ? "" : "ring-1 ring-rose-200"}`}>
                 <span className={`text-lg ${ok ? "text-emerald-500" : "text-rose-500"}`}>{ok ? "○" : "×"}</span>
                 <div className="min-w-0 flex-1">
-                  <div className="font-bold text-brand-ink">{q.word.pt}</div>
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                    <span className="font-bold text-brand-ink">{q.word.pt}</span>
+                    {eff && <span className={`chip ${eff.cls}`}>{eff.label}</span>}
+                  </div>
                   <div className="text-xs text-slate-500">
                     {q.word.ja}
                     {!ok && selected[i] != null && (
@@ -234,7 +332,7 @@ export default function Quiz() {
   return (
     <div className="animate-fade-in space-y-4">
       <div className="flex items-center justify-between">
-        <button onClick={() => setPhase("setup")} className="text-sm text-brand-green">‹ 中断</button>
+        <button onClick={quit} className="text-sm text-brand-green">‹ 中断</button>
         <div className="text-sm font-bold text-slate-500">
           {idx + 1} / {questions.length}
         </div>

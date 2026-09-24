@@ -8,7 +8,7 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
-import { createLemmatizer, isCovered, type LexRef } from "../src/services/lemmatize";
+import { createLemmatizer, isCovered, isGrammarWord, type LexRef } from "../src/services/lemmatize";
 import type { IrregularTable } from "../src/services/conjugate";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -172,6 +172,27 @@ top("má", "mau");
 has("más", "mau");
 not("pra", "parar");
 ok(lem.lookup("lá-lá-lá").candidates[0]?.kind === "interjection", "lá-lá-lá は間投詞");
+
+console.log("=== isGrammarWord（曲の単語の一括追加から除く語） ===");
+ok(isGrammarWord("冠詞", "その・あの（男性単数の定冠詞）"), "冠詞 o");
+ok(isGrammarWord("前置詞", "〜の・〜から"), "前置詞 de");
+ok(isGrammarWord("前置詞句", "〜の代わりに"), "前置詞句（前方一致）");
+ok(isGrammarWord("接続詞", "そして"), "接続詞 e");
+ok(isGrammarWord("代名詞", "私を・私に（目的格）"), "目的格の代名詞 me");
+ok(isGrammarWord("代名詞", "あなたに・彼に・彼女に（間接目的格）"), "間接目的格 lhe");
+ok(isGrammarWord("代名詞", "自分を・自分に（再帰代名詞）"), "再帰代名詞 se");
+ok(!isGrammarWord("代名詞", "私"), "主格の代名詞 eu は残す");
+ok(!isGrammarWord("代名詞", "私の"), "所有の代名詞 meu は残す");
+ok(!isGrammarWord("名詞", "目的格"), "名詞は ja に目的格とあっても残す");
+ok(!isGrammarWord("動詞", "〜と結婚する（再帰）"), "動詞は ja に再帰とあっても残す");
+ok(!isGrammarWord("副詞", "とても"), "副詞は残す");
+ok(!isGrammarWord("名詞・形容詞", "良い"), "名詞・形容詞は残す");
+{
+  // 縮約（do = de + o）は構成要素がどちらも機能語
+  const parts = lem.lookup("do").candidates[0]?.parts ?? [];
+  const posOf = (p: (typeof parts)[number]) => p.top?.refs[0]?.pos ?? "";
+  ok(parts.length === 2 && parts.every((p) => isGrammarWord(posOf(p), "")), "縮約 do の構成要素（de・o）はどちらも除外");
+}
 
 console.log(`\n${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);

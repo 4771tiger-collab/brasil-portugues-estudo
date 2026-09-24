@@ -11,11 +11,13 @@ import type { SrsLevel, Word } from "../data/types";
 import { getLemmatizer } from "../data/music";
 import { isCovered, type Candidate, type LexRef, type Token } from "../services/lemmatize";
 import { translateText } from "../services/translate";
+import { displayLevel } from "../srs/scheduler";
 import { useMusic, userWordId, useUserWordMap } from "../store/useMusic";
 import { useProgress } from "../store/useProgress";
 import { useSettings } from "../store/useSettings";
 import SpeakerButton from "./SpeakerButton";
 
+/** 表示は displayLevel（現在の間隔から導く）で引く。保存済みの card.level は使わない */
 const LEVEL_JA: Record<SrsLevel, string> = { new: "未学習", learning: "学習中", young: "定着中", mature: "習得" };
 const POS_OPTIONS = ["名詞", "動詞", "形容詞", "副詞", "代名詞", "前置詞", "接続詞", "間投詞", "フレーズ", "固有名詞"];
 
@@ -55,10 +57,11 @@ function AddButton({ ids, surface, videoId }: { ids: string[]; surface: string; 
     return (
       <div className="flex items-center gap-2">
         <span className="chip bg-emerald-50 text-emerald-600">
-          ✓ 追加済み{card ? `（${LEVEL_JA[card.level]}）` : ""}
+          ✓ 追加済み{card ? `（${LEVEL_JA[displayLevel(card)]}）` : ""}
         </span>
-        <button onClick={() => removeWord(addedId)} className="text-[11px] text-slate-400 underline">
-          曲の単語から外す
+        {/* この曲の記録だけを外す（別の曲で追加した記録と学習履歴は残す） */}
+        <button onClick={() => removeWord(addedId, videoId)} className="text-[11px] text-slate-400 underline">
+          この曲から外す
         </button>
       </div>
     );
@@ -71,7 +74,7 @@ function AddButton({ ids, surface, videoId }: { ids: string[]; surface: string; 
       {addedElsewhere ? (
         <span className="text-[11px] text-slate-400">別の曲で追加済み</span>
       ) : (
-        card && <span className="text-[11px] text-slate-400">単語帳で{LEVEL_JA[card.level]}</span>
+        card && <span className="text-[11px] text-slate-400">単語帳で{LEVEL_JA[displayLevel(card)]}</span>
       )}
     </div>
   );
@@ -245,10 +248,12 @@ export default function WordSheet({ tokens, index, videoId, onClose, onMove }: P
   return (
     <>
       <div className="fixed inset-0 z-30 bg-black/20" onClick={onClose} aria-hidden />
+      {/* 高さはアドレスバーの出入りに追従する dvh（非対応の端末は vh）。
+          vh と dvh の2クラスを並べるだけだと CSS の出力順で vh が勝つため、supports で上書きする */}
       <div
         role="dialog"
         aria-label={`単語: ${tok.text}`}
-        className="fixed inset-x-0 bottom-0 z-30 mx-auto max-h-[55vh] max-w-2xl animate-fade-in overflow-y-auto rounded-t-2xl bg-white p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] shadow-2xl"
+        className="fixed inset-x-0 bottom-0 z-30 mx-auto max-h-[55vh] supports-[height:100dvh]:max-h-[55dvh] max-w-2xl animate-fade-in overflow-y-auto rounded-t-2xl bg-white p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] shadow-2xl"
       >
         <div className="mb-3 flex items-center gap-2">
           <button

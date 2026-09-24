@@ -1,9 +1,19 @@
 import { useState } from "react";
 import type { Rating, SrsCard, Word } from "../data/types";
 import { getExtra } from "../data/loadWords";
+import { daysUntilDue } from "../srs/scheduler";
 import Maskable from "./Maskable";
 import SpeakerButton from "./SpeakerButton";
 import RatingButtons from "./RatingButtons";
+
+/** 一覧表示で評価した結果（表示用） */
+export interface RatedInfo {
+  rating: Rating;
+  /** 期限前・同じ日の評価で間隔を変えなかった（scheduler.isHeld） */
+  held: boolean;
+  /** again で末尾にもう一度足した */
+  requeued?: boolean;
+}
 
 interface Props {
   word: Word;
@@ -12,11 +22,31 @@ interface Props {
   showKana: boolean;
   showIpa: boolean;
   active?: boolean;
-  rated?: boolean;
+  /** 評価済みなら結果（未評価は null/undefined） */
+  rated?: RatedInfo | null;
   card?: SrsCard;
+  /** 表示の基準日（復習日までの日数・評価ボタンの目安） */
+  today: string;
   onTogglePt: () => void;
   onToggleJa: () => void;
   onRate?: (r: Rating) => void;
+}
+
+/** 評価後の一言（据え置き・次回までの日数・もう一度） */
+function RatedLabel({ rated, card, today }: { rated: RatedInfo; card?: SrsCard; today: string }) {
+  const days = card ? daysUntilDue(card, today) : 0;
+  let text: string;
+  let cls = "text-emerald-600";
+  if (rated.rating === "again") {
+    text = rated.requeued ? "↻ もう一度 ・ 末尾にもう一度出します" : "↻ もう一度 ・ 今日の学習にまた出ます";
+    cls = "text-rose-500";
+  } else if (rated.held) {
+    text = days > 0 ? `✓ 据え置き（復習日まで ${days}日）` : "✓ 据え置き";
+    cls = "text-slate-500";
+  } else {
+    text = days > 0 ? `✓ 評価済み（次回 ${days}日後）` : "✓ 評価済み（このあと）";
+  }
+  return <div className={`flex items-center justify-center gap-1 py-1 text-sm font-medium ${cls}`}>{text}</div>;
 }
 
 export default function Flashcard({
@@ -28,6 +58,7 @@ export default function Flashcard({
   active,
   rated,
   card,
+  today,
   onTogglePt,
   onToggleJa,
   onRate,
@@ -35,6 +66,7 @@ export default function Flashcard({
   const [openExample, setOpenExample] = useState(false);
   const extra = getExtra(word);
   const hasExample = !!(extra?.examples?.length || extra?.collocations?.length);
+  const notDue = card?.last ? daysUntilDue(card, today) : 0;
 
   return (
     <div
@@ -105,11 +137,17 @@ export default function Flashcard({
       {onRate && (
         <div className="mt-3">
           {rated ? (
-            <div className="flex items-center justify-center gap-1 py-1 text-sm font-medium text-emerald-600">
-              ✓ 評価済み（次回 {card?.intervalDays ?? 0}日後）
-            </div>
+            <RatedLabel rated={rated} card={card} today={today} />
           ) : (
-            <RatingButtons card={card} onRate={onRate} size="sm" />
+            <>
+              {/* 期限前: 今評価しても「もう一度」以外は間隔が変わらない */}
+              {notDue > 0 && (
+                <div className="mb-1.5 text-center text-[11px] text-slate-400">
+                  復習日まで {notDue}日 ・ 今の評価は据え置き（「もう一度」だけ反映）
+                </div>
+              )}
+              <RatingButtons card={card} onRate={onRate} size="sm" today={today} />
+            </>
           )}
         </div>
       )}

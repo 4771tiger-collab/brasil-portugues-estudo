@@ -1,6 +1,8 @@
 /** @type {import('tailwindcss').Config} */
 export default {
   content: ["./index.html", "./src/**/*.{ts,tsx}"],
+  // hover: はマウスのある端末だけに効かせる（タップ後に hover の色が残らないように）
+  future: { hoverOnlyWhenSupported: true },
   theme: {
     extend: {
       colors: {
