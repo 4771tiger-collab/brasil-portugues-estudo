@@ -107,6 +107,11 @@ export function lineHash(text: string): string {
   return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(36);
 }
 
+/** lineHash の形（cyrb53 の base36・11文字以下）のキーか。空白や大文字・記号を含む行テキストは通らない */
+export function isLineHash(k: string): boolean {
+  return /^[0-9a-z]{1,11}$/.test(k);
+}
+
 function lastTimestamp(lrc: string): number {
   const lines = parseLrc(lrc);
   return lines.length ? lines[lines.length - 1].t ?? 0 : 0;

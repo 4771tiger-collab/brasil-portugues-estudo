@@ -1,6 +1,7 @@
 // ============================================================================
 // 音楽タブの状態（端末内に保存）
 // - 曲ごとの同期オフセット・和訳（行テキストのハッシュをキーに保存。行番号基準にせず、歌詞本文も残さない）
+// - 「自分で訳す」をした行の印 selfTranslated（B3-08。行のハッシュだけ）
 // - 曲から「単語帳に追加」した語と、辞書に無い語をユーザーが意味入力して追加した語
 // 歌詞そのものは lyricsCache.ts（別キー・バックアップ対象外）に置く。
 // ============================================================================
@@ -10,7 +11,8 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { UserWordRaw } from "../data/loadWords";
 import { userWordMap } from "../data/loadWords";
-import { lineHash } from "../services/lyrics";
+import { isLineHash, lineHash } from "../services/lyrics";
+import type { GapMode } from "../services/musicPractice";
 import { useProgress } from "./useProgress";
 
 export interface LineTranslation {
@@ -22,6 +24,11 @@ export interface SongState {
   offsetMs: number;
   /** key = lineHash(歌詞の行)（歌詞本文を保存しないためハッシュ） */
   translations: Record<string, LineTranslation>;
+  /**
+   * 「自分で訳してから機械翻訳と比べる」をした行（B3-08 で足した任意フィールド）。
+   * key = lineHash(歌詞の行)、値は常に true（ハッシュだけで、歌詞本文も訳文も持たない）
+   */
+  selfTranslated?: Record<string, true>;
 }
 
 export interface AddedWord {
@@ -41,6 +48,8 @@ export interface MusicPrefs {
   /** all = 連続再生 / one = 1曲リピート */
   playMode: "all" | "one";
   rate: number;
+  /** 1行停止・行リピートで、行の後に置く間（B3-08。無い古い保存データは DEFAULT_PREFS の off で補う） */
+  gapMode: GapMode;
 }
 
 export interface MusicExport {
@@ -57,6 +66,10 @@ interface MusicState extends MusicExport {
   /** 機械翻訳の結果を反映（ユーザーが編集した行は上書きしない） */
   mergeTranslations: (videoId: string, map: Record<string, string>) => void;
   editTranslation: (videoId: string, key: string, text: string) => void;
+  /** 「機械翻訳を採用」: 手で直した行でも機械翻訳の訳（edited: false）に置き換える。空なら何もしない */
+  adoptMachineTranslation: (videoId: string, key: string, text: string) => void;
+  /** 「自分で訳す」をした行に印を付ける（key は lineHash。ハッシュの形でなければ何もしない） */
+  markSelfTranslated: (videoId: string, key: string) => void;
   addWord: (id: string, videoId: string, surface: string) => void;
   /**
    * 曲の単語から外す。videoId を渡すとその曲の記録だけ（他の曲で追加した記録は残す）。
@@ -66,16 +79,18 @@ interface MusicState extends MusicExport {
   /** 辞書に無い語を意味入力して追加。戻り値は単語ID */
   addUserWord: (pt: string, ja: string, pos: string) => string;
   clearAddedWords: () => void;
+  /** 「自分で訳す」の印をすべての曲から消す（和訳・同期設定は残す。進捗のリセットで使う） */
+  clearSelfTranslated: () => void;
   /** reconcile でカードを作り直した語を「この機能が作ったカード」として記録 */
   markCreated: (id: string) => void;
   exportData: () => MusicExport;
   importData: (data: Partial<MusicExport>) => void;
 }
 
-const DEFAULT_PREFS: MusicPrefs = { showKana: true, showJa: true, autoScroll: true, playMode: "all", rate: 1 };
+const DEFAULT_PREFS: MusicPrefs = { showKana: true, showJa: true, autoScroll: true, playMode: "all", rate: 1, gapMode: "off" };
 
 /** ハッシュ済みのキー（cyrb53 の base36・11文字以下）か */
-const isHashKey = (k: string) => /^[0-9a-z]{1,11}$/.test(k);
+const isHashKey = isLineHash;
 
 /** 旧形式（行テキストそのもの）のキーをハッシュに変換（統合インポートの前にも使う） */
 export function hashTranslationKeys(songs: Record<string, SongState>): Record<string, SongState> {
@@ -130,6 +145,21 @@ export const useMusic = create<MusicState>()(
         set({ songs: { ...get().songs, [videoId]: { ...s, translations } } });
       },
 
+      adoptMachineTranslation: (videoId, key, text) => {
+        if (!text.trim()) return;
+        const s = song(get(), videoId);
+        const translations = { ...s.translations, [key]: { text: text.trim(), edited: false } };
+        set({ songs: { ...get().songs, [videoId]: { ...s, translations } } });
+      },
+
+      markSelfTranslated: (videoId, key) => {
+        if (!isLineHash(key)) return;
+        const s = song(get(), videoId);
+        if (s.selfTranslated?.[key] === true) return;
+        const selfTranslated: Record<string, true> = { ...(s.selfTranslated ?? {}), [key]: true };
+        set({ songs: { ...get().songs, [videoId]: { ...s, selfTranslated } } });
+      },
+
       addWord: (id, videoId, surface) => {
         const state = get();
         if (state.addedWords.some((w) => w.id === id && w.videoId === videoId)) return;
@@ -171,6 +201,21 @@ export const useMusic = create<MusicState>()(
       },
 
       clearAddedWords: () => set({ addedWords: [] }),
+
+      clearSelfTranslated: () => {
+        const cur = get().songs;
+        if (!Object.values(cur).some((s) => s?.selfTranslated)) return;
+        const songs: Record<string, SongState> = {};
+        for (const [vid, s] of Object.entries(cur)) {
+          if (!s?.selfTranslated) {
+            songs[vid] = s;
+            continue;
+          }
+          const { selfTranslated: _omit, ...rest } = s;
+          songs[vid] = rest;
+        }
+        set({ songs });
+      },
 
       exportData: () => {
         const { songs, addedWords, userWords } = get();

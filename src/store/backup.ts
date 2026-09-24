@@ -3,7 +3,9 @@
 // ============================================================================
 // バックアップ（エクスポート/インポート/リセット）
 // 形式（v1〜v3・未知の version の読み分け）は backupFormat.ts（純関数）。
-// v3 = v2（進捗の最上位フィールド＋ music）に app・settings（B2-06 で history）を足したもの。旧版のアプリでも読める。
+// v3 = v2（進捗の最上位フィールド＋ music）に app・settings（B2-06 で history、B3-06 で drill）を足したもの。
+// B3-08 で music の曲ごとに selfTranslated（自分で訳した行のハッシュだけ）、設定に replayAfterLookup を足した。
+// 旧版のアプリでも読める。
 // 取り込みは「統合」（merge.ts の純関数。別の端末の記録と合わせる）と「置き換え」を選べる。
 // 歌詞キャッシュ(lyricsCache)は含めない（再取得できるため・著作物のため）。
 // ============================================================================
@@ -18,6 +20,7 @@ import {
   type ProgressPart,
 } from "./backupFormat";
 import { cardDiff, mergeMusic, mergeProgress, type CardDiff, type ImportMode } from "./merge";
+import { useDrill } from "./useDrill";
 import { useMeta } from "./useMeta";
 import { hashTranslationKeys, useMusic } from "./useMusic";
 import { useProgress } from "./useProgress";
@@ -41,6 +44,7 @@ export function exportAll(): string {
     music: useMusic.getState().exportData(),
     settings: useSettings.getState(),
     app: appInfo(),
+    drill: useDrill.getState().exportData(),
   });
   return JSON.stringify(backup, null, 2);
 }
@@ -77,8 +81,9 @@ function localProgress(): ProgressPart {
  *   - 進捗: 置き換え（今日のカウンタ daily は端末側のまま）
  *   - 曲のデータ: ファイルにあれば置き換え、無ければ（v1）端末側のまま
  *   - 設定: ファイルにあれば上書き（voiceURI は端末側のまま）
+ *   - 活用ドリルの成績: ファイルにあれば置き換え、無ければ端末側のまま
  * - merge（統合。規則は merge.ts）
- *   - 進捗と曲のデータ: 端末とファイルの両方の記録を残して合わせる
+ *   - 進捗・曲のデータ・活用ドリルの成績: 端末とファイルの両方の記録を残して合わせる
  *   - 設定・daily: 端末側のまま（端末ごとの好みを変えない）
  * 最後に reconcile() で、曲から追加した語のカードを作り直す。
  */
@@ -93,6 +98,10 @@ export function applyBackup(data: BackupData, mode: ImportMode = "replace"): Car
         ? mergeMusic(useMusic.getState().exportData(), { ...data.music, songs: hashTranslationKeys(data.music.songs) })
         : data.music;
     useMusic.getState().importData(music);
+  }
+  if (data.drill) {
+    if (mode === "merge") useDrill.getState().mergeData(data.drill);
+    else useDrill.getState().importData(data.drill);
   }
   if (mode === "replace" && data.settings && Object.keys(data.settings).length) {
     useSettings.getState().set(data.settings);
@@ -114,10 +123,15 @@ export function importAll(json: string, mode: ImportMode): ImportResult {
   return { ...r, diff };
 }
 
-/** 学習進捗のリセット。曲から追加した語の一覧も消す（和訳・同期設定は教材なので残す） */
+/**
+ * 学習進捗のリセット。曲から追加した語の一覧・「自分で訳す」の印（✍）・活用ドリルの成績も消す
+ * （和訳・同期設定は教材なので残す。✍の印は練習の記録なので消す）
+ */
 export function resetAllProgress(): void {
   useProgress.getState().resetAll();
   useMusic.getState().clearAddedWords();
+  useMusic.getState().clearSelfTranslated();
+  useDrill.getState().reset();
 }
 
 // ---------------------------------------------------------------------------

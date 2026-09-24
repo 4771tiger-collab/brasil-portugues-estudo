@@ -50,7 +50,8 @@ export interface IrregularEntry {
 export type IrregularTable = Record<string, IrregularEntry>;
 
 type Six = string[];
-interface Paradigm {
+/** 1つの動詞の全活用（各時制は人称 0-5 の6つ。命令の1単など存在しない形は null。活用表・活用ドリルでも使う） */
+export interface Paradigm {
   pres: Six;
   pret: Six;
   impf: Six;
@@ -153,7 +154,7 @@ const E_I = new Set([
   "sentir", "consentir", "pressentir", "ressentir", "mentir", "desmentir", "servir", "vestir", "despir", "repetir",
   "competir", "preferir", "referir", "transferir", "conferir", "inferir", "interferir", "ferir", "sugerir", "digerir",
   "divertir", "advertir", "converter", "investir", "seguir", "conseguir", "perseguir", "prosseguir", "refletir",
-  "aderir", "convergir", "divergir",
+  "aderir", "convergir", "divergir", "inserir", "ingerir", "gerir",
 ]);
 /** 1単現在・接続法現在で語幹の o→u（dormir → durmo） */
 const O_U = new Set(["dormir", "cobrir", "descobrir", "encobrir", "recobrir", "tossir", "engolir"]);
@@ -161,6 +162,11 @@ const O_U = new Set(["dormir", "cobrir", "descobrir", "encobrir", "recobrir", "t
 const U_O = new Set(["subir", "fugir", "sacudir", "consumir", "cuspir", "acudir", "sumir", "bulir", "entupir"]);
 /** -iar で ei が入る動詞（odiar → odeio） */
 const IAR_EI = new Set(["odiar", "ansiar", "mediar", "remediar", "incendiar", "intermediar"]);
+/**
+ * 母音の後の i/u に強勢が来る形（現在・接続法現在の1単/2単/3単/3複）で鋭アクセント
+ * （proibir → proíbo / proíbe、reunir → reúno、saudar → saúdo）
+ */
+const HIATUS = new Set(["proibir", "coibir", "reunir", "saudar", "enraizar", "ajuizar", "faiscar", "amiudar", "esmiuçar"]);
 /** 強勢のある形すべてで e→i（agredir → agrido / agride / agrida、prevenir → previno） */
 const E_I_ALL = new Set(["agredir", "progredir", "transgredir", "prevenir", "denegrir"]);
 // E_I に紛れた -er 動詞は対象外にする
@@ -234,6 +240,16 @@ function backSoft(stem: string): string {
   if (stem.endsWith("g")) return stem.slice(0, -1) + "j";
   return stem;
 }
+/** 語幹の中で、母音の直後にある最後の i/u に鋭アクセントを付ける（proib → proíb、saud → saúd） */
+function accentHiatus(stem: string): string {
+  for (let i = stem.length - 1; i > 0; i--) {
+    const ch = stem[i];
+    if ((ch === "i" || ch === "u") && /[aeiou]/.test(stem[i - 1])) {
+      return stem.slice(0, i) + (ch === "i" ? "í" : "ú") + stem.slice(i + 1);
+    }
+  }
+  return stem;
+}
 /** 語幹の最後の母音 from を to に */
 function swapLastVowel(stem: string, from: string, to: string): string {
   const i = stem.lastIndexOf(from);
@@ -259,7 +275,7 @@ export function isSpecialVerb(inf: string, table: IrregularTable): boolean {
   if (c === "uir" || c === "air" || c === "oer") return true;
   if (c === "ar" && (inf.endsWith("ear") || IAR_EI.has(inf))) return true;
   if (/uzir$/.test(inf)) return true; // produzir → produz
-  return E_I.has(inf) || O_U.has(inf) || U_O.has(inf) || E_I_ALL.has(inf);
+  return E_I.has(inf) || O_U.has(inf) || U_O.has(inf) || E_I_ALL.has(inf) || HIATUS.has(inf);
 }
 
 function inflectPp(pp: string): string[] {
@@ -327,6 +343,15 @@ function regularParadigm(inf: string): Paradigm {
     pres[1] = s2 + "es";
     pres[2] = s2 + "e";
     pres[5] = s2 + "em";
+  }
+  // 母音の後の i/u に強勢（proibir → proíbo / proíba、saudar → saúdo / saúde）
+  if (HIATUS.has(inf)) {
+    const s2 = accentHiatus(stem);
+    const sb = accentHiatus(sbjStem);
+    ([0, 1, 2, 5] as const).forEach((i) => {
+      pres[i] = s2 + E.pres[i];
+      sbjPres[i] = sb + E.sbjPres[i];
+    });
   }
   // -ear（passear → passeio）/ -iar の一部（odiar → odeio）: 強勢のある形で ei
   const eiStem = cls === "ar" && stem.endsWith("e") ? stem + "i" : IAR_EI.has(inf) ? stem.slice(0, -1) + "ei" : null;
@@ -481,7 +506,8 @@ export function regularSuffixes(): { cls: "ar" | "er" | "ir"; suffix: string }[]
 // ---------------------------------------------------------------------------
 // 活用の説明文
 // ---------------------------------------------------------------------------
-const TENSE_JA: Record<FormKind, string> = {
+/** 時制・形の日本語名（活用表・活用ドリルでも使う） */
+export const TENSE_JA: Record<FormKind, string> = {
   inf: "不定詞",
   pres: "直説法現在",
   pret: "完了過去",

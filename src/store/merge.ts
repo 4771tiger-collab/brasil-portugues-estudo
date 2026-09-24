@@ -7,8 +7,9 @@
 //   streak は「両方の連続区間」と「学習ログで学習日だった日」をつないで数え直す（mergeStreak）
 // - customPassages・pinnedNew・userWords: 和集合（同じ ID は端末側）。pinnedNew は評価済みになった語を外す
 // - history: 日ごと・項目ごとに大きい方
-// - 曲: offsetMs は端末側、和訳は edited の方（どちらも同じなら端末側）。
+// - 曲: offsetMs は端末側、和訳は edited の方（どちらも同じなら端末側）。selfTranslated（自分で訳した行の印）は和集合。
 //   addedWords は (id, videoId) の和集合で、addedAt は古い方、createdCard は OR
+// - drill（活用ドリルの成績）: 形ごとに last が新しい方（同じなら seen、correct が大きい方、それも同じなら端末側）
 // - daily（今日のカウンタ）と設定は端末側のまま（呼び出し側で扱う）
 // 歌詞の本文は扱わない（和訳は行のハッシュをキーにした訳文だけ）。
 // ============================================================================
@@ -16,6 +17,7 @@
 import type { SrsCard } from "../data/types";
 import type { ProgressPart } from "./backupFormat";
 import type { AddedWord, LineTranslation, MusicExport, SongState } from "./useMusic";
+import type { DrillExport, DrillStat } from "./useDrill";
 import { addDays, todayStr } from "../srs/scheduler";
 import { ACTIVITY_KINDS, isStudyDay, pruneHistory, type DayLog, type History } from "./history";
 
@@ -192,6 +194,15 @@ export function mergeTranslations(
   return out;
 }
 
+/** 自分で訳した行の印: 和集合（端末側の順に、ファイルにだけある行を後ろに足す）。どちらにも無ければ undefined */
+export function mergeSelfTranslated(
+  local: Readonly<Record<string, true>> | undefined,
+  remote: Readonly<Record<string, true>> | undefined
+): Record<string, true> | undefined {
+  const out: Record<string, true> = { ...(local ?? {}), ...(remote ?? {}) };
+  return Object.keys(out).length ? out : undefined;
+}
+
 /** 古い方の時刻（ISO）。読めない・空の値は無視し、どちらも読めなければ端末側 */
 function olderTime(a: string, b: string): string {
   const ta = Date.parse(a);
@@ -229,11 +240,43 @@ export function mergeMusic(local: MusicExport, remote: MusicExport | null): Musi
   const songs: Record<string, SongState> = { ...local.songs };
   for (const [vid, r] of Object.entries(remote.songs)) {
     const l = songs[vid];
-    songs[vid] = l ? { ...l, offsetMs: l.offsetMs, translations: mergeTranslations(l.translations, r.translations) } : r;
+    if (!l) {
+      songs[vid] = r;
+      continue;
+    }
+    const selfTranslated = mergeSelfTranslated(l.selfTranslated, r.selfTranslated);
+    songs[vid] = {
+      ...l,
+      offsetMs: l.offsetMs,
+      translations: mergeTranslations(l.translations, r.translations),
+      ...(selfTranslated ? { selfTranslated } : {}),
+    };
   }
   return {
     songs,
     addedWords: mergeAddedWords(local.addedWords, remote.addedWords),
     userWords: unionBy(local.userWords, remote.userWords, (u) => u.id),
   };
+}
+
+// ---------------------------------------------------------------------------
+// 活用ドリルの成績
+// ---------------------------------------------------------------------------
+
+/** a の方が新しければ正、b の方が新しければ負、同じなら 0（last → seen → correct の順に比べる） */
+export function compareDrillStats(a: DrillStat, b: DrillStat): number {
+  if (a.last !== b.last) return a.last > b.last ? 1 : -1;
+  if (a.seen !== b.seen) return a.seen - b.seen;
+  return a.correct - b.correct;
+}
+
+/** 形ごとに新しい方の成績（同じなら端末側）。ファイルに成績が無ければ（古いファイル）端末側のまま */
+export function mergeDrill(local: DrillExport, remote: DrillExport | null): DrillExport {
+  if (!remote) return local;
+  const stats: Record<string, DrillStat> = { ...local.stats };
+  for (const [k, r] of Object.entries(remote.stats)) {
+    const l = stats[k];
+    stats[k] = l && compareDrillStats(l, r) >= 0 ? l : r;
+  }
+  return { stats };
 }

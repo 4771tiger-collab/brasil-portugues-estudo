@@ -10,6 +10,18 @@ import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 import { createLemmatizer, isCovered, isGrammarWord, type LexRef } from "../src/services/lemmatize";
 import type { IrregularTable } from "../src/services/conjugate";
+import { getConjugator, irregularTable, irregularVerbs } from "../src/data/conjugator";
+import { ALL_WORDS } from "../src/data/loadWords";
+import {
+  TABLE_PERSONS,
+  TABLE_TENSES,
+  buildConjugationTable,
+  conjugationForm,
+  formLabel,
+  verbHead,
+  withSubject,
+  type TableTense,
+} from "../src/services/verbTable";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const load = <T>(name: string): T => JSON.parse(readFileSync(resolve(here, "../data", name), "utf8"));
@@ -192,6 +204,102 @@ ok(!isGrammarWord("名詞・形容詞", "良い"), "名詞・形容詞は残す"
   const parts = lem.lookup("do").candidates[0]?.parts ?? [];
   const posOf = (p: (typeof parts)[number]) => p.top?.refs[0]?.pos ?? "";
   ok(parts.length === 2 && parts.every((p) => isGrammarWord(posOf(p), "")), "縮約 do の構成要素（de・o）はどちらも除外");
+}
+
+console.log("=== 活用表（data/conjugator.getConjugator・services/verbTable） ===");
+{
+  const same = (a: unknown, e: unknown, msg: string) =>
+    ok(JSON.stringify(a) === JSON.stringify(e), `${msg}  → 期待: ${JSON.stringify(e)} 実際: ${JSON.stringify(a)}`);
+  const conj = getConjugator();
+  const table = irregularTable();
+  ok(getConjugator() === conj && irregularTable() === table, "getConjugator・irregularTable はメモ化（同じものを返す）");
+  ok(!Object.keys(table).some((k) => k.startsWith("_")), "不規則動詞の表から _comment などを除く");
+  same(irregularVerbs().length, Object.keys(load<Record<string, unknown>>("verb-irregular.json")).filter((k) => !k.startsWith("_")).length, "irregularVerbs: 表の動詞すべて");
+
+  // verbHead: 活用表を出せる動詞か
+  same(verbHead("falar", "動詞", table), { inf: "falar", reflexive: false }, "verbHead: falar");
+  same(verbHead("ir", "動詞", table), { inf: "ir", reflexive: false }, "verbHead: ir（2文字の不定詞）");
+  same(verbHead("pôr", "動詞", table), { inf: "pôr", reflexive: false }, "verbHead: pôr");
+  same(verbHead("compor", "動詞", table), { inf: "compor", reflexive: false }, "verbHead: compor（表にある -or）");
+  same(verbHead("chamar-se", "動詞", table), { inf: "chamar", reflexive: true }, "verbHead: chamar-se → chamar（再帰）");
+  same(verbHead("lembrar(-se)", "動詞", table), { inf: "lembrar", reflexive: true }, "verbHead: lembrar(-se) → lembrar（再帰）");
+  same(verbHead("Falar", "動詞", table), { inf: "falar", reflexive: false }, "verbHead: 大文字は小文字に");
+  for (const [pt, pos, why] of [
+    ["sobrepor", "動詞", "表に無い -or（正しく作れない）"],
+    ["pulando", "動詞（現在分詞）", "不定詞でない"],
+    ["ficar/estar", "動詞", "見出しが2つ"],
+    ["ir embora", "動詞", "2語"],
+    ["casa", "名詞", "動詞でない"],
+    ["jantar", "名詞・動詞", "品詞が「動詞」で始まらない"],
+    ["tchau", "動詞", "不定詞の語尾でない"],
+  ] as const) ok(verbHead(pt, pos, table) === null, `verbHead: ${pt}（${pos}）→ null（${why}）`);
+
+  // 規則動詞・不規則動詞の表（時制ごとに eu / você・ele / nós / vocês・eles）
+  const rows = (inf: string) => Object.fromEntries(buildConjugationTable(conj, table, inf).rows.map((r) => [r.tense, r.forms]));
+  const CASES: [string, Record<TableTense, string[]>][] = [
+    ["falar", { pres: ["falo", "fala", "falamos", "falam"], pret: ["falei", "falou", "falamos", "falaram"], impf: ["falava", "falava", "falávamos", "falavam"], fut: ["falarei", "falará", "falaremos", "falarão"] }],
+    ["comer", { pres: ["como", "come", "comemos", "comem"], pret: ["comi", "comeu", "comemos", "comeram"], impf: ["comia", "comia", "comíamos", "comiam"], fut: ["comerei", "comerá", "comeremos", "comerão"] }],
+    ["partir", { pres: ["parto", "parte", "partimos", "partem"], pret: ["parti", "partiu", "partimos", "partiram"], impf: ["partia", "partia", "partíamos", "partiam"], fut: ["partirei", "partirá", "partiremos", "partirão"] }],
+    ["ser", { pres: ["sou", "é", "somos", "são"], pret: ["fui", "foi", "fomos", "foram"], impf: ["era", "era", "éramos", "eram"], fut: ["serei", "será", "seremos", "serão"] }],
+    ["ir", { pres: ["vou", "vai", "vamos", "vão"], pret: ["fui", "foi", "fomos", "foram"], impf: ["ia", "ia", "íamos", "iam"], fut: ["irei", "irá", "iremos", "irão"] }],
+    ["ter", { pres: ["tenho", "tem", "temos", "têm"], pret: ["tive", "teve", "tivemos", "tiveram"], impf: ["tinha", "tinha", "tínhamos", "tinham"], fut: ["terei", "terá", "teremos", "terão"] }],
+    ["fazer", { pres: ["faço", "faz", "fazemos", "fazem"], pret: ["fiz", "fez", "fizemos", "fizeram"], impf: ["fazia", "fazia", "fazíamos", "faziam"], fut: ["farei", "fará", "faremos", "farão"] }],
+    ["pôr", { pres: ["ponho", "põe", "pomos", "põem"], pret: ["pus", "pôs", "pusemos", "puseram"], impf: ["punha", "punha", "púnhamos", "punham"], fut: ["porei", "porá", "poremos", "porão"] }],
+    ["poder", { pres: ["posso", "pode", "podemos", "podem"], pret: ["pude", "pôde", "pudemos", "puderam"], impf: ["podia", "podia", "podíamos", "podiam"], fut: ["poderei", "poderá", "poderemos", "poderão"] }],
+    ["manter", { pres: ["mantenho", "mantém", "mantemos", "mantêm"], pret: ["mantive", "manteve", "mantivemos", "mantiveram"], impf: ["mantinha", "mantinha", "mantínhamos", "mantinham"], fut: ["manterei", "manterá", "manteremos", "manterão"] }],
+  ];
+  for (const [inf, want] of CASES) same(rows(inf), want, `活用表: ${inf}`);
+  // 正書法・語幹の変化（表に無い動詞でも正しく作る）
+  for (const [inf, tense, person, form] of [
+    ["ficar", "pret", 0, "fiquei"], ["chegar", "pret", 0, "cheguei"], ["começar", "pret", 0, "comecei"],
+    ["conhecer", "pres", 0, "conheço"], ["proteger", "pres", 0, "protejo"], ["dormir", "pres", 0, "durmo"],
+    ["sentir", "pres", 0, "sinto"], ["subir", "pres", 2, "sobe"], ["sair", "pres", 3, "saímos"], ["cair", "pret", 0, "caí"],
+    ["doer", "pres", 2, "dói"], ["construir", "pres", 5, "constroem"], ["odiar", "pres", 0, "odeio"], ["passear", "pres", 5, "passeiam"],
+    ["ouvir", "pres", 0, "ouço"], ["pedir", "pres", 0, "peço"], ["seguir", "pres", 0, "sigo"], ["traduzir", "pres", 2, "traduz"],
+    // 母音の後の i/u に強勢（proíbo・reúno・saúdo）と e → i（insiro）
+    ["proibir", "pres", 0, "proíbo"], ["proibir", "pres", 2, "proíbe"], ["proibir", "pres", 3, "proibimos"], ["proibir", "pres", 5, "proíbem"],
+    ["reunir", "pres", 2, "reúne"], ["saudar", "pres", 0, "saúdo"], ["saudar", "pret", 0, "saudei"], ["inserir", "pres", 0, "insiro"],
+  ] as const) same(conjugationForm(conj, inf, tense, person), form, `${inf} ${tense} ${person} = ${form}`);
+  const falar = buildConjugationTable(conj, table, "falar");
+  same([falar.ger, falar.pp, falar.irregular, falar.like], ["falando", ["falado"], false, null], "falar: 現在分詞・過去分詞・規則動詞");
+  const fazer = buildConjugationTable(conj, table, "fazer");
+  same([fazer.ger, fazer.pp, fazer.irregular], ["fazendo", ["feito"], true], "fazer: 過去分詞 feito・不規則");
+  same(buildConjugationTable(conj, table, "manter").like, "ter", "manter: ter と同じ活用");
+  same(buildConjugationTable(conj, table, "abrir").pp, ["aberto"], "abrir: 過去分詞 aberto だけ");
+  same(buildConjugationTable(conj, table, "pagar").pp, ["pagado", "pago"], "pagar: 過去分詞は pagado / pago");
+  same(buildConjugationTable(conj, table, "ver").pp, ["visto"], "ver: 過去分詞 visto");
+  same(withSubject("falamos", 3), "nós falamos", "withSubject: nós falamos");
+  same(withSubject("lembro", 0, true), "eu me lembro", "withSubject: 再帰動詞は代名詞も（eu me lembro）");
+  same(formLabel(conj.conjugate("falar").get("falamos") ?? []), "現在・nós ／ 完了過去・nós", "formLabel: falamos は現在と完了過去の nós");
+  same(formLabel(conj.conjugate("falar").get("fala") ?? []), "現在・ele・você", "formLabel: fala は表の形（現在・ele・você）だけ示す（命令は出さない）");
+  same(formLabel(conj.conjugate("falar").get("falar") ?? []), "不定詞 ／ 接続法未来・1人称単数", "formLabel: falar は不定詞を先に");
+
+  // 実データ: 単語帳の動詞と不規則動詞の表の動詞は、4時制 × 4人称と分詞がすべて空でない1語
+  let n = 0;
+  let bad = 0;
+  const infs = new Set<string>(irregularVerbs());
+  for (const w of ALL_WORDS) {
+    const h = verbHead(w.pt, w.pos, table);
+    if (h) infs.add(h.inf);
+  }
+  for (const inf of infs) {
+    n++;
+    const t = buildConjugationTable(conj, table, inf);
+    const forms = [...t.rows.flatMap((r) => r.forms), t.ger, ...t.pp];
+    if (t.rows.length !== TABLE_TENSES.length || t.rows.some((r) => r.forms.length !== TABLE_PERSONS.length)) bad++;
+    else if (forms.some((f) => typeof f !== "string" || !/^\p{Ll}+$/u.test(f))) bad++;
+  }
+  ok(bad === 0 && n > 200, `単語帳と不規則動詞の表の動詞 ${n}語: 活用表の形がすべて空でない1語（崩れ ${bad}）`);
+  console.log(`  活用表を出せる動詞: ${n}語（不規則動詞 ${irregularVerbs().length}語を含む）`);
+
+  // 歌詞の原形推定にも同じ生成器を渡せる（music.ts は getConjugator() を共有する）
+  const shared = createLemmatizer({
+    entries: [{ id: "words:9000", pt: "proibir", ja: "(fixture)", pos: "動詞", source: "words" }],
+    irregular: table,
+    colloquial: {},
+    conjugator: conj,
+  });
+  ok(shared.lookup("proíbe").candidates[0]?.lemma === "proibir", "共有の生成器で proíbe → proibir");
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

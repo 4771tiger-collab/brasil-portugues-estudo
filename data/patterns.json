@@ -7,12 +7,12 @@
     "note": "querer + 名詞/動詞原形。最も使う表現の一つ。",
     "slots": {
       "X": [
-        { "pt": "água", "ja": "水" },
-        { "pt": "um café", "ja": "コーヒーを一杯" },
-        { "pt": "comer", "ja": "食べる" },
-        { "pt": "dormir", "ja": "寝る" },
-        { "pt": "aprender português", "ja": "ポルトガル語を学ぶ" },
-        { "pt": "ir à praia", "ja": "ビーチに行く" }
+        { "pt": "água", "ja": "水", "jaFull": "私は水が欲しいです。" },
+        { "pt": "um café", "ja": "コーヒーを一杯", "jaFull": "私はコーヒーが一杯欲しいです。" },
+        { "pt": "comer", "ja": "食べる", "jaFull": "私は食べたいです。" },
+        { "pt": "dormir", "ja": "寝る", "jaFull": "私は寝たいです。" },
+        { "pt": "aprender português", "ja": "ポルトガル語を学ぶ", "jaFull": "私はポルトガル語を学びたいです。" },
+        { "pt": "ir à praia", "ja": "ビーチに行く", "jaFull": "私はビーチに行きたいです。" }
       ]
     }
   },
@@ -56,10 +56,10 @@
     "note": "poder + 動詞原形で丁寧な依頼。",
     "slots": {
       "X": [
-        { "pt": "me ajudar", "ja": "手伝う" },
-        { "pt": "repetir", "ja": "もう一度言う" },
-        { "pt": "falar devagar", "ja": "ゆっくり話す" },
-        { "pt": "esperar um pouco", "ja": "少し待つ" }
+        { "pt": "me ajudar", "ja": "手伝う", "jaFull": "手伝ってもらえますか？" },
+        { "pt": "repetir", "ja": "もう一度言う", "jaFull": "もう一度言ってもらえますか？" },
+        { "pt": "falar devagar", "ja": "ゆっくり話す", "jaFull": "ゆっくり話してもらえますか？" },
+        { "pt": "esperar um pouco", "ja": "少し待つ", "jaFull": "少し待ってもらえますか？" }
       ]
     }
   },
@@ -71,10 +71,10 @@
     "note": "ir + 動詞原形で近い未来。英語の be going to に相当。",
     "slots": {
       "X": [
-        { "pt": "trabalhar", "ja": "働く" },
-        { "pt": "viajar", "ja": "旅行する" },
-        { "pt": "estudar", "ja": "勉強する" },
-        { "pt": "treinar capoeira", "ja": "カポエイラを練習する" }
+        { "pt": "trabalhar", "ja": "働く", "jaFull": "私は明日働きます。" },
+        { "pt": "viajar", "ja": "旅行する", "jaFull": "私は明日旅行します。" },
+        { "pt": "estudar", "ja": "勉強する", "jaFull": "私は明日勉強します。" },
+        { "pt": "treinar capoeira", "ja": "カポエイラを練習する", "jaFull": "私は明日カポエイラを練習します。" }
       ]
     }
   },

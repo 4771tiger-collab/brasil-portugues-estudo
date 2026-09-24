@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { SrsCard, Word } from "../data/types";
 import { getExtra } from "../data/loadWords";
 import { daysUntilDue } from "../srs/scheduler";
+import ConjugationTable from "./ConjugationTable";
 import SpeakerButton from "./SpeakerButton";
 
 interface Props {
@@ -146,6 +147,8 @@ export default function ReviewCard({ word, kind, phase, direction, showKana, sho
         )}
       </div>
       <NoteToggle word={word} />
+      {/* 動詞は活用表（折りたたみ・自動生成） */}
+      <ConjugationTable pt={word.pt} pos={word.pos} />
       <ExampleBlock word={word} />
       <NotDueNote card={card} today={today} />
     </div>

@@ -48,6 +48,28 @@ import {
 } from "../src/services/gradeLexicon";
 import { alternatives, fold } from "../src/services/lemmatize";
 import { ALL_WORDS } from "../src/data/loadWords";
+import { getConjugator, irregularTable, irregularVerbs } from "../src/data/conjugator";
+import {
+  DRILL_KEY_RE,
+  answerEntry,
+  drillCandidates,
+  drillKey,
+  drillWeight,
+  gradeConjugation,
+  newConjQueue,
+  parseDrillKey,
+  pickDrill,
+  recordStat,
+  spreadVerbs,
+  stripSubject,
+  summarizeConj,
+  toQuestions,
+  verdictOf,
+  weakKeys,
+  type DrillStats,
+  type Rand,
+} from "../src/services/conjugationDrill";
+import { TABLE_PERSONS, TABLE_TENSES, conjugationForm, type TablePerson, type TableTense } from "../src/services/verbTable";
 import { DICTATIONS } from "../src/data/content";
 import type { Word } from "../src/data/types";
 
@@ -668,6 +690,185 @@ console.log("=== 実データ（ディクテーション） ===");
     if (splitSentences(d.text).join(" ") !== d.text.replace(/\s+/g, " ").trim()) splitBad++;
   }
   eq(splitBad, 0, `全 ${DICTATIONS.length} 問: 採点前のヒントは元の Dictation と同じ・文に分けて戻すと本文`);
+}
+
+// ---------------------------------------------------------------------------
+console.log("=== 活用ドリル（conjugationDrill.ts） ===");
+{
+  /** 種つきの乱数（mulberry32） */
+  const seeded = (seed: number): Rand => {
+    let a = seed >>> 0;
+    return () => {
+      a = (a + 0x6d2b79f5) >>> 0;
+      let t = a;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  };
+  const conj = getConjugator();
+  const q = (inf: string, tense: TableTense, person: TablePerson) => ({ inf, answer: conjugationForm(conj, inf, tense, person) });
+  const G = (inf: string, tense: TableTense, person: TablePerson, input: string) => gradeConjugation(conj, q(inf, tense, person), input);
+
+  // キー
+  eq(drillKey("falar", "pres", 3), "falar|pres|3", "drillKey");
+  eq(parseDrillKey("pôr|fut|5"), { inf: "pôr", tense: "fut", person: 5 }, "parseDrillKey");
+  for (const k of ["Falar|pres|3", "falar|pres|6", "falar|pres", "fa lar|pres|3", "|pres|0", "falar|p|0", "falar|pres|3|x"]) {
+    ok(!DRILL_KEY_RE.test(k) && parseDrillKey(k) === null, `不正なキー: ${k}`);
+  }
+
+  // 採点: 完全一致 → 正解、アクセントだけ → 惜しい、同じ動詞の別の形 → 不正解（どの形か）
+  eq(G("falar", "pres", 3, "falamos").verdict, "correct", "falamos → 正解");
+  eq(G("falar", "pres", 3, "  Nós falamos. ").verdict, "correct", "主語つき・大文字・句読点 → 正解（主語を外して採点）");
+  eq(stripSubject("Você fala"), "fala", "stripSubject: 先頭の主語を外す");
+  eq(stripSubject("nós"), "nós", "stripSubject: 主語だけなら外さない");
+  {
+    const r = G("falar", "impf", 3, "falavamos");
+    eq([r.verdict, r.result.grade, r.otherForm], ["close", "accent", null], "falavamos → 惜しい（アクセント）");
+    ok(!!r.result.note?.includes("á が必要"), "惜しい: 足りないアクセントを示す");
+  }
+  eq(G("estar", "pres", 5, "estao").verdict, "close", "estao → 惜しい（ã が必要）");
+  {
+    const r = G("poder", "pret", 2, "pode");
+    eq([r.verdict, r.otherForm], ["wrong", "現在・ele・você"], "pôde に pode → 不正解（現在の形）");
+    ok(!!r.result.note?.includes("ô が必要"), "アクセントだけが違う別の形は、アクセントも示す");
+  }
+  {
+    const r = G("falar", "pres", 0, "fala");
+    eq(r.verdict, "wrong", "falo に fala → 1文字違いでも別の人称の形なので不正解");
+    ok(!!r.otherForm?.startsWith("現在・ele・você") && !!r.result.note?.startsWith("fala は 現在・ele・você"), "fala は 現在・ele・você の形と示す");
+  }
+  eq(G("falar", "pret", 0, "falar").otherForm, "不定詞 ／ 接続法未来・1人称単数", "不定詞をそのまま入れた → 不定詞と示す");
+  eq(G("ter", "pres", 5, "tem").verdict, "wrong", "têm に tem（3単の形）→ 不正解");
+  eq(G("trabalhar", "pres", 3, "trabalhamso").verdict, "close", "trabalhamos のつづりの小さな誤り（別の形ではない）→ 惜しい");
+  eq(G("fazer", "pret", 0, "fis").verdict, "wrong", "短い語（fiz）は1文字違いでも不正解");
+  eq(G("ir", "pres", 0, "fui").otherForm, "完了過去・eu", "vou に fui → 完了過去・eu（ser と ir の共通の形）");
+  eq(G("falar", "pres", 0, "").verdict, "wrong", "空の入力 → 不正解");
+  eq([verdictOf("exact"), verdictOf("accent"), verdictOf("typo"), verdictOf("wrong")], ["correct", "close", "close", "wrong"], "verdictOf");
+
+  // 実データ: 不規則動詞の表の全動詞 × 4時制 × 4人称で、正解の形をそのまま入れると正解・主語つきでも正解
+  {
+    const all = toQuestions(conj, drillCandidates(irregularVerbs(), TABLE_TENSES, TABLE_PERSONS));
+    let bad = 0;
+    for (const x of all) {
+      if (!x.answer || gradeConjugation(conj, x, x.answer).verdict !== "correct") bad++;
+      else if (gradeConjugation(conj, x, `eu ${x.answer}`).verdict !== "correct") bad++;
+    }
+    eq([all.length, bad], [irregularVerbs().length * 16, 0], `不規則動詞 ${irregularVerbs().length}語 × 16形: 正解の形は正解と採点`);
+  }
+
+  // 候補と出題の選び方
+  const cands = drillCandidates(["falar", "ser", "falar"], ["pres", "pret"], [0, 3]);
+  eq(cands.map((c) => c.key), ["falar|pres|0", "falar|pres|3", "falar|pret|0", "falar|pret|3", "ser|pres|0", "ser|pres|3", "ser|pret|0", "ser|pret|3"], "drillCandidates: 動詞の重複を除いた全組");
+  eq([drillWeight(undefined), drillWeight({ seen: 4, correct: 4, last: "2026-09-24" }), drillWeight({ seen: 4, correct: 0, last: "2026-09-24" }), drillWeight({ seen: 4, correct: 2, last: "2026-09-24" })], [3, 1, 5, 3], "drillWeight: 未出題 3・全問正解 1・全問不正解 5");
+  eq(spreadVerbs([{ inf: "a" }, { inf: "a" }, { inf: "b" }]).map((x) => x.inf), ["a", "b", "a"], "spreadVerbs: 同じ動詞を続けない");
+  eq(spreadVerbs([{ inf: "a" }, { inf: "a" }]).map((x) => x.inf), ["a", "a"], "spreadVerbs: 残りが同じ動詞だけなら続く");
+  // 末尾に同じ動詞が2問残る並び（貪欲に前から選ぶと続いてしまう）
+  eq(
+    spreadVerbs([{ inf: "falar" }, { inf: "ser" }, { inf: "ter" }, { inf: "ter" }]).map((x) => x.inf),
+    ["falar", "ter", "ser", "ter"],
+    "spreadVerbs: 末尾の同じ動詞2問も離す（元の順はできるだけ保つ）"
+  );
+  eq(spreadVerbs([{ inf: "b" }, { inf: "c" }, { inf: "d" }]).map((x) => x.inf), ["b", "c", "d"], "spreadVerbs: 続かない並びはそのまま");
+  {
+    // 小さな並びの総当たり: 続かない並べ方があるなら、spreadVerbs も続かない（無いときも続く回数は最少）
+    const adj = (xs: readonly { inf: string }[]) => xs.reduce((n, x, i) => n + (i > 0 && xs[i - 1].inf === x.inf ? 1 : 0), 0);
+    const perms = <T,>(xs: readonly T[]): T[][] =>
+      xs.length <= 1 ? [[...xs]] : xs.flatMap((x, i) => perms([...xs.slice(0, i), ...xs.slice(i + 1)]).map((p) => [x, ...p]));
+    const rnd = seeded(7);
+    let miss = 0;
+    for (let t = 0; t < 300; t++) {
+      const len = 2 + Math.floor(rnd() * 6);
+      const xs = Array.from({ length: len }, () => ({ inf: "abc"[Math.floor(rnd() * 3)] }));
+      const best = Math.min(...perms(xs).map(adj));
+      if (adj(spreadVerbs(xs)) > best) miss++;
+    }
+    eq(miss, 0, "spreadVerbs（300通りの総当たり）: 続かない並べ方があるときは続かない・無いときも最少");
+  }
+  {
+    const pool = drillCandidates(irregularVerbs(), ["pres", "pret"], [...TABLE_PERSONS]);
+    let adjacent = 0;
+    let dup = 0;
+    let cap = 0;
+    let size = 0;
+    for (let seed = 1; seed <= 2000; seed++) {
+      const d = pickDrill(pool, {}, 10, seeded(seed));
+      if (d.length !== 10) size++;
+      if (new Set(d.map((x) => x.key)).size !== d.length) dup++;
+      for (let i = 1; i < d.length; i++) if (d[i].inf === d[i - 1].inf) adjacent++;
+      const per = new Map<string, number>();
+      for (const x of d) per.set(x.inf, (per.get(x.inf) ?? 0) + 1);
+      if ([...per.values()].some((n) => n > 2)) cap++;
+    }
+    eq([size, dup, adjacent, cap], [0, 0, 0, 0], "pickDrill（2000通り）: 10問・同じ形なし・同じ動詞が続かない・1つの動詞は2問まで");
+    // 動詞が3つで6問なら、どの動詞もちょうど2問（1つの動詞に偏らない）
+    const small = drillCandidates(["falar", "ser", "comer"], ["pres", "pret"], [...TABLE_PERSONS]);
+    let uneven = 0;
+    let smallAdj = 0;
+    for (let seed = 1; seed <= 600; seed++) {
+      const per = new Map<string, number>();
+      const d = pickDrill(small, {}, 6, seeded(seed));
+      for (const x of d) per.set(x.inf, (per.get(x.inf) ?? 0) + 1);
+      if (per.size !== 3 || [...per.values()].some((n) => n !== 2)) uneven++;
+      for (let i = 1; i < d.length; i++) if (d[i].inf === d[i - 1].inf) smallAdj++;
+    }
+    eq([uneven, smallAdj], [0, 0], "pickDrill（600通り）: 動詞3つ・6問 → どの動詞も2問ずつ・同じ動詞が続かない");
+    const few = pickDrill(drillCandidates(["falar"], ["pres", "pret"], [...TABLE_PERSONS]), {}, 5, seeded(3));
+    eq([few.length, new Set(few.map((x) => x.key)).size], [5, 5], "pickDrill: 動詞が1つだけなら上限を外して埋める");
+    eq(pickDrill(pool, {}, 0, seeded(1)).length, 0, "pickDrill: 0問");
+    eq(pickDrill(cands, {}, 99, seeded(1)).length, cands.length, "pickDrill: 候補の数まで");
+  }
+  {
+    // 成績の重み: 間違えている形 > まだ出していない形 > 正解している形 の順に選ばれやすい
+    const three = drillCandidates(["falar"], ["pres"], [0, 2, 3]);
+    const stats: DrillStats = {
+      "falar|pres|0": { seen: 5, correct: 0, last: "2026-09-24" },
+      "falar|pres|3": { seen: 5, correct: 5, last: "2026-09-24" },
+    };
+    const count: Record<string, number> = {};
+    for (let seed = 1; seed <= 600; seed++) {
+      const k = pickDrill(three, stats, 1, seeded(seed))[0].key;
+      count[k] = (count[k] ?? 0) + 1;
+    }
+    const [weak, fresh, known] = [count["falar|pres|0"] ?? 0, count["falar|pres|2"] ?? 0, count["falar|pres|3"] ?? 0];
+    ok(weak > fresh && fresh > known && known > 0, `pickDrill: 苦手 ${weak} > 未出題 ${fresh} > 正解済み ${known}（600通り。正解済みも出る）`);
+  }
+
+  // 1回のドリルの列（最初に正解できなかった問題は最後にもう一度だけ）
+  const qs = toQuestions(conj, drillCandidates(["falar", "ser"], ["pres"], [0]));
+  const q0 = newConjQueue(qs);
+  const before = JSON.stringify(q0);
+  const q1 = answerEntry(q0, 0, "wrong", "fala");
+  eq([q1.length, q1[2]?.q.key, q1[2]?.retry, q1[0].verdict, q1[0].input], [3, "falar|pres|0", true, "wrong", "fala"], "不正解 → 最後にもう一度");
+  eq(JSON.stringify(q0), before, "answerEntry: 元の列を書き換えない");
+  const q2 = answerEntry(q1, 1, "close", "sóu");
+  eq(q2.length, 4, "惜しい → 最後にもう一度");
+  const q3 = answerEntry(q2, 2, "wrong", "");
+  eq(q3.length, 4, "もう一度の出題でまた不正解でも足さない");
+  eq(answerEntry(q3, 2, "correct", "falo"), q3, "答えた問題にもう一度結果を付けても変えない");
+  const q4 = answerEntry(q3, 3, "correct", "sou");
+  eq(summarizeConj(q4), { first: { correct: 0, close: 1, wrong: 1 }, retry: { correct: 1, close: 0, wrong: 1 }, planned: 2, answered: 2 }, "summarizeConj");
+  eq(answerEntry(newConjQueue(qs), 0, "correct", "falo").length, 2, "正解 → 足さない");
+  eq(summarizeConj(newConjQueue(qs)), { first: { correct: 0, close: 0, wrong: 0 }, retry: { correct: 0, close: 0, wrong: 0 }, planned: 2, answered: 0 }, "summarizeConj: まだ答えていない");
+
+  // 成績
+  eq(recordStat(undefined, true, "2026-09-24"), { seen: 1, correct: 1, last: "2026-09-24" }, "recordStat: 初めて・正解");
+  eq(recordStat({ seen: 3, correct: 1, last: "2026-09-20" }, false, "2026-09-24"), { seen: 4, correct: 1, last: "2026-09-24" }, "recordStat: 不正解は seen だけ");
+  eq(
+    weakKeys(
+      {
+        a: { seen: 4, correct: 1, last: "2026-09-24" },
+        b: { seen: 2, correct: 0, last: "2026-09-24" },
+        c: { seen: 1, correct: 0, last: "2026-09-24" },
+        d: { seen: 3, correct: 3, last: "2026-09-24" },
+        e: { seen: 4, correct: 0, last: "2026-09-24" },
+      },
+      3
+    ).map((x) => x.key),
+    ["e", "b", "a"],
+    "weakKeys: 2回以上出して間違えた形を、正答率の低い順（同じなら回数の多い順）"
+  );
+  ok(Object.keys(irregularTable()).length === irregularVerbs().length, "不規則動詞の一覧は表と同じ数");
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

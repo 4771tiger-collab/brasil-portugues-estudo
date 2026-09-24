@@ -15,6 +15,7 @@ import { planToday, useTodayPlan } from "../hooks/useTodayPlan";
 import { useWakeLock } from "../hooks/useWakeLock";
 import Flashcard, { type RatedInfo } from "../components/Flashcard";
 import ReviewSession from "../components/ReviewSession";
+import HandsfreePlayer from "../components/HandsfreePlayer";
 import SessionComplete, { useForecast } from "../components/SessionComplete";
 import UndoToast from "../components/UndoToast";
 import { RATING_LABEL } from "../components/RatingButtons";
@@ -210,14 +211,27 @@ function StudyView({ deckId }: { deckId: string }) {
     const m = ratingsRef.current;
     m.set(id, (m.get(id) ?? []).slice(0, -1));
   };
-  const switchView = (v: StudyViewMode) => {
-    // again のままの語・評価を取り消した語は残す
+  /** 今の並びから、この画面で合格した語を除いたもの（again のままの語・評価を取り消した語は残す） */
+  const unpassed = () => {
     const passed = (id: string) => {
       const rs = ratingsRef.current.get(id);
       return !!rs?.length && rs[rs.length - 1] !== "again";
     };
-    setRemaining(words.filter((w) => !passed(w.id)));
+    // 耳だけ復習の「1枚ずつで確認」で並べ替えた後も、その並びのまま
+    return (remaining ?? words).filter((w) => !passed(w.id));
+  };
+  const switchView = (v: StudyViewMode) => {
+    setRemaining(unpassed());
     setView(v);
+  };
+  // 耳だけ復習（🎧）で聴く語（null = 開いていない）。開いている間は学習の表示を閉じる
+  // （戻るときは表示の切り替えと同じく、合格した語を除いて作り直す）
+  const [hfWords, setHfWords] = useState<Word[] | null>(null);
+  const openHandsfree = () => {
+    const rest = unpassed();
+    setRemaining(rest);
+    // すべて合格済みでも聴くことはできる（SRS には書かない）ので、そのときは今の並びをそのまま聴く
+    setHfWords(rest.length ? rest : (remaining ?? words));
   };
 
   const title = deckTitle(deckId, (id) => SONG_BY_ID.get(id)?.title) ?? "単語帳";
@@ -268,6 +282,22 @@ function StudyView({ deckId }: { deckId: string }) {
     );
   }
 
+  if (hfWords) {
+    return (
+      <HandsfreePlayer
+        words={hfWords}
+        title={title}
+        onClose={() => setHfWords(null)}
+        // 印の語を先頭にした並びで1枚ずつ学習を始める（評価は通常の rate を通る）
+        onReview={(ordered) => {
+          setRemaining(ordered);
+          setView("session");
+          setHfWords(null);
+        }}
+      />
+    );
+  }
+
   const shown = remaining ?? words;
   // 表示を切り替えた時点で、この画面の語をすべて評価し終えていた
   if (shown.length === 0) {
@@ -299,6 +329,7 @@ function StudyView({ deckId }: { deckId: string }) {
         title={title}
         onExit={onExit}
         onSwitchView={() => switchView("list")}
+        onHandsfree={openHandsfree}
         onExtra={onExtra}
         reason={reason}
         onRated={onRated}
@@ -313,6 +344,7 @@ function StudyView({ deckId }: { deckId: string }) {
       title={title}
       onExit={onExit}
       onSwitchView={() => switchView("session")}
+      onHandsfree={openHandsfree}
       onExtra={onExtra}
       reason={reason}
       onRated={onRated}
@@ -357,6 +389,7 @@ function ListView({
   title,
   onExit,
   onSwitchView,
+  onHandsfree,
   onExtra,
   reason,
   onRated,
@@ -367,6 +400,8 @@ function ListView({
   title: string;
   onExit: () => void;
   onSwitchView: () => void;
+  /** 耳だけ復習（🎧）を開く */
+  onHandsfree?: () => void;
   onExtra?: () => void;
   /** 今日の学習で新しい語を止めた理由（完了のまとめに出す） */
   reason?: "backlog";
@@ -537,6 +572,16 @@ function ListView({
             <span className="text-xs text-slate-400">
               {ratedCount}/{items.length}
             </span>
+            {onHandsfree && (
+              <button
+                type="button"
+                onClick={onHandsfree}
+                className="min-h-11 px-1 text-xs font-medium text-brand-green"
+                title="耳だけ復習（葡 → 考える間 → 和 を読み上げ）"
+              >
+                🎧 耳だけ
+              </button>
+            )}
             <button type="button" onClick={onSwitchView} className="min-h-11 px-1 text-xs font-medium text-brand-green">
               1枚ずつ
             </button>

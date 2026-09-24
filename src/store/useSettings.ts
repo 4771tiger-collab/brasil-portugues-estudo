@@ -16,11 +16,14 @@ const DEFAULTS: Settings = {
   showIpa: false,
   musicNewLimit: 10,
   pauseOnWordTap: true,
+  replayAfterLookup: true,
   studyView: "session",
   studyDirection: "pt2ja",
   autoPlayOnReveal: true,
   capoeiraShare: 0.25,
   dailyReviewLimit: 100,
+  handsfreeGapSec: 3,
+  handsfreeDirection: "pt2ja",
 };
 
 export const useSettings = create<SettingsState>()(

@@ -3,11 +3,10 @@
 // ============================================================================
 
 import playlistsRaw from "../../data/music-playlists.json";
-import irregularRaw from "../../data/verb-irregular.json";
 import colloquialRaw from "../../data/colloquial.json";
 import { DICT_RAW, WORDS_CAPOEIRA, WORDS_GENERAL } from "./loadWords";
+import { getConjugator, irregularTable } from "./conjugator";
 import { createLemmatizer, type ColloquialTable, type LexRef, type Lemmatizer } from "../services/lemmatize";
-import type { IrregularTable } from "../services/conjugate";
 
 export interface Song {
   videoId: string;
@@ -73,7 +72,9 @@ export function prepareLemmatizer(): Promise<Lemmatizer> {
     const build = () => {
       lemmatizer = createLemmatizer({
         entries: lexiconEntries(),
-        irregular: irregularRaw as unknown as IrregularTable,
+        irregular: irregularTable(),
+        // 活用表・活用ドリルと同じ生成器（活用形の索引を共有する）
+        conjugator: getConjugator(),
         colloquial: colloquialRaw as unknown as ColloquialTable,
       });
       resolve(lemmatizer);

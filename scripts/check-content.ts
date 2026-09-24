@@ -2,6 +2,9 @@
 // 同梱データ（data/*.json）の整合性チェック
 //   npm run check:content
 // - 教材（patterns / passages / scripts / dictation）: ID の重複・形式、必須項目、パターンの {slot} の整合
+// - パターンの和文: 型に差し込むと崩れる選択肢（「手伝うしてもらえますか」など）に jaFull があるか
+// - パターン → 発話ドリル（patternDrill）: 文に { } が残らないか、10問に同じ文型が続かず全文型が出るか
+// - 読み物 → シャドーイングの文（sentenceGroups.groupChunks）: チャンクをすき間なく覆い、本文が変わらないか
 // - 導入順（core-order.json）と別名（word-aliases.json）: ID が解決できるか、削除済みでないか、
 //   重複・連鎖・コア語との衝突が無いか（単語データは書き換えず、ID を参照するだけのファイル）
 // - 再生リスト（music-playlists.json）: videoId の重複と必須項目（メタデータだけで歌詞は持たない）
@@ -16,7 +19,20 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join, relative, resolve } from "node:path";
-import type { RawWord } from "../src/data/types";
+import type { Chunk, Pattern, PatternSlotOption, RawWord } from "../src/data/types";
+import { groupChunks, isSentenceEnd, passageToScript } from "../src/services/sentenceGroups";
+import {
+  fillSlot,
+  frameParts,
+  interleave,
+  newDrill,
+  optionJa,
+  patternItems,
+  rateEntry,
+  summarizeDrill,
+  type PatternItem,
+  type Rand,
+} from "../src/services/patternDrill";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(here, "..");
@@ -129,6 +145,26 @@ const sameSet = (a: Iterable<string>, b: Iterable<string>) => {
   return x.length === y.length && x.every((v, i) => v === y[i]);
 };
 
+/** 動詞の辞書形の語尾（う段のひらがな。「手伝う」「働く」「勉強する」） */
+const DICT_FORM_END_RE = /[うくぐすつぬぶむる]$/u;
+
+/**
+ * 型（pattern.ja）に選択肢の訳を差し込んだ和文が崩れる理由（崩れないなら null）。jaFull の無い選択肢に使う
+ * - 型に「／」「〜」がある: 言い方の候補を並べた型で、1つの文にならない（「私は{X}（が）欲しい／〜したいです」）
+ * - 型に「（が）」のような省略できる助詞がある
+ * - 動詞の辞書形の後に「し…」「です」が続く（「手伝うしてもらえますか」「働くします」「食べるです」）
+ */
+export function jaFillIssue(templateJa: string, optJa: string): string | null {
+  if (/[／〜～]/.test(templateJa)) return "型に「／」「〜」があり、1つの文にならない";
+  if (/（[がをはにでとも]）/.test(templateJa)) return "型に「（が）」のような省略できる助詞がある";
+  if (DICT_FORM_END_RE.test(optJa.trim())) {
+    const after = templateJa.split(/\{[^{}]*\}/).slice(1);
+    if (after.some((s) => s.startsWith("し"))) return "動詞の辞書形の後に「し…」が続く";
+    if (after.some((s) => s.startsWith("です"))) return "動詞の辞書形の後に「です」が続く";
+  }
+  return null;
+}
+
 /** パターンの frame / ja / slots の整合 */
 function checkPatternSlots(p: Obj, where: string, r: Report) {
   if (!isStr(p.frame) || !isStr(p.ja) || !isObj(p.slots)) return;
@@ -149,19 +185,31 @@ function checkPatternSlots(p: Obj, where: string, r: Report) {
   const fmt = (ns: string[]) => (ns.length ? [...new Set(ns)].map((n) => `{${n}}`).join("") : "（なし）");
   if (f && !sameSet(f, keys)) r.error(`${where}: frame のスロット ${fmt(f)} が slots（${keys.join(", ")}）と一致しない`);
   if (j && !sameSet(j, keys)) r.error(`${where}: ja のスロット ${fmt(j)} が slots（${keys.join(", ")}）と一致しない`);
+  const ja = p.ja;
   for (const k of keys) {
     const opts = p.slots[k];
-    const e = pairList(1)(opts);
+    // jaFull: その選択肢を入れた文の自然な和訳（任意。表示は jaFull ?? 型への差し込み）
+    const e = pairList(1, { jaFull: reqStr })(opts);
     if (e) {
       r.error(`${where}: slots.${k}: ${e}`);
       continue;
     }
     const seen = new Set<string>();
-    for (const o of opts as { pt: string; ja: string }[]) {
+    for (const o of opts as PatternSlotOption[]) {
       if (/[{}]/.test(o.pt) || /[{}]/.test(o.ja)) r.error(`${where}: slots.${k} の選択肢 "${o.pt}" に { } が入っている`);
       const key = o.pt.trim().toLowerCase();
       if (seen.has(key)) r.warn(`${where}: slots.${k} に同じ選択肢 "${o.pt}" が2回`);
       seen.add(key);
+      // 画面に出す和文が崩れないか（崩れる選択肢には jaFull が要る）
+      const filled = fillSlot(ja, o.ja);
+      if (o.jaFull === undefined) {
+        const issue = jaFillIssue(ja, o.ja);
+        if (issue) r.error(`${where}: slots.${k} の選択肢 "${o.pt}" の和文「${filled}」が崩れる（${issue}）。jaFull に自然な文を書く`);
+      } else if (/[{}]/.test(o.jaFull)) {
+        r.error(`${where}: slots.${k} の選択肢 "${o.pt}" の jaFull に { } が入っている（jaFull は差し込み済みの全文）`);
+      } else if (o.jaFull.trim() === filled.trim()) {
+        r.warn(`${where}: slots.${k} の選択肢 "${o.pt}" の jaFull が型への差し込みと同じ（書かなくてよい）`);
+      }
     }
   }
 }
@@ -224,6 +272,86 @@ export function checkCrossIds(byKind: Partial<Record<ContentKind, string[]>>, r:
       else owner.set(id, kind);
     }
   }
+}
+
+/**
+ * 読み物をシャドーイングの文（"p:<id>"）にまとめたとき、チャンクをすき間なく覆い、本文が変わらないか。
+ * 最後のチャンクが文末で終わらない読み物は警告（残りをそのまま1文として読む）。文の数の合計を返す。
+ */
+export function checkPassageSentences(v: unknown, r: Report): number {
+  if (!Array.isArray(v)) return 0;
+  let total = 0;
+  v.forEach((p, i) => {
+    if (!isObj(p) || !Array.isArray(p.chunks)) return;
+    const where = `passages[${i}]${nonEmpty(p.id) ? ` (${p.id})` : ""}`;
+    const chunks: Chunk[] = p.chunks.filter(isObj).map((c) => ({ pt: isStr(c.pt) ? c.pt : "", ja: isStr(c.ja) ? c.ja : "" }));
+    const groups = groupChunks(chunks);
+    let pos = 0;
+    for (const g of groups) {
+      if (g.start !== pos || g.end <= g.start) r.error(`${where}: 文のまとまりにすき間・重なりがある（${g.start}〜${g.end}）`);
+      pos = g.end;
+    }
+    if (pos !== chunks.length) r.error(`${where}: 文にまとめると最後のチャンクが漏れる（${pos}/${chunks.length}）`);
+    const norm = (s: string) => s.replace(/\s+/g, " ").trim();
+    if (norm(groups.map((g) => g.pt).join(" ")) !== norm(chunks.map((c) => c.pt).join(" "))) r.error(`${where}: 文にまとめると本文が変わる`);
+    const last = chunks[chunks.length - 1];
+    if (last && !isSentenceEnd(last.pt)) r.warn(`${where}: 最後のチャンクが文末（. ! ? …）で終わっていない（シャドーイングでは残りを1文として読む）`);
+    total += groups.filter((g) => g.pt !== "").length;
+  });
+  return total;
+}
+
+/** 種つきの乱数（mulberry32）。ドリルの出題を再現できるように検証で使う */
+export function seeded(seed: number): Rand {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/**
+ * 発話ドリル・オートの文（services/patternDrill）を実データで作り、和文・ポルトガル語に { } が残らないか、
+ * 文型を混ぜた drillSize 問に同じ文型が続かず、どの文型も出るか（乱数の種を変えて seeds 回）。
+ * 文の数と jaFull のある文の数を返す。checkContentFile の後に呼ぶ（形の壊れたデータは例外をエラーにする）
+ */
+export function checkPatternDrill(raw: unknown, r: Report, drillSize = 10, seeds = 50): { items: number; jaFull: number } {
+  if (!Array.isArray(raw)) return { items: 0, jaFull: 0 };
+  let items: PatternItem[];
+  try {
+    items = patternItems(raw as Pattern[]);
+  } catch (e) {
+    r.error(`patterns → 発話ドリル: 文を作れない（${e instanceof Error ? e.message : e}）`);
+    return { items: 0, jaFull: 0 };
+  }
+  const ids = new Set<string>();
+  for (const it of items) {
+    if (ids.has(it.id)) r.error(`patterns → 発話ドリル: 文の id "${it.id}" が重複`);
+    ids.add(it.id);
+    if (/[{}]/.test(it.pt) || /[{}]/.test(it.ja)) r.error(`patterns → 発話ドリル: ${it.id} に { } が残る（${it.pt} ／ ${it.ja}）`);
+  }
+  const nPat = new Set(items.map((it) => it.pattern.id)).size;
+  const want = Math.min(drillSize, items.length);
+  for (let s = 1; s <= seeds; s++) {
+    const d = interleave(items, drillSize, seeded(s));
+    const pats = d.map((it) => it.pattern.id);
+    if (d.length !== want || new Set(d.map((it) => it.id)).size !== d.length) {
+      r.error(`patterns → 発話ドリル: ${want}問を重複なしで選べない（種 ${s}: ${d.length}問）`);
+      break;
+    }
+    if (nPat > 1 && pats.some((p, i) => i > 0 && p === pats[i - 1])) {
+      r.error(`patterns → 発話ドリル: 同じ文型が続く（種 ${s}: ${pats.join(" ")}）`);
+      break;
+    }
+    if (new Set(pats).size !== Math.min(nPat, want)) {
+      r.error(`patterns → 発話ドリル: ${want}問に出ない文型がある（種 ${s}: ${[...new Set(pats)].join(" ")}）`);
+      break;
+    }
+  }
+  return { items: items.length, jaFull: items.filter((it) => it.option.jaFull !== undefined).length };
 }
 
 // ---------------------------------------------------------------------------
@@ -496,6 +624,86 @@ console.log("=== 自己テスト（壊したフィクスチャを見つけられ
     "スロット2つ（{V:inf} はスロット名 V として読む）"
   );
   flags((r) => checkContentFile("patterns", [pat({ category: "" })], r), /category/, "必須の文字列が空");
+
+  // パターンの和文（型への差し込みが崩れる選択肢には jaFull）
+  {
+    const pode = (o: Obj) =>
+      pat({ frame: "Você pode {X}, por favor?", ja: "{X}してもらえますか？", slots: { X: [{ pt: "me ajudar", ja: "手伝う", ...o }] } });
+    flags((r) => checkContentFile("patterns", [pode({})], r), /jaFull に自然な文/, "和文が崩れる（手伝うして…）のに jaFull が無い");
+    flags((r) => checkContentFile("patterns", [pode({ jaFull: "手伝ってもらえますか？" })], r), null, "jaFull で直した選択肢");
+    flags((r) => checkContentFile("patterns", [pode({ jaFull: "" })], r), /jaFull/, "jaFull が空");
+    flags((r) => checkContentFile("patterns", [pode({ jaFull: "{X}してもらえますか？" })], r), /jaFull に \{ \}/, "jaFull に { } が残る");
+    flags((r) => checkContentFile("patterns", [pode({ jafull: "手伝ってもらえますか？" })], r), /未知の項目 "jafull"/, "jaFull の綴り違い");
+    flags((r) => checkContentFile("patterns", [pat({ ja: "私は{X}（が）欲しい／〜したいです。" })], r), /1つの文にならない/, "候補を並べた型で jaFull が無い");
+    const rw = new Report();
+    checkContentFile("patterns", [pat({ slots: { X: [{ pt: "água", ja: "水", jaFull: "水が欲しい" }] } })], rw);
+    expect(rw.errors.length === 0 && rw.warns.some((w) => /書かなくてよい/.test(w)), "jaFull が型への差し込みと同じ → 警告だけ");
+    expect(
+      jaFillIssue("私は明日{X}します。", "働く") !== null &&
+        jaFillIssue("{X}です。", "食べる") !== null &&
+        jaFillIssue("私は明日{X}します。", "勉強") === null &&
+        jaFillIssue("私は{X}が好きです。", "旅行すること") === null &&
+        jaFillIssue("今日は{X}です。", "暑い") === null,
+      "jaFillIssue: 辞書形＋「し…」「です」だけを崩れとみなす"
+    );
+  }
+
+  // 発話ドリル（services/patternDrill）
+  {
+    const P = (id: string, n: number): Pattern => ({
+      id,
+      category: id,
+      frame: `F {X} ${id}.`,
+      ja: `{X}の${id}`,
+      slots: { X: Array.from({ length: n }, (_, i) => ({ pt: `${id}${i}`, ja: `j${i}`, ...(i === 0 ? { jaFull: `全文${id}` } : {}) })) },
+    });
+    const items = patternItems([P("a", 4), P("b", 2), P("c", 1)]);
+    expect(
+      items.length === 7 && items[0].id === "pat:a:0" && items[0].pt === "F a0 a." && items[0].ja === "全文a" && items[1].ja === "j1のa",
+      "patternItems: id・ポルトガル語・和文（jaFull を優先）"
+    );
+    expect(fillSlot("Eu quero {X}.", "água") === "Eu quero água." && optionJa(P("a", 1), { pt: "x", ja: "y" }) === "yのa", "fillSlot / optionJa");
+    const parts = frameParts("Você pode {X}, por favor?", "me ajudar");
+    expect(
+      parts.length === 3 && parts[1].slot && parts[1].text === "me ajudar" && !parts[0].slot && parts.map((p) => p.text).join("") === "Você pode me ajudar, por favor?",
+      "frameParts: 入れ替え部分だけ slot"
+    );
+    let adjOk = true;
+    let distinctOk = true;
+    let avoidOk = true;
+    for (let s = 1; s <= 30; s++) {
+      // a×4・b×2・c×1 から5問: 3文型 → 2文型の2周。周の境目でも同じ文型は続かない
+      const d = interleave(items, 5, seeded(s));
+      const pats = d.map((x) => x.pattern.id);
+      if (pats.some((p, i) => i > 0 && p === pats[i - 1])) adjOk = false;
+      if (d.length !== 5 || new Set(d.map((x) => x.id)).size !== 5) distinctOk = false;
+      if (interleave(items, 3, seeded(s), "a")[0]?.pattern.id === "a") avoidOk = false;
+    }
+    expect(adjOk, "interleave: 同じ文型が続かない");
+    expect(distinctOk && interleave(items, 99, seeded(1)).length === 7 && interleave(items, 0).length === 0, "interleave: 重複なし・文の数まで");
+    expect(avoidOk, "interleave: avoidFirst の文型から始めない");
+    const q0 = newDrill(items, 3, seeded(1));
+    const q1 = rateEntry(q0, 0, "missed");
+    const q4 = rateEntry(rateEntry(rateEntry(q1, 1, "said"), 2, "close"), 3, "missed");
+    expect(
+      q0.length === 3 && q1.length === 4 && q1[3].retry && q1[3].item.id === q0[0].item.id && q1[3].rating === null && q4.length === 4,
+      "rateEntry: 言えなかった文は最後に1回だけ再出題（再出題でまた言えなくても足さない）"
+    );
+    expect(q0[0].rating === null && rateEntry(q0, 1, "close").length === 3, "rateEntry: 元の列は変えない・言えた/惜しいは再出題しない");
+    const sm = summarizeDrill(q4);
+    expect(
+      sm.planned === 3 && sm.answered === 3 && sm.first.missed === 1 && sm.first.said === 1 && sm.first.close === 1 && sm.retry.missed === 1,
+      "summarizeDrill: 最初の出題と再出題を分けて数える"
+    );
+    const sm1 = summarizeDrill(q1);
+    expect(sm1.answered === 1 && sm1.planned === 3 && sm1.retry.missed === 0, "summarizeDrill: 途中でやめた");
+    flags((r) => checkPatternDrill([P("a", 4), P("b", 2), P("c", 1)], r, 5, 10), null, "実データ検査（発話ドリル）: 正しい文型");
+    flags(
+      (r) => checkPatternDrill([{ ...P("a", 1), frame: "F {X} {Y" }], r, 1, 1),
+      /\{ \} が残る/,
+      "実データ検査（発話ドリル）: { } が残る"
+    );
+  }
   flags(
     (r) => {
       const { id: _drop, ...noId } = pat();
@@ -520,6 +728,33 @@ console.log("=== 自己テスト（壊したフィクスチャを見つけられ
     expect(r.errors.length === 0 && r.warns.some((w) => /未知の項目 "lnes"/.test(w)), "未知の項目は警告だけ");
   }
   expect(JSON.stringify(placeholders("{S} {V:inf} {S}")) === '["S","V","S"]', "placeholders: {V:inf} → V");
+
+  // 読み物 → シャドーイングの文
+  {
+    const ch = (pt: string, ja = ""): Chunk => ({ pt, ja });
+    const g = groupChunks([ch("De manhã,", "朝に、"), ch("eu acordo cedo.", "早く起きる。"), ch("Depois,", "その後、"), ch("vou", "行く")]);
+    expect(
+      g.length === 2 && g[0].start === 0 && g[0].end === 2 && g[0].pt === "De manhã, eu acordo cedo." && g[0].ja === "朝に、早く起きる。",
+      "groupChunks: 文末のチャンクまでを1文に（訳は区切らずにつなぐ）"
+    );
+    expect(g[1]?.start === 2 && g[1]?.end === 4 && g[1]?.pt === "Depois, vou" && g[1]?.ja === "その後、行く", "groupChunks: 文末の無い残りも1文");
+    expect(groupChunks([]).length === 0, "groupChunks: チャンク0件");
+    expect(
+      isSentenceEnd('Ele disse: "Oi!"') && isSentenceEnd("Foi um dia perfeito! ") && isSentenceEnd("(Sério?)") && isSentenceEnd("E então…"),
+      "isSentenceEnd: 閉じ引用符・閉じ括弧・…・末尾の空白"
+    );
+    expect(!isSentenceEnd("De manhã,") && !isSentenceEnd("Nota:") && !isSentenceEnd(""), "isSentenceEnd: 読点・コロン・空は文末でない");
+    const sc = passageToScript({ id: "custom_1", title: "t", level: "short", source: "custom", chunks: [ch("  "), ch("Oi."), ch("Tudo bem?", "元気？")] });
+    expect(
+      sc.id === "p:custom_1" && sc.lines.length === 2 && sc.lines[0].pt === "Oi." && sc.lines[0].ja === "" && sc.lines[1].ja === "元気？",
+      "passageToScript: id は p:<id>、空のチャンクは飛ばす"
+    );
+    expect(passageToScript({ id: "x", title: "t", level: "short", source: "custom", chunks: [ch(" ")] }).lines.length === 0, "passageToScript: 本文の無い文は行にしない");
+    flags((r) => checkPassageSentences([{ id: "psg_a", chunks: [ch("Oi,"), ch("tudo bem?")] }], r), null, "読み物の文: 正しい");
+    const rw = new Report();
+    checkPassageSentences([{ id: "psg_a", chunks: [ch("Oi,"), ch("tudo bem")] }], rw);
+    expect(rw.errors.length === 0 && rw.warns.some((w) => /文末/.test(w)), "読み物の文: 最後が文末でない → 警告");
+  }
   expect(placeholders("a } b") === null && placeholders("{a{b}}") === null, "placeholders: 壊れた括弧は null");
 
   const raw = (pt: string, pos = "名詞"): RawWord => ({ カテゴリ: "c", ポルトガル語: pt, 日本語: "j", 品詞: pos });
@@ -599,6 +834,11 @@ for (const kind of ["patterns", "passages", "scripts", "dictation"] as const) {
   console.log(`  ${kind}: ${idsByKind[kind]!.length} 件`);
 }
 checkCrossIds(idsByKind, report);
+console.log(`  passages → シャドーイング: ${checkPassageSentences(loadJson("data/passages.json"), report)} 文`);
+{
+  const d = checkPatternDrill(loadJson("data/patterns.json"), report);
+  console.log(`  patterns → 発話ドリル: ${d.items} 文（うち jaFull ${d.jaFull}）`);
+}
 
 console.log("=== 導入順（core-order）・別名（word-aliases） ===");
 const tables: WordTables = {

@@ -186,6 +186,11 @@ export interface LemmatizerInput {
   entries: LexRef[];
   irregular: IrregularTable;
   colloquial: ColloquialTable;
+  /**
+   * 活用の生成器（任意）。アプリでは data/conjugator.ts の getConjugator() を渡し、活用表・活用ドリルと共有する。
+   * 無ければ irregular から作る（検証スクリプト用）
+   */
+  conjugator?: Conjugator;
 }
 
 export type Lemmatizer = ReturnType<typeof createLemmatizer>;
@@ -229,7 +234,7 @@ export function createLemmatizer(input: LemmatizerInput) {
   for (const [k, refs] of WORD_MAP) {
     if (refs.some((r) => r.pos === "動詞") && (VERB_RE.test(k) || irregular[k])) VERB_SET.add(k);
   }
-  const conj = new Conjugator(irregular);
+  const conj = input.conjugator ?? new Conjugator(irregular);
 
   // 不規則動詞・クラス動詞は前方生成して 活用形→(原形,タグ) の索引に（初回利用時に構築）
   let FORM_INDEX: Map<string, { lemma: string; tags: VerbTag[] }[]> | null = null;

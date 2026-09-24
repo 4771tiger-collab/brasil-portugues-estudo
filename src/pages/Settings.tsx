@@ -5,7 +5,8 @@ import { useMeta } from "../store/useMeta";
 import { formatBytes, requestPersist, storageStatus, type StorageStatus } from "../services/platform";
 import { diffDays, todayStr } from "../srs/scheduler";
 import { audio, type VoiceInfo } from "../services/audio";
-import type { StudyDirection, StudyViewMode } from "../data/types";
+import type { HandsfreeDirection, StudyDirection, StudyViewMode } from "../data/types";
+import { HANDSFREE_GAPS_SEC } from "../services/handsfree";
 import UpdateBanner from "../components/UpdateBanner";
 import { checkForUpdate, type UpdateCheckResult } from "../pwa/usePwa";
 
@@ -428,6 +429,29 @@ export default function Settings() {
             className="h-5 w-5 accent-brand-green"
           />
         </Row>
+        <Row label="🎧 耳だけ復習の向き" hint="単語帳の「耳だけ」で読み上げる順">
+          <select
+            value={s.handsfreeDirection}
+            onChange={(e) => s.set({ handsfreeDirection: e.target.value as HandsfreeDirection })}
+            className="rounded-lg border border-slate-200 px-2 py-1.5"
+          >
+            <option value="pt2ja">葡 → 和</option>
+            <option value="ja2pt">和 → 葡</option>
+          </select>
+        </Row>
+        <Row label="🎧 耳だけ復習の考える間" hint="問いを読んでから答えを読むまでの時間">
+          <select
+            value={s.handsfreeGapSec}
+            onChange={(e) => s.set({ handsfreeGapSec: Number(e.target.value) })}
+            className="rounded-lg border border-slate-200 px-2 py-1.5"
+          >
+            {withCurrent([...HANDSFREE_GAPS_SEC], s.handsfreeGapSec).map((n) => (
+              <option key={n} value={n}>
+                {n}秒
+              </option>
+            ))}
+          </select>
+        </Row>
         <Row label="カタカナ発音ガイド">
           <input type="checkbox" checked={s.showKana} onChange={(e) => s.set({ showKana: e.target.checked })} className="h-5 w-5 accent-brand-green" />
         </Row>
@@ -454,6 +478,22 @@ export default function Settings() {
             checked={s.pauseOnWordTap}
             onChange={(e) => s.set({ pauseOnWordTap: e.target.checked })}
             className="h-5 w-5 accent-brand-green"
+          />
+        </Row>
+        <Row
+          label="調べた後は行の頭から再開"
+          hint={
+            s.pauseOnWordTap
+              ? "単語シートを閉じたら、調べた行を頭から聴き直す（時間同期のある歌詞）"
+              : "「単語タップで一時停止」がオンのときに使えます"
+          }
+        >
+          <input
+            type="checkbox"
+            checked={s.replayAfterLookup}
+            disabled={!s.pauseOnWordTap}
+            onChange={(e) => s.set({ replayAfterLookup: e.target.checked })}
+            className="h-5 w-5 accent-brand-green disabled:opacity-40"
           />
         </Row>
       </section>
@@ -493,7 +533,7 @@ export default function Settings() {
         <h2 className="px-1 text-sm font-bold text-slate-500">データとバックアップ</h2>
         <DataProtection onMessage={flash} />
         <p className="px-1 text-xs text-slate-400">
-          進捗（日ごとの学習ログを含む）・曲の和訳・曲から追加した単語・設定を保存します（歌詞そのものと音声の選択は含みません）。スマホでは共有メニューから
+          進捗（日ごとの学習ログ・活用ドリルの成績を含む）・曲の和訳・曲から追加した単語・設定を保存します（歌詞そのものと音声の選択は含みません）。スマホでは共有メニューから
           Google ドライブやメールに保存できます（ファイルは .txt ですが、そのままインポートできます）。PC ではファイル（.json）をダウンロードします。
         </p>
         <LastBackup />

@@ -12,7 +12,9 @@ import {
   describeBackup,
   parseBackup,
   pickSettings,
+  readDrill,
   readMusic,
+  readSelfTranslated,
   type BackupData,
   type ParseResult,
   type ProgressPart,
@@ -20,11 +22,14 @@ import {
 import {
   cardDiff,
   compareCards,
+  compareDrillStats,
   mergeAddedWords,
   mergeCards,
+  mergeDrill,
   mergeHistory,
   mergeMusic,
   mergeProgress,
+  mergeSelfTranslated,
   mergeStreak,
   mergeTranslations,
   unionBy,
@@ -196,6 +201,58 @@ const V3 = {
   ok(!!bad?.settings && !("capoeiraShare" in bad.settings) && !("dailyReviewLimit" in bad.settings), "範囲外の capoeiraShare・dailyReviewLimit は読まない");
   eq(bad?.settings?.dailyNewLimit, 12, "範囲外の項目があっても他の設定は読む");
 }
+{
+  // B3-07 で足した設定（耳だけ復習の考える間・向き。任意フィールド。version は 3 のまま）
+  const old = data(parseBackup(JSON.stringify(V3)), "B3-07 より前の v3");
+  ok(
+    !!old?.settings && !("handsfreeGapSec" in old.settings) && !("handsfreeDirection" in old.settings),
+    "B3-07 より前の v3（耳だけ復習の設定なし）→ 端末側のまま"
+  );
+  const V3B7 = { ...V3, settings: { ...V3.settings, handsfreeGapSec: 5, handsfreeDirection: "ja2pt" } };
+  const r = parseBackup(JSON.stringify(V3B7));
+  const d = data(r, "v3 + B3-07 の設定");
+  eq(d?.settings && [d.settings.handsfreeGapSec, d.settings.handsfreeDirection], [5, "ja2pt"], "v3: handsfreeGapSec・handsfreeDirection を読む");
+  eq(r.ok && r.warnings, [], "v3 + B3-07 の設定 → 警告なし");
+  const bad = data(
+    parseBackup(JSON.stringify({ ...V3, settings: { ...V3.settings, handsfreeGapSec: 4, handsfreeDirection: "mixed" } })),
+    "v3 + 選択肢に無い B3-07 設定"
+  );
+  ok(
+    !!bad?.settings && !("handsfreeGapSec" in bad.settings) && !("handsfreeDirection" in bad.settings),
+    "選択肢に無い handsfreeGapSec（4）・handsfreeDirection（mixed）は読まない"
+  );
+  eq(bad?.settings?.studyDirection, "mixed", "選択肢に無い項目があっても他の設定は読む");
+}
+
+{
+  // B3-08 で足した任意フィールド: music.songs[].selfTranslated（自分で訳した行のハッシュだけ）と設定 replayAfterLookup
+  const old = data(parseBackup(JSON.stringify(V3)), "B3-08 より前の v3");
+  ok(!!old?.music && !("selfTranslated" in old.music.songs.vidA), "B3-08 より前の v3（selfTranslated なし）→ 項目を足さない");
+  ok(!!old?.settings && !("replayAfterLookup" in old.settings), "B3-08 より前の v3（replayAfterLookup なし）→ 端末側のまま");
+  const LINE = "Linha inventada para o teste";
+  const V3B8 = {
+    ...V3,
+    music: {
+      ...MUSIC,
+      songs: {
+        vidA: { ...MUSIC.songs.vidA, selfTranslated: { abc123: true, [lineHash(LINE)]: true, [LINE]: true, zzz: "x", yyy: false, "": true } },
+        vidB: { offsetMs: 0, translations: {}, selfTranslated: ["abc123"] },
+      },
+    },
+    settings: { ...V3.settings, replayAfterLookup: false },
+  };
+  const r = parseBackup(JSON.stringify(V3B8));
+  const d = data(r, "v3 + B3-08 の項目");
+  eq(d?.music?.songs.vidA.selfTranslated, { abc123: true, [lineHash(LINE)]: true }, "v3: selfTranslated はハッシュの形のキーで値が true のものだけ読む");
+  ok(!!d?.music && !JSON.stringify(d.music).includes(LINE), "selfTranslated に行の本文のキーがあっても持ち込まない");
+  ok(!!d?.music && !("selfTranslated" in d.music.songs.vidB), "selfTranslated が object でない → 項目を置かない");
+  eq(d?.settings?.replayAfterLookup, false, "v3: replayAfterLookup を読む");
+  eq(r.ok && r.warnings, [], "v3 + B3-08 の項目 → 警告なし");
+  const bad = data(parseBackup(JSON.stringify({ ...V3, settings: { ...V3.settings, replayAfterLookup: "no" } })), "v3 + 不正な replayAfterLookup");
+  ok(!!bad?.settings && !("replayAfterLookup" in bad.settings), "真偽値でない replayAfterLookup は読まない");
+  const v2 = data(parseBackup(JSON.stringify({ ...V3B8, version: 2 })), "v2 + selfTranslated");
+  eq(v2?.music?.songs.vidA.selfTranslated, { abc123: true, [lineHash(LINE)]: true }, "v2 のファイルでも selfTranslated を読む（music と同じ）");
+}
 
 console.log("=== parseBackup: 未知の version（新しいアプリで作ったファイル） ===");
 {
@@ -215,10 +272,11 @@ console.log("=== parseBackup: 未知の version（新しいアプリで作った
     eq(Object.keys(d.progress.cards).length, 2, "知っている項目（cards）は読む");
     eq(d.music, MUSIC, "music も読む");
     ok(!!d.settings && !("futureOption" in d.settings), "知らない設定は読まない");
+    eq(d.drill, null, "v4 でも drill は読むが、知らない形（stats が無い）なら無い扱い（null）");
     eq(d.settings?.capoeiraShare, 0.5, "v4 でも知っている設定（capoeiraShare）は読む");
     eq(d.progress.history, { "2026-09-24": { reviews: 9, newWords: 0, again: 0, act: {} } }, "v4 でも知っている項目（history）は読み、足りない数は 0");
-    eq(Object.keys(d).sort(), ["app", "exportedAt", "music", "progress", "settings", "version"], "知らない最上位の項目は持ち込まない");
-    ok(!JSON.stringify(d).includes('"drill"') && !JSON.stringify(d).includes("linha inventada"), "知らない項目（drill・lyricsCache）は読まない");
+    eq(Object.keys(d).sort(), ["app", "drill", "exportedAt", "music", "progress", "settings", "version"], "知らない最上位の項目は持ち込まない");
+    ok(!JSON.stringify(d).includes("lyricsCache") && !JSON.stringify(d).includes("linha inventada"), "知らない項目（lyricsCache）は読まない");
   }
   eq(r.ok && r.warnings.length, 1, "警告が1件");
   ok(r.ok && /新しいバージョン/.test(r.warnings[0]) && r.warnings[0].includes("v0.9.0"), "警告に「新しいバージョン」と版");
@@ -270,6 +328,80 @@ console.log("=== parseBackup: 学習ログ history（B2-06 の任意フィール
   }
   const d = data(parseBackup(JSON.stringify({ ...PROGRESS, history: HISTORY })), "describe");
   ok(!!d && describeBackup(d).includes("学習ログ 2日分"), "describeBackup: 学習ログの日数");
+}
+
+console.log("=== parseBackup: 活用ドリルの成績 drill（B3-06 の任意フィールド。v1/v2/v3 のどれでも読む） ===");
+const DRILL = {
+  stats: {
+    "falar|pres|3": { seen: 3, correct: 2, last: "2026-09-23" },
+    "pôr|fut|5": { seen: 1, correct: 0, last: "2026-09-24" },
+  },
+};
+{
+  for (const v of [undefined, 1, 2, 3] as const) {
+    const label = v === undefined ? "v1（version 無し）" : `v${v}`;
+    const src = { ...PROGRESS, ...(v === undefined ? {} : { version: v }), ...(v && v >= 2 ? { music: MUSIC } : {}), drill: DRILL };
+    const d = data(parseBackup(JSON.stringify(src)), `${label} + drill`);
+    eq(d?.drill, DRILL, `${label}: drill を読む`);
+  }
+  eq(data(parseBackup(JSON.stringify({ ...PROGRESS, version: 3 })), "drill 無し")?.drill, null, "drill の無いファイル → null（端末側のまま）");
+  for (const bad of [null, [], "x", 3, { x: 1 }, { stats: [] }, { stats: "x" }]) {
+    eq(data(parseBackup(JSON.stringify({ cards: {}, drill: bad })), "drill 不正")?.drill, null, `drill が ${JSON.stringify(bad)} → null`);
+  }
+  const good = { seen: 1, correct: 1, last: "2026-09-24" };
+  const messy = data(
+    parseBackup(
+      JSON.stringify({
+        cards: {},
+        drill: {
+          future: 1,
+          stats: {
+            "falar|pres|3": { seen: 2.7, correct: 5, last: "2026-09-24", note: "linha inventada" },
+            "comer|pret|0": { seen: 0, correct: 0, last: "2026-09-24" },
+            "Falar|pres|3": good,
+            "falar|pres|9": good,
+            "falar|pres": good,
+            "linha inventada|pres|0": good,
+            "ser|impf|2": { seen: "3", correct: 1, last: "2026-09-24" },
+            "ser|impf|5": { seen: 3, correct: 1, last: "24/09/2026" },
+            "ser|fut|0": { seen: 3, correct: -1, last: "2026-09-24" },
+            "ser|cond|0": good,
+            "ir|pres|0": "x",
+          },
+        },
+      })
+    ),
+    "形の崩れた drill"
+  );
+  eq(
+    messy?.drill,
+    {
+      stats: {
+        "falar|pres|3": { seen: 2, correct: 2, last: "2026-09-24" },
+        "ser|fut|0": { seen: 3, correct: 0, last: "2026-09-24" },
+        "ser|cond|0": good,
+      },
+    },
+    "drill: キーの形・回数・日付を確かめる（seen は整数・0 は落とす、correct は 0〜seen、知らない時制のキーは残す）"
+  );
+  ok(!JSON.stringify(messy).includes("linha inventada") && !JSON.stringify(messy).includes("future"), "drill の知らない項目を持ち込まない");
+  eq(readDrill({ stats: {} }), { stats: {} }, "readDrill: 空の成績");
+
+  const app = { version: "0.1.0", build: "abc1234" };
+  const out = composeBackup({
+    progress: { version: 1, ...PROGRESS },
+    music: MUSIC,
+    settings: {},
+    app,
+    drill: { ...DRILL, prefs: { tenses: ["pres"] }, stats: { ...DRILL.stats, "x y|pres|0": good } },
+  });
+  eq(out.drill, DRILL, "composeBackup: drill は読み込みと同じ規則で組み直す（設定・壊れたキーは書き出さない）");
+  const back = data(parseBackup(JSON.stringify(out)), "drill の往復");
+  eq(back?.drill, DRILL, "drill: 書き出し → 読み直しで同じ");
+  ok(!("drill" in composeBackup({ progress: { version: 1, ...PROGRESS }, music: MUSIC, settings: {}, app })), "drill を渡さなければ書き出さない");
+  eq(composeBackup({ progress: { version: 1, ...PROGRESS }, music: MUSIC, settings: {}, app, drill: "x" }).drill, { stats: {} }, "壊れた drill は空の成績として書き出す");
+  ok(!!back && describeBackup(back).includes("活用ドリル 2形"), "describeBackup: 活用ドリルの形の数");
+  ok(!!back && !describeBackup({ ...back, drill: null }).includes("活用ドリル"), "describeBackup: drill が無ければ出さない");
 }
 
 console.log("=== parseBackup: カード・曲のデータの検査 ===");
@@ -341,6 +473,22 @@ console.log("=== parseBackup: カード・曲のデータの検査 ===");
   eq(m?.userWords.map((u) => u.id), ["user:a"], "userWords は id と pt のあるものだけ");
   eq(readMusic("x"), null, "music が object でない → null");
   eq(readMusic({}), { songs: {}, addedWords: [], userWords: [] }, "空の music");
+
+  // 自分で訳した行の印（B3-08）: ハッシュの形のキー・値 true だけ。1行も無ければ項目を置かない
+  eq(readSelfTranslated({ abc123: true, k1: true }), { abc123: true, k1: true }, "readSelfTranslated: ハッシュのキー");
+  eq(
+    [readSelfTranslated({}), readSelfTranslated(null), readSelfTranslated(["abc123"]), readSelfTranslated("abc123"), readSelfTranslated({ abc123: 1, k1: "true" })],
+    [null, null, null, null, null],
+    "readSelfTranslated: 空・object でない・値が true でない → null"
+  );
+  eq(
+    readSelfTranslated({ "linha inventada": true, "Linha": true, "abcdefghijkl": true, "ab-12": true, abc123: true }),
+    { abc123: true },
+    "readSelfTranslated: 空白・大文字・12文字以上・記号を含むキー（行の本文）は落とす"
+  );
+  const ms = readMusic({ songs: { vidA: { offsetMs: 5, translations: {}, selfTranslated: { abc123: true, "linha inventada": true } }, vidB: { selfTranslated: {} } } });
+  eq(ms?.songs, { vidA: { offsetMs: 5, translations: {}, selfTranslated: { abc123: true } }, vidB: { offsetMs: 0, translations: {} } }, "readMusic: selfTranslated を読み、空なら項目を置かない");
+  ok(!JSON.stringify(ms).includes("linha inventada"), "readMusic: selfTranslated の行の本文のキーを持ち込まない");
 }
 
 console.log("=== pickSettings ===");
@@ -367,7 +515,36 @@ console.log("=== pickSettings ===");
     "capoeiraShare が負・dailyReviewLimit が負 → 落とす"
   );
   eq(pickSettings({ capoeiraShare: "0.25", dailyReviewLimit: "100" }), {}, "文字列の数値は落とす");
+  eq(
+    [2, 3, 5].map((n) => pickSettings({ handsfreeGapSec: n }).handsfreeGapSec),
+    [2, 3, 5],
+    "handsfreeGapSec: 2 / 3 / 5 秒を読む"
+  );
+  eq(
+    pickSettings({ handsfreeGapSec: "3" }),
+    {},
+    "handsfreeGapSec: 文字列の \"3\" は落とす（数の選択肢は型まで一致）"
+  );
+  eq(pickSettings({ handsfreeGapSec: 4 }), {}, "handsfreeGapSec: 選択肢に無い 4 は落とす");
+  eq(pickSettings({ handsfreeGapSec: 0 }), {}, "handsfreeGapSec: 0 は落とす");
+  eq(pickSettings({ handsfreeGapSec: NaN }), {}, "handsfreeGapSec: NaN は落とす");
+  eq(
+    pickSettings({ handsfreeDirection: "pt2ja" }),
+    { handsfreeDirection: "pt2ja" },
+    "handsfreeDirection: pt2ja を読む"
+  );
+  eq(
+    [pickSettings({ handsfreeDirection: "mixed" }), pickSettings({ handsfreeDirection: 1 }), pickSettings({ studyView: 0 })],
+    [{}, {}, {}],
+    "handsfreeDirection の mixed・数、文字列の選択肢に数 → 落とす"
+  );
   eq(pickSettings({ dailyNewLimit: Infinity, rate: NaN }), {}, "Infinity・NaN を落とす");
+  eq(
+    [pickSettings({ replayAfterLookup: true }), pickSettings({ replayAfterLookup: false })],
+    [{ replayAfterLookup: true }, { replayAfterLookup: false }],
+    "replayAfterLookup: true / false を読む"
+  );
+  eq([pickSettings({ replayAfterLookup: "true" }), pickSettings({ replayAfterLookup: 1 })], [{}, {}], "replayAfterLookup: 文字列・数は落とす");
 }
 
 console.log("=== composeBackup（v3 の書き出し） ===");
@@ -414,6 +591,32 @@ console.log("=== composeBackup（v3 の書き出し） ===");
     ok(describeBackup(d).includes("曲の単語 1語") && describeBackup(d).includes("設定を含む"), "describeBackup: 曲の単語と設定");
   }
   eq(r.ok && r.warnings, [], "往復: 警告なし");
+}
+{
+  // B3-08: 自分で訳した行の印は書き出す（ハッシュだけ）。行の本文のキーは書き出さない
+  const out = composeBackup({
+    progress: { version: 1, ...PROGRESS },
+    music: {
+      ...MUSIC,
+      songs: {
+        vidA: { ...MUSIC.songs.vidA, selfTranslated: { abc123: true, "linha inventada": true } as Record<string, true> },
+        vidB: { offsetMs: 0, translations: {}, selfTranslated: {} },
+      },
+    },
+    settings: { ...V3.settings, replayAfterLookup: false },
+    app: { version: "0.1.0", build: "abc1234" },
+  });
+  const songs = (out.music as { songs: Record<string, unknown> }).songs;
+  eq(songs.vidA, { ...MUSIC.songs.vidA, selfTranslated: { abc123: true } }, "書き出し: selfTranslated はハッシュのキーだけ");
+  eq(songs.vidB, { offsetMs: 0, translations: {} }, "書き出し: 空の selfTranslated は書き出さない");
+  ok(!JSON.stringify(out).includes("linha inventada"), "書き出し: 行の本文を書き出さない");
+  eq((out.settings as Record<string, unknown>).replayAfterLookup, false, "書き出し: replayAfterLookup");
+  const d = data(parseBackup(JSON.stringify(out)), "selfTranslated の往復");
+  eq(d?.music?.songs.vidA.selfTranslated, { abc123: true }, "往復: selfTranslated");
+  eq(d?.settings?.replayAfterLookup, false, "往復: replayAfterLookup");
+  ok(!!d && describeBackup(d).includes("自分で訳した行 1行"), "describeBackup: 自分で訳した行の数");
+  const plain = data(parseBackup(JSON.stringify({ ...V3 })), "selfTranslated の無いファイル");
+  ok(!!plain && !describeBackup(plain).includes("自分で訳した行"), "describeBackup: 自分で訳した行が無ければ出さない");
 }
 
 // ---------------------------------------------------------------------------
@@ -629,6 +832,78 @@ console.log("=== merge: 曲のデータ（和訳・同期・曲の単語） ==="
   eq(mm.addedWords.map((w) => w.id), ["w1", "w2"], "addedWords を統合");
   eq(mm.userWords.map((u) => `${u.id}:${u.ja}`), ["user:a:端末", "user:b:び"], "userWords: 和集合（同じ ID は端末側）");
   ok(mergeMusic(LM, null) === LM, "ファイルに曲のデータが無い（v1）→ 端末側のまま");
+
+  // 自分で訳した行の印（B3-08）: 和集合。どちらにも無ければ項目を置かない
+  eq(mergeSelfTranslated({ a1: true, b2: true }, { b2: true, c3: true }), { a1: true, b2: true, c3: true }, "mergeSelfTranslated: 和集合（端末側の順）");
+  eq([mergeSelfTranslated(undefined, undefined), mergeSelfTranslated({}, {})], [undefined, undefined], "mergeSelfTranslated: どちらにも無い → undefined");
+  eq([mergeSelfTranslated({ a1: true }, undefined), mergeSelfTranslated(undefined, { c3: true })], [{ a1: true }, { c3: true }], "mergeSelfTranslated: 片方だけ → その印");
+  const LS: MusicExport = {
+    songs: {
+      vidA: { offsetMs: 100, translations: { k1: tr("端末", true) }, selfTranslated: { k1: true } },
+      vidB: { offsetMs: 0, translations: {} },
+      vidC: { offsetMs: 7, translations: {}, selfTranslated: { k9: true } },
+    },
+    addedWords: [],
+    userWords: [],
+  };
+  const RS: MusicExport = {
+    songs: {
+      vidA: { offsetMs: 300, translations: { k2: tr("ファイル", false) }, selfTranslated: { k2: true, k1: true } },
+      vidB: { offsetMs: 5, translations: {} },
+      vidD: { offsetMs: 1, translations: {}, selfTranslated: { k4: true } },
+    },
+    addedWords: [],
+    userWords: [],
+  };
+  const beforeS = JSON.stringify([LS, RS]);
+  const ms = mergeMusic(LS, RS);
+  eq(ms.songs.vidA, { offsetMs: 100, translations: { k1: tr("端末", true), k2: tr("ファイル", false) }, selfTranslated: { k1: true, k2: true } }, "songs: 自分で訳した行の印は和集合");
+  eq(ms.songs.vidB, { offsetMs: 0, translations: {} }, "songs: どちらにも印が無い曲には selfTranslated を足さない");
+  ok(!("selfTranslated" in ms.songs.vidB), "songs: どちらにも印が無い曲には selfTranslated の項目自体を置かない");
+  eq(ms.songs.vidC, LS.songs.vidC, "songs: 端末にだけある曲の印はそのまま");
+  eq(ms.songs.vidD, RS.songs.vidD, "songs: ファイルにだけある曲の印も入る");
+  eq(JSON.stringify([LS, RS]), beforeS, "mergeMusic: 元のデータを書き換えない");
+  eq(mergeMusic(ms, RS), ms, "mergeMusic: 同じファイルをもう一度統合しても同じ");
+}
+
+console.log("=== merge: 活用ドリルの成績（形ごとに last → seen → correct → 端末側） ===");
+{
+  const st = (seen: number, correct: number, last: string) => ({ seen, correct, last });
+  const L = {
+    stats: {
+      a: st(3, 1, "2026-09-20"),
+      b: st(1, 1, "2026-09-24"),
+      c: st(2, 2, "2026-09-22"),
+      d: st(2, 1, "2026-09-22"),
+      e: st(4, 4, "2026-09-10"),
+      g: st(2, 1, "2026-09-22"),
+    },
+  };
+  const R = {
+    stats: {
+      a: st(5, 5, "2026-09-21"),
+      b: st(9, 9, "2026-09-23"),
+      c: st(3, 0, "2026-09-22"),
+      d: st(2, 2, "2026-09-22"),
+      f: st(1, 0, "2026-09-01"),
+      g: st(2, 1, "2026-09-22"),
+    },
+  };
+  const before = JSON.stringify([L, R]);
+  const m = mergeDrill(L, R);
+  eq(m.stats.a, R.stats.a, "ファイルの方が新しい → ファイル側");
+  eq(m.stats.b, L.stats.b, "端末の方が新しい → 端末側（回数が少なくても）");
+  eq(m.stats.c, R.stats.c, "同じ日 → seen が大きい方");
+  eq(m.stats.d, R.stats.d, "同じ日・同じ seen → correct が大きい方");
+  ok(m.stats.g === L.stats.g, "まったく同じ → 端末側");
+  eq(m.stats.e, L.stats.e, "端末にだけある形は残す");
+  eq(m.stats.f, R.stats.f, "ファイルにだけある形を足す");
+  eq(Object.keys(m.stats), ["a", "b", "c", "d", "e", "g", "f"], "端末側の順に並べ、ファイルにだけある形を後ろに足す");
+  eq(JSON.stringify([L, R]), before, "元の成績を書き換えない");
+  eq(mergeDrill(m, R), m, "同じファイルをもう一度統合しても同じ");
+  ok(mergeDrill(L, null) === L, "ファイルに drill が無い → 端末側のまま");
+  ok(compareDrillStats(st(1, 0, "2026-09-21"), st(9, 9, "2026-09-20")) > 0, "compareDrillStats: 日付を最初に比べる");
+  eq(compareDrillStats(st(1, 0, "2026-09-21"), st(1, 0, "2026-09-21")), 0, "compareDrillStats: 同じなら 0");
 }
 
 // ---------------------------------------------------------------------------
@@ -683,6 +958,45 @@ mem.set(
   eq(installSnoozed("x", base), false, "時刻が壊れている → 出す");
 }
 
+console.log("=== useDrill（前方互換・記録・出題の設定） ===");
+// 将来版（version:1）の保存データ。旧版で開いても消えないこと
+mem.set(
+  "bp-drill-v1",
+  JSON.stringify({
+    state: {
+      stats: { "ser|pres|0": { seen: 2, correct: 1, last: "2026-09-20" } },
+      prefs: { tenses: ["impf"], futurePref: 1 },
+      futureKey: 1,
+    },
+    version: 1,
+  })
+);
+{
+  const { useDrill, cleanPrefs, DEFAULT_DRILL_PREFS } = await import("../src/store/useDrill");
+  const D = () => useDrill.getState();
+  eq(D().stats, { "ser|pres|0": { seen: 2, correct: 1, last: "2026-09-20" } }, "version:1 のデータも保持する");
+  eq(cleanPrefs(D().prefs).tenses, ["impf"], "保存された出題の設定を読む");
+  eq(cleanPrefs(D().prefs).persons, DEFAULT_DRILL_PREFS.persons, "保存されていない設定は既定値");
+  D().record("ser|pres|0", true, "2026-09-24");
+  D().record("falar|pret|3", false, "2026-09-24");
+  eq(D().stats["ser|pres|0"], { seen: 3, correct: 2, last: "2026-09-24" }, "record: 回数を足し、最後に答えた日を更新");
+  eq(D().stats["falar|pret|3"], { seen: 1, correct: 0, last: "2026-09-24" }, "record: 初めての形（不正解）");
+  const saved = JSON.parse(mem.get("bp-drill-v1") ?? "{}");
+  eq([saved.version, saved.state?.futureKey, saved.state?.prefs?.futurePref], [0, 1, 1], "書き戻しても未知の項目が残る");
+  eq(
+    cleanPrefs({ groups: [], tenses: ["cond" as never], persons: [7 as never, 3], size: 15 }),
+    { groups: DEFAULT_DRILL_PREFS.groups, tenses: DEFAULT_DRILL_PREFS.tenses, persons: [3], size: 10 },
+    "cleanPrefs: 知らない値を落とし、空になった項目・知らない問題数は既定値"
+  );
+  eq(cleanPrefs(undefined), DEFAULT_DRILL_PREFS, "cleanPrefs: 設定が無い → 既定値");
+  D().setPrefs({ tenses: ["fut", "pres"], size: 20 });
+  eq([cleanPrefs(D().prefs).tenses, cleanPrefs(D().prefs).size], [["pres", "fut"], 20], "setPrefs: 時制は表の順にそろえる");
+  eq(D().exportData(), { stats: D().stats }, "exportData は成績だけ（出題の設定はバックアップに入れない）");
+  D().reset();
+  eq(D().stats, {}, "reset: 成績を消す");
+  eq(cleanPrefs(D().prefs).tenses, ["pres", "fut"], "reset: 出題の設定は残す");
+}
+
 console.log("=== exportAll / importAll（ストア） ===");
 {
   // 歌詞キャッシュ（別キー）に目印の文字列を入れておき、書き出しに混ざらないことを確かめる
@@ -698,8 +1012,10 @@ console.log("=== exportAll / importAll（ストア） ===");
   const { useMusic } = await import("../src/store/useMusic");
   const { useSettings } = await import("../src/store/useSettings");
   const { getCachedLyrics } = await import("../src/store/lyricsCache");
+  const { useDrill } = await import("../src/store/useDrill");
   const P = () => useProgress.getState();
   const M = () => useMusic.getState();
+  const D = () => useDrill.getState();
   ok(getCachedLyrics("vidA")?.plainLyrics === MARK, "前提: 歌詞キャッシュに目印がある");
 
   P().resetAll();
@@ -708,20 +1024,39 @@ console.log("=== exportAll / importAll（ストア） ===");
   P().pinNew(["words:0300"]);
   useMusic.setState({
     songs: {
-      vidA: { offsetMs: 120, translations: { abc123: { text: "訳の例", edited: true } }, plainLyrics: MARK } as never,
+      vidA: {
+        offsetMs: 120,
+        translations: { abc123: { text: "訳の例", edited: true } },
+        // 自分で訳した行の印（B3-08）。紛れ込んだ行の本文のキーは書き出さない
+        selfTranslated: { abc123: true, [MARK]: true },
+        plainLyrics: MARK,
+      } as never,
     },
     addedWords: [{ id: "words:0020", videoId: "vidA", surface: "x", createdCard: true, addedAt: "2026-09-24T00:00:00.000Z" }],
     userWords: [],
   });
   P().addCard("words:0020");
-  useSettings.getState().set({ rate: 0.8, dailyNewLimit: 9, voiceURI: "voz-do-aparelho", capoeiraShare: 0.5, dailyReviewLimit: 200 });
+  useSettings.getState().set({
+    rate: 0.8,
+    dailyNewLimit: 9,
+    voiceURI: "voz-do-aparelho",
+    capoeiraShare: 0.5,
+    dailyReviewLimit: 200,
+    handsfreeGapSec: 5,
+    handsfreeDirection: "ja2pt",
+    replayAfterLookup: false,
+  });
   P().logActivity("dictation", 1, 40);
+  D().reset();
+  D().record("falar|pres|3", true, "2026-09-24");
+  const DRILL_STATS = { "falar|pres|3": { seen: 1, correct: 1, last: "2026-09-24" } };
   const hist = P().history;
   eq(hist[todayStr()], { reviews: 2, newWords: 2, again: 1, act: { dictation: { n: 1, sec: 40 } } }, "前提: 今日の学習ログがある");
 
   const json = exportAll();
   const out = JSON.parse(json) as Record<string, unknown>;
   eq(out.history, hist, "書き出しに学習ログ（history）を含める");
+  eq(out.drill, { stats: DRILL_STATS }, "書き出しに活用ドリルの成績（drill）を含める（出題の設定は含めない）");
   ok(!json.includes(MARK), "書き出しに歌詞キャッシュ・歌詞の文字列が入らない");
   for (const k of ["syncedLyrics", "plainLyrics", "instrumental", "fetchedAt", "bp-lyrics-cache-v1", "lyricsCache"]) {
     ok(!json.includes(`"${k}"`), `書き出しに歌詞キャッシュの項目 ${k} が無い`);
@@ -733,13 +1068,30 @@ console.log("=== exportAll / importAll（ストア） ===");
   const s = out.settings as Record<string, unknown>;
   eq([s.rate, s.dailyNewLimit, "voiceURI" in s], [0.8, 9, false], "settings（voiceURI を除く）");
   eq([s.capoeiraShare, s.dailyReviewLimit], [0.5, 200], "settings に capoeiraShare・dailyReviewLimit を書き出す");
-  eq((out.music as { songs: unknown }).songs, { vidA: { offsetMs: 120, translations: { abc123: { text: "訳の例", edited: true } } } }, "music.songs");
+  eq([s.handsfreeGapSec, s.handsfreeDirection], [5, "ja2pt"], "settings に耳だけ復習の考える間・向きを書き出す");
+  eq(
+    (out.music as { songs: unknown }).songs,
+    { vidA: { offsetMs: 120, translations: { abc123: { text: "訳の例", edited: true } }, selfTranslated: { abc123: true } } },
+    "music.songs（自分で訳した行の印はハッシュのキーだけ）"
+  );
+  eq(s.replayAfterLookup, false, "settings に replayAfterLookup を書き出す");
 
   // 置き換えで戻る。voiceURI は端末側のまま
   P().resetAll();
   M().clearAddedWords();
   useMusic.setState({ songs: {} });
-  useSettings.getState().set({ rate: 1.2, dailyNewLimit: 20, voiceURI: "outra-voz", capoeiraShare: 0, dailyReviewLimit: 50 });
+  useSettings.getState().set({
+    rate: 1.2,
+    dailyNewLimit: 20,
+    voiceURI: "outra-voz",
+    capoeiraShare: 0,
+    dailyReviewLimit: 50,
+    handsfreeGapSec: 2,
+    handsfreeDirection: "pt2ja",
+    replayAfterLookup: true,
+  });
+  D().reset();
+  D().record("ir|pret|0", false, "2026-09-25");
   const r = importAll(json, "replace");
   ok(r.ok, "importAll 書き出したもの → ok");
   eq(Object.keys(P().cards).sort(), ["words:0010", "words:0011", "words:0020"], "cards を復元");
@@ -747,9 +1099,13 @@ console.log("=== exportAll / importAll（ストア） ===");
   eq(P().history, hist, "学習ログ（history）を復元");
   eq(M().addedWords.map((w) => w.id), ["words:0020"], "曲の単語を復元");
   eq(M().songs.vidA?.offsetMs, 120, "曲の同期を復元");
+  eq(M().songs.vidA?.selfTranslated, { abc123: true }, "自分で訳した行の印を復元");
   const st = useSettings.getState();
   eq([st.rate, st.dailyNewLimit, st.voiceURI], [0.8, 9, "outra-voz"], "設定を復元（voiceURI は端末側のまま）");
   eq([st.capoeiraShare, st.dailyReviewLimit], [0.5, 200], "capoeiraShare・dailyReviewLimit を復元");
+  eq([st.handsfreeGapSec, st.handsfreeDirection], [5, "ja2pt"], "耳だけ復習の考える間・向きを復元");
+  eq(st.replayAfterLookup, false, "調べた後は行の頭から再開（replayAfterLookup）を復元");
+  eq(D().stats, DRILL_STATS, "置き換え: 活用ドリルの成績もファイルの内容");
 
   // 読めないものは何も変えない
   const before = JSON.stringify(P().cards);
@@ -765,6 +1121,14 @@ console.log("=== exportAll / importAll（ストア） ===");
   eq(P().cards["words:0020"]?.last, null, "v1: 作り直したカードは未評価");
   eq(useSettings.getState().rate, 0.8, "v1: 設定は変えない");
   eq(P().history, {}, "v1（history 無し）で置き換え → history は {}");
+  eq(D().stats, DRILL_STATS, "v1（drill 無し）で置き換え → 活用ドリルの成績は端末側のまま");
+
+  // 進捗のリセットでは活用ドリルの成績も消す
+  const { resetAllProgress } = await import("../src/store/backup");
+  resetAllProgress();
+  eq([Object.keys(P().cards).length, D().stats], [0, {}], "resetAllProgress: 進捗と活用ドリルの成績を消す");
+  eq([M().songs.vidA?.selfTranslated, M().songs.vidA?.offsetMs], [undefined, 120], "resetAllProgress: ✍の印は消し、同期設定は残す");
+  ok(!!M().songs.vidA && "translations" in M().songs.vidA, "resetAllProgress: 曲の和訳（translations）は残す");
 
   P().resetAll();
   M().clearAddedWords();
@@ -777,9 +1141,12 @@ console.log("=== importAll 統合（ストア） ===");
   const { useProgress } = await import("../src/store/useProgress");
   const { useMusic } = await import("../src/store/useMusic");
   const { useSettings } = await import("../src/store/useSettings");
+  const { useDrill } = await import("../src/store/useDrill");
   const P = () => useProgress.getState();
   const M = () => useMusic.getState();
+  const D = () => useDrill.getState();
   const TD = todayStr();
+  const ds = (seen: number, correct: number, last: string) => ({ seen, correct, last });
   const tr = (text: string, edited: boolean) => ({ text, edited });
   const hday = (reviews: number, newWords: number, again: number, act = {}) => ({ reviews, newWords, again, act });
 
@@ -799,11 +1166,12 @@ console.log("=== importAll 統合（ストア） ===");
     history: { [TD]: hday(3, 1, 0, { music: { n: 0, sec: 60 } }) },
   });
   useMusic.setState({
-    songs: { vidA: { offsetMs: 100, translations: { k1: tr("端末の訳", true) } } },
+    songs: { vidA: { offsetMs: 100, translations: { k1: tr("端末の訳", true) }, selfTranslated: { k1: true } } },
     addedWords: [{ id: "words:0001", videoId: "vidA", surface: "x", createdCard: false, addedAt: "2026-09-10T00:00:00.000Z" }],
     userWords: [],
   });
-  useSettings.getState().set({ rate: 0.9, dailyNewLimit: 11 });
+  useSettings.getState().set({ rate: 0.9, dailyNewLimit: 11, handsfreeGapSec: 3, handsfreeDirection: "pt2ja", replayAfterLookup: true });
+  useDrill.setState({ stats: { "ser|pres|0": ds(2, 1, TD), "ir|pres|0": ds(1, 0, addDays(TD, -3)) } });
   const dailyBefore = JSON.stringify(P().daily);
 
   // 別の端末（PC）で作ったバックアップ
@@ -824,11 +1192,14 @@ console.log("=== importAll 統合（ストア） ===");
     pinnedNew: ["words:0060"],
     history: { [TD]: hday(1, 2, 1), [addDays(TD, -1)]: hday(8, 0, 2, { quiz: { n: 10, sec: 0 } }) },
     music: {
-      songs: { vidA: { offsetMs: 999, translations: { k1: tr("PC の訳", true), k2: tr("機械翻訳", false) } } },
+      songs: { vidA: { offsetMs: 999, translations: { k1: tr("PC の訳", true), k2: tr("機械翻訳", false) }, selfTranslated: { k2: true } } },
       addedWords: [{ id: "words:0004", videoId: "vidB", surface: "y", createdCard: true, addedAt: "2026-09-12T00:00:00.000Z" }],
       userWords: [{ id: "user:x", pt: "x", ja: "エックス", pos: "名詞" }],
     },
-    settings: { rate: 1.2, dailyNewLimit: 30 },
+    settings: { rate: 1.2, dailyNewLimit: 30, handsfreeGapSec: 5, handsfreeDirection: "ja2pt", replayAfterLookup: false },
+    drill: {
+      stats: { "ser|pres|0": ds(9, 9, addDays(TD, -1)), "ir|pres|0": ds(4, 2, addDays(TD, -1)), "ter|pret|5": ds(1, 1, addDays(TD, -2)) },
+    },
   };
   const r = importAll(JSON.stringify(remote), "merge");
   ok(r.ok, "importAll 統合 → ok");
@@ -847,11 +1218,19 @@ console.log("=== importAll 統合（ストア） ===");
     "history: 日ごと・項目ごとに大きい方"
   );
   eq(JSON.stringify(P().daily), dailyBefore, "daily（今日のカウンタ）は端末側のまま");
-  eq(M().songs.vidA, { offsetMs: 100, translations: { k1: tr("端末の訳", true), k2: tr("機械翻訳", false) } }, "曲: offsetMs は端末側、和訳は両方の行を合わせる");
+  eq(
+    M().songs.vidA,
+    { offsetMs: 100, translations: { k1: tr("端末の訳", true), k2: tr("機械翻訳", false) }, selfTranslated: { k1: true, k2: true } },
+    "曲: offsetMs は端末側、和訳は両方の行を合わせ、自分で訳した行の印は和集合"
+  );
   eq(M().addedWords.map((w) => `${w.id}@${w.videoId}`), ["words:0001@vidA", "words:0004@vidB"], "曲の単語: 和集合");
   eq(M().userWords.map((u) => u.id), ["user:x"], "userWords: 和集合");
   const st = useSettings.getState();
   eq([st.rate, st.dailyNewLimit], [0.9, 11], "統合では設定を変えない（端末側のまま）");
+  eq([st.handsfreeGapSec, st.handsfreeDirection], [3, "pt2ja"], "統合では耳だけ復習の設定も端末側のまま");
+  eq(st.replayAfterLookup, true, "統合では replayAfterLookup も端末側のまま");
+  const DRILL_MERGED = { "ser|pres|0": ds(2, 1, TD), "ir|pres|0": ds(4, 2, addDays(TD, -1)), "ter|pret|5": ds(1, 1, addDays(TD, -2)) };
+  eq(D().stats, DRILL_MERGED, "drill: 形ごとに最後に答えた日が新しい方（端末だけ・ファイルだけの形も残す）");
 
   // 同じファイルをもう一度統合しても変わらない
   const snapshot = () => JSON.stringify([P().cards, P().history, P().streak, P().bestStreak, P().lastStudyDate, P().totalReviews, P().pinnedNew, P().customPassages, M().songs, M().addedWords, M().userWords]);
@@ -863,6 +1242,7 @@ console.log("=== importAll 統合（ストア） ===");
   const r3 = importAll(exportAll(), "merge");
   eq(r3.ok && r3.diff, { added: 0, updated: 0, removed: 0 }, "自分のバックアップを統合 → 変化なし");
   eq(snapshot(), s1, "自分のバックアップを統合 → 状態も同じ");
+  eq(D().stats, DRILL_MERGED, "同じファイル・自分のバックアップを統合 → 活用ドリルの成績も同じ");
 
   // v1（music・history 無し）の統合: 曲のデータと学習ログは端末側を残す
   const v1 = { version: 1, cards: { "words:0005": card({ last: addDays(TD, -3) }) }, streak: 1, bestStreak: 1, lastStudyDate: addDays(TD, -3), totalReviews: 1 };
@@ -872,6 +1252,7 @@ console.log("=== importAll 統合（ストア） ===");
   eq(JSON.stringify([M().songs, M().addedWords, M().userWords]), JSON.stringify(JSON.parse(s1).slice(8)), "v1 を統合 → 曲のデータは端末側のまま");
   eq(P().history, JSON.parse(s1)[1], "v1 を統合 → 学習ログは端末側のまま");
   eq([P().streak, P().lastStudyDate, P().totalReviews], [5, TD, 55], "v1 を統合 → 連続記録・評価回数は大きい方");
+  eq(D().stats, DRILL_MERGED, "v1 を統合 → 活用ドリルの成績は端末側のまま");
 
   // 置き換えを選んだとき: 端末だけの記録は消え、設定はファイルの内容になる
   const r5 = importAll(JSON.stringify(remote), "replace");
@@ -881,6 +1262,9 @@ console.log("=== importAll 統合（ストア） ===");
   eq(P().history, remote.history, "置き換え: 学習ログもファイル側");
   eq([useSettings.getState().rate, useSettings.getState().dailyNewLimit], [1.2, 30], "置き換え: 設定もファイルの内容");
   eq(M().songs.vidA?.offsetMs, 999, "置き換え: 曲のデータもファイル側");
+  eq(M().songs.vidA?.selfTranslated, { k2: true }, "置き換え: 自分で訳した行の印もファイル側");
+  eq(useSettings.getState().replayAfterLookup, false, "置き換え: replayAfterLookup もファイルの内容");
+  eq(D().stats, remote.drill.stats, "置き換え: 活用ドリルの成績もファイル側");
 
   // ごく古いファイル（和訳のキーが行の本文）: 統合の前にハッシュにそろえ、手で直した端末の訳を残す
   const KEY_TEXT = "Linha inventada para o teste";
@@ -898,6 +1282,7 @@ console.log("=== importAll 統合（ストア） ===");
   P().resetAll();
   M().clearAddedWords();
   useMusic.setState({ songs: {}, userWords: [] });
+  D().reset();
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

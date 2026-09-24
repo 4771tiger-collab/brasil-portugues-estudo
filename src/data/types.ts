@@ -74,14 +74,20 @@ export interface SrsCard {
 /** パターンプラクティス */
 export interface PatternSlotOption {
   pt: string;
+  /** 型（Pattern.ja）の {X} に入れる訳 */
   ja: string;
+  /**
+   * この選択肢を入れた文の自然な和訳（任意）。型に差し込むと崩れる選択肢に書く
+   * （「手伝うしてもらえますか？」→「手伝ってもらえますか？」など）。表示は jaFull ?? 型への差し込み
+   */
+  jaFull?: string;
 }
 export interface Pattern {
   id: string;
   category: string;
   /** 例: "Eu quero {X}." */
   frame: string;
-  /** 例: "私は{X}が欲しい。" */
+  /** 例: "私は{X}が欲しい。"（崩れる選択肢には PatternSlotOption.jaFull を書く） */
   ja: string;
   /** スロット名 -> 選択肢 */
   slots: Record<string, PatternSlotOption[]>;
@@ -135,6 +141,9 @@ export type StudyViewMode = "session" | "list";
 /** 1枚ずつ学習の出題方向（表面に出す言語）。mixed は語と日付で決まる */
 export type StudyDirection = "pt2ja" | "ja2pt" | "mixed";
 
+/** 耳だけ復習の向き（pt2ja: 葡を聴いて和を思い出す / ja2pt: 和を聴いて葡を言う） */
+export type HandsfreeDirection = "pt2ja" | "ja2pt";
+
 /** 設定 */
 export interface Settings {
   rate: number; // 既定の再生速度
@@ -147,6 +156,8 @@ export interface Settings {
   musicNewLimit: number;
   /** 歌詞の単語をタップした時に動画を一時停止する */
   pauseOnWordTap: boolean;
+  /** 単語を調べて一時停止した後、シートを閉じたら調べた行の頭から聴き直す（時間同期のある歌詞のみ） */
+  replayAfterLookup: boolean;
   /** 「今日の学習」を開いたときの表示（他のデッキは一覧が既定） */
   studyView: StudyViewMode;
   /** 1枚ずつ学習の出題方向 */
@@ -157,4 +168,8 @@ export interface Settings {
   capoeiraShare: number;
   /** 1日の復習の上限（枚）。期限の来た復習がこれを超える日は新しい語を出さない */
   dailyReviewLimit: number;
+  /** 耳だけ復習の考える間（秒。画面の選択肢は 2 / 3 / 5） */
+  handsfreeGapSec: number;
+  /** 耳だけ復習の向き */
+  handsfreeDirection: HandsfreeDirection;
 }

@@ -35,6 +35,8 @@ interface Props {
   onExit: () => void;
   /** 一覧表示に切り替える */
   onSwitchView?: () => void;
+  /** 耳だけ復習（🎧）を開く */
+  onHandsfree?: () => void;
   /** 完了画面の「あと5語」（今日の学習のみ） */
   onExtra?: () => void;
   /** 今日の学習で新しい語を止めた理由（完了画面に出す） */
@@ -110,6 +112,7 @@ export default function ReviewSession({
   title,
   onExit,
   onSwitchView,
+  onHandsfree,
   onExtra,
   reason,
   onRated,
@@ -334,6 +337,16 @@ export default function ReviewSession({
             <span className="text-xs tabular-nums text-slate-400">
               {s.pos}/{s.queue.length}
             </span>
+            {onHandsfree && (
+              <button
+                type="button"
+                onClick={onHandsfree}
+                className="min-h-11 px-1 text-xs text-brand-green"
+                title="耳だけ復習（葡 → 考える間 → 和 を読み上げ）"
+              >
+                🎧 耳だけ
+              </button>
+            )}
             {onSwitchView && (
               <button type="button" onClick={onSwitchView} className="min-h-11 px-1 text-xs text-brand-green">
                 一覧表示

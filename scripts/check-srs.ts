@@ -66,6 +66,37 @@ import {
 } from "../src/services/songVocab";
 import { clockRun, clockTake, elapsedSec, newClock } from "../src/services/activityClock";
 import {
+  DEFAULT_HANDSFREE_GAP_SEC,
+  HANDSFREE_GAPS_SEC,
+  JA_SHOW_MS,
+  NEXT_WORD_MS,
+  REPEAT_PAUSE_MS,
+  answerShown,
+  estimateSec,
+  handsfreeDirection,
+  handsfreeGapMs,
+  handsfreeSteps,
+  jaForSpeech,
+  markedFirst,
+  runHandsfree,
+  type HandsfreeConfig,
+  type HandsfreeIO,
+  type HandsfreeStep,
+} from "../src/services/handsfree";
+import {
+  GAP_MAX_MS,
+  GAP_MIN_MS,
+  GAP_MODES,
+  gapDelayMs,
+  gapFactor,
+  gapMode,
+  lookupResumeLine,
+  perLineStop,
+  repeatGapMs,
+  selfTranslatedCount,
+} from "../src/services/musicPractice";
+import { lineHash } from "../src/services/lyrics";
+import {
   AGAIN_GAP,
   INTRO_GAP,
   MAX_REQUEUE,
@@ -1212,6 +1243,286 @@ console.log("=== activityClock（練習・音楽の時間の積算） ===");
   eq([elapsedSec(1000, 600, 43_600), elapsedSec(0, 600, 3_600_000), elapsedSec(5000, 600, 1000)], [43, 600, 0], "elapsedSec: 四捨五入・上限・負にならない");
 }
 
+console.log("=== 耳だけ復習（handsfree の進め方） ===");
+{
+  // 手順を短い文字列にして比べる（say:pt@prompt / wait:3000@think / show:1500@answer）
+  const sig = (steps: HandsfreeStep[]) => steps.map((s) => (s.t === "say" ? `say:${s.lang}@${s.phase}` : `${s.t}:${s.ms}@${s.phase}`));
+  eq(
+    sig(handsfreeSteps("pt2ja", 3000, true)),
+    ["say:pt@prompt", "wait:3000@think", "say:ja@answer", `wait:${REPEAT_PAUSE_MS}@answer`, "say:pt@repeat"],
+    "葡→和（日本語の音声あり）: 葡 → 考える間 → 和 → 600ms → 葡"
+  );
+  eq(
+    sig(handsfreeSteps("pt2ja", 5000, false)),
+    ["say:pt@prompt", "wait:5000@think", `show:${JA_SHOW_MS}@answer`, `wait:${REPEAT_PAUSE_MS}@answer`, "say:pt@repeat"],
+    "葡→和（日本語の音声なし）: 和は読まずに画面に 1.5 秒"
+  );
+  eq(
+    sig(handsfreeSteps("ja2pt", 2000, true)),
+    ["say:ja@prompt", "wait:2000@think", "say:pt@answer", `wait:${REPEAT_PAUSE_MS}@answer`, "say:pt@repeat"],
+    "和→葡（日本語の音声あり）: 和 → 考える間 → 葡 → 600ms → 葡"
+  );
+  eq(
+    sig(handsfreeSteps("ja2pt", 3000, false)),
+    [`show:${JA_SHOW_MS}@prompt`, "wait:3000@think", "say:pt@answer", `wait:${REPEAT_PAUSE_MS}@answer`, "say:pt@repeat"],
+    "和→葡（日本語の音声なし）: 和を画面に出してから考える間"
+  );
+  eq([JA_SHOW_MS, REPEAT_PAUSE_MS], [1500, 600], "日本語の表示 1.5 秒・もう一度の前の間 600ms");
+  ok(NEXT_WORD_MS > 0, "語と語の間がある");
+  // 葡→和はどの場合も最初の手順が読み上げ（タップの処理の中で speak できる）
+  ok(
+    [true, false].every((v) => handsfreeSteps("pt2ja", 3000, v)[0].t === "say"),
+    "葡→和の最初の手順は読み上げ（音声の有無によらない）"
+  );
+  eq(handsfreeSteps("ja2pt", 3000, false)[0].t, "show", "和→葡で日本語の音声が無いときだけ、最初の手順が読み上げでない（無音の発話で始める）");
+  ok(
+    (["pt2ja", "ja2pt"] as const).every((d) =>
+      [true, false].every((v) => {
+        const st = handsfreeSteps(d, 3000, v);
+        return st[st.length - 1].t === "say" && (st[st.length - 1] as { lang: string }).lang === "pt" && st.filter((x) => x.phase === "think").length === 1;
+      })
+    ),
+    "どの組み合わせも最後は葡をもう一度・考える間は1回"
+  );
+  eq(handsfreeSteps("pt2ja", -5, true)[1], { t: "wait", ms: 0, phase: "think" }, "考える間が負なら 0");
+
+  // 考える間（設定の秒 → ms）
+  eq([...HANDSFREE_GAPS_SEC], [2, 3, 5], "考える間の選択肢は 2 / 3 / 5 秒");
+  eq(DEFAULT_HANDSFREE_GAP_SEC, 3, "考える間の既定は 3 秒");
+  eq([handsfreeGapMs(2), handsfreeGapMs(3), handsfreeGapMs(5)], [2000, 3000, 5000], "選択肢の秒 → ms");
+  eq(
+    [handsfreeGapMs(0), handsfreeGapMs(-1), handsfreeGapMs(NaN), handsfreeGapMs("3"), handsfreeGapMs(undefined), handsfreeGapMs(Infinity)],
+    [3000, 3000, 3000, 3000, 3000, 3000],
+    "数でない・0 以下・無限大 → 既定の 3 秒"
+  );
+  eq([handsfreeGapMs(0.2), handsfreeGapMs(100), handsfreeGapMs(2.5)], [1000, 10000, 2500], "範囲外は 1〜10 秒に収める・小数はそのまま");
+  eq(
+    [handsfreeDirection("ja2pt"), handsfreeDirection("pt2ja"), handsfreeDirection("mixed"), handsfreeDirection(undefined)],
+    ["ja2pt", "pt2ja", "pt2ja", "pt2ja"],
+    "向き: 知らない値は pt2ja"
+  );
+
+  // 画面の出し分け
+  eq(
+    (["prompt", "think", "answer", "repeat"] as const).map(answerShown),
+    [false, false, true, true],
+    "答えは answer・repeat の段階でだけ出す"
+  );
+
+  // 日本語の読み上げ用の整形
+  eq(
+    [jaForSpeech("〜である（一時的・状態）"), jaForSpeech("決して〜ない"), jaForSpeech("～さん"), jaForSpeech("  こんにちは  （午後） ")],
+    ["である（一時的・状態）", "決してない", "さん", "こんにちは （午後）"],
+    "jaForSpeech: 〜・～ を消し、空白をまとめる（括弧の注記は audio 側で消す）"
+  );
+  eq(jaForSpeech("〜"), "", "〜だけの訳 → 空（読まずに画面に出す）");
+
+  // 所要時間の目安
+  eq(estimateSec(0, 3000), 0, "0語 → 0 秒");
+  eq(estimateSec(1, 3000), Math.round((1200 * 3 + 3000 + REPEAT_PAUSE_MS) / 1000), "1語 → 読み上げ3回＋考える間＋600ms（語と語の間は無い）");
+  ok(estimateSec(30, 5000) > estimateSec(30, 2000), "考える間が長いほど長い");
+
+  // 「1枚ずつで確認」の並び（印の語が先頭）
+  const ws = ["a", "b", "c", "d", "e"].map((id) => ({ id }));
+  const before = JSON.stringify(ws);
+  eq(markedFirst(ws, new Set(["d", "b"])).map((w) => w.id), ["b", "d", "a", "c", "e"], "印の語を先頭に（それぞれ元の並びのまま）");
+  eq(markedFirst(ws, new Set()).map((w) => w.id), ["a", "b", "c", "d", "e"], "印が無ければ元の並び");
+  eq(markedFirst(ws, new Set(["zzz", "e"])).map((w) => w.id), ["e", "a", "b", "c", "d"], "words に無い id は無視");
+  eq(markedFirst(ws, new Set(["a", "b", "c", "d", "e"])).length, 5, "全部に印 → 同じ語数（重複しない）");
+  eq(JSON.stringify(ws), before, "入力を変えない");
+}
+
+console.log("=== 耳だけ復習（runHandsfree の進行） ===");
+{
+  const W = [
+    { ptForSpeech: "casa", ja: "家" },
+    { ptForSpeech: "mesa", ja: "〜のテーブル" },
+    { ptForSpeech: "gato", ja: "" },
+  ];
+  const cfg = (dir: "pt2ja" | "ja2pt", jaVoice: boolean, gapMs = 3000): HandsfreeConfig => ({ dir, gapMs, jaVoice });
+  /** 偽の io。読み上げ・待ちはすぐ終わる。stopWhen に当たった呼び出しで止める（signal を abort） */
+  function fake(config: () => HandsfreeConfig, ctrl: AbortController, stopWhen?: (ev: string) => boolean) {
+    const log: string[] = [];
+    const steps: string[] = [];
+    const hit = (ev: string) => {
+      log.push(ev);
+      if (stopWhen?.(ev)) ctrl.abort();
+    };
+    const io: HandsfreeIO = {
+      speak: async (text, lang) => hit(`say:${lang}:${text}`),
+      prime: () => hit("prime"),
+      wait: (ms, signal) => {
+        hit(`wait:${ms}`);
+        return signal.aborted ? Promise.reject(new DOMException("aborted", "AbortError")) : Promise.resolve();
+      },
+      config,
+      onWord: (i) => log.push(`word:${i}`),
+      onStep: (i, st, info) => steps.push(`${i}:${st.phase}:${info.dir}:${info.jaSpoken ? "voice" : "screen"}`),
+      onWordDone: (i) => log.push(`done:${i}`),
+    };
+    return { io, log, steps };
+  }
+
+  {
+    const ctrl = new AbortController();
+    const f = fake(() => cfg("pt2ja", true), ctrl);
+    const p = runHandsfree(W, 0, f.io, ctrl.signal);
+    eq(f.log, ["word:0", "say:pt:casa"], "最初の speak は呼び出しの中で同期的に（最初の await の前）");
+    const r = await p;
+    eq(r, "end", "最後まで読んだら end");
+    eq(
+      f.log,
+      [
+        "word:0", "say:pt:casa", "wait:3000", "say:ja:家", "wait:600", "say:pt:casa", "done:0", "wait:1200",
+        "word:1", "say:pt:mesa", "wait:3000", "say:ja:のテーブル", "wait:600", "say:pt:mesa", "done:1", "wait:1200",
+        "word:2", "say:pt:gato", "wait:3000", "wait:1500", "wait:600", "say:pt:gato", "done:2",
+      ],
+      "葡→和: 葡 → 考える間 → 和（〜を除く）→ 600ms → 葡、語の間 1.2 秒・最後の語の後は待たない・訳が無い語は画面に 1.5 秒"
+    );
+    ok(!f.log.includes("prime"), "葡→和では無音の発話を使わない");
+    eq(f.steps.filter((s) => s.startsWith("2:")).map((s) => s.split(":").slice(1).join(":")), [
+      "prompt:pt2ja:screen", "think:pt2ja:screen", "answer:pt2ja:screen", "answer:pt2ja:screen", "repeat:pt2ja:screen",
+    ], "訳が無い語は jaSpoken=false（画面に出す）");
+  }
+  {
+    const ctrl = new AbortController();
+    const f = fake(() => cfg("ja2pt", false, 2000), ctrl);
+    const p = runHandsfree(W, 0, f.io, ctrl.signal);
+    eq(f.log, ["word:0", "prime", "wait:1500"], "和→葡で日本語の音声が無い: 呼び出しの中で無音の発話（prime）を始めてから和を画面に出す");
+    await p;
+    eq(f.log.filter((e) => e === "prime").length, 1, "prime は始めた語だけ（2語目以降は呼ばない）");
+    eq(
+      f.log.slice(0, 8),
+      ["word:0", "prime", "wait:1500", "wait:2000", "say:pt:casa", "wait:600", "say:pt:casa", "done:0"],
+      "和→葡（音声なし）: 和を画面に 1.5 秒 → 考える間 → 葡 → 600ms → 葡"
+    );
+  }
+  {
+    const ctrl = new AbortController();
+    const f = fake(() => cfg("ja2pt", true), ctrl);
+    const p = runHandsfree(W, 1, f.io, ctrl.signal);
+    eq(f.log, ["word:1", "say:ja:のテーブル"], "from=1・和→葡（音声あり）: 最初に和を同期で読む");
+    const r = await p;
+    eq(r, "end", "from から最後まで → end");
+    ok(!f.log.includes("word:0") && !f.log.includes("prime"), "from より前の語は読まない・2語目（訳なし）でも prime しない");
+    eq(f.log.slice(-7), ["word:2", "wait:1500", "wait:3000", "say:pt:gato", "wait:600", "say:pt:gato", "done:2"], "訳が無い語（和→葡）は和を画面に 1.5 秒");
+  }
+  {
+    // 読み上げの途中で止める（和の答えの読み上げ中）
+    const ctrl = new AbortController();
+    const f = fake(() => cfg("pt2ja", true), ctrl, (ev) => ev === "say:ja:家");
+    const r = await runHandsfree(W, 0, f.io, ctrl.signal);
+    eq(r, "aborted", "読み上げ中に止めた → aborted");
+    eq(f.log, ["word:0", "say:pt:casa", "wait:3000", "say:ja:家"], "止めた後は何も読まない・待たない");
+    ok(!f.log.some((e) => e.startsWith("done:")), "止めた語は聴き終えた数に入れない");
+  }
+  {
+    // 最後の葡（もう一度）の読み上げ中に止める: その語は聴き終えた数に入れない
+    const ctrl = new AbortController();
+    let says = 0;
+    const f = fake(() => cfg("pt2ja", true), ctrl, (ev) => ev === "say:pt:casa" && ++says === 2);
+    const r = await runHandsfree(W, 0, f.io, ctrl.signal);
+    eq([r, f.log.slice(-2)], ["aborted", ["wait:600", "say:pt:casa"]], "もう一度の葡の途中で止めた → aborted");
+    ok(!f.log.includes("done:0"), "最後の葡の途中で止めた語は聴き終えた数に入れない");
+  }
+  {
+    // 考える間の途中で止める（待ちが AbortError で終わる）
+    const ctrl = new AbortController();
+    const f = fake(() => cfg("pt2ja", true), ctrl, (ev) => ev === "wait:3000");
+    const r = await runHandsfree(W, 0, f.io, ctrl.signal);
+    eq([r, f.log], ["aborted", ["word:0", "say:pt:casa", "wait:3000"]], "考える間に止めた → aborted・和は読まない");
+  }
+  {
+    // 語と語の間で止める: 1語目は聴き終えた数に入る
+    const ctrl = new AbortController();
+    const f = fake(() => cfg("pt2ja", true), ctrl, (ev) => ev === "wait:1200");
+    const r = await runHandsfree(W, 0, f.io, ctrl.signal);
+    eq([r, f.log.slice(-2)], ["aborted", ["done:0", "wait:1200"]], "語と語の間で止めた → 1語目は聴き終えた・2語目は始めない");
+  }
+  {
+    // 設定は語ごとに読み直す（再生中の変更は次の語から）
+    const ctrl = new AbortController();
+    let n = 0;
+    const f = fake(() => (n++ === 0 ? cfg("pt2ja", true, 2000) : cfg("ja2pt", true, 5000)), ctrl);
+    await runHandsfree(W.slice(0, 2), 0, f.io, ctrl.signal);
+    eq(
+      f.log,
+      ["word:0", "say:pt:casa", "wait:2000", "say:ja:家", "wait:600", "say:pt:casa", "done:0", "wait:1200",
+        "word:1", "say:ja:のテーブル", "wait:5000", "say:pt:mesa", "wait:600", "say:pt:mesa", "done:1"],
+      "向き・考える間の変更は次の語から"
+    );
+  }
+  {
+    const ctrl = new AbortController();
+    const f = fake(() => cfg("pt2ja", true), ctrl);
+    eq([await runHandsfree(W, 3, f.io, ctrl.signal), f.log], ["end", []], "from が語数以上 → 何もせず end");
+    eq([await runHandsfree([], 0, f.io, ctrl.signal), f.log], ["end", []], "語が無い → 何もせず end");
+    const g = fake(() => cfg("pt2ja", true), ctrl);
+    await runHandsfree(W.slice(0, 1), -2, g.io, ctrl.signal);
+    eq(g.log[1], "say:pt:casa", "from が負 → 0 から");
+    const pre = new AbortController();
+    pre.abort();
+    const h = fake(() => cfg("pt2ja", true), pre);
+    eq([await runHandsfree(W, 0, h.io, pre.signal), h.log], ["aborted", []], "始める前に止めてある → 何もせず aborted");
+  }
+}
+
+console.log("=== 曲の練習（行の後の間・調べた後の再開・自分で訳した行） ===");
+{
+  eq(GAP_MODES, ["off", "1x", "1.5x"], "行の後の間の選択肢");
+  eq(["off", "1x", "1.5x", "2x", undefined, 1].map(gapFactor), [0, 1, 1.5, 0, 0, 0], "gapFactor: 知らない値は 0");
+  eq(["1x", "1.5x", "off", "2x", null, 1.5].map(gapMode), ["1x", "1.5x", "off", "off", "off", "off"], "gapMode: 保存値を選択肢に丸める（知らない値は off）");
+  eq([GAP_MIN_MS, GAP_MAX_MS], [1000, 15000], "間の下限 1 秒・上限 15 秒");
+  eq(
+    [gapDelayMs(3, "1x", 1), gapDelayMs(3, "1.5x", 1), gapDelayMs(3, "1x", 0.75), gapDelayMs(2.5, "1.5x", 0.75)],
+    [3000, 4500, 4000, 5000],
+    "gapDelayMs: 行の長さ×係数÷再生速度（0.75 倍速なら実際に聞こえた長さ）"
+  );
+  eq([gapDelayMs(0.4, "1x", 1), gapDelayMs(20, "1.5x", 1), gapDelayMs(9, "1.5x", 0.75)], [1000, 15000, 15000], "gapDelayMs: 1〜15 秒に収める");
+  eq(
+    [gapDelayMs(3, "off", 1), gapDelayMs(0, "1x", 1), gapDelayMs(-2, "1x", 1), gapDelayMs(NaN, "1x", 1), gapDelayMs(Infinity, "1x", 1), gapDelayMs(3, "2x", 1)],
+    [0, 0, 0, 0, 0, 0],
+    "gapDelayMs: 間なし・長さ 0／負／読めない・知らない係数 → 0（間を置かない）"
+  );
+  eq([gapDelayMs(3, "1x", 0), gapDelayMs(3, "1x", NaN), gapDelayMs(3, "1x", -1)], [3000, 3000, 3000], "gapDelayMs: 再生速度が読めなければ 1 倍");
+
+  eq(perLineStop(3, true, "off", 1), { kind: "pause" }, "1行停止・間なし → 行の頭で止める（従来どおり）");
+  eq(perLineStop(3, false, "off", 1), { kind: "pause" }, "1行停止・間なし → 間奏の行でも止める（従来どおり）");
+  eq(perLineStop(3, true, "unknown", 1), { kind: "pause" }, "知らない間の値 → 間なしと同じ");
+  eq(perLineStop(3, true, "1x", 1), { kind: "gap", ms: 3000 }, "1行停止・×1 → 聴いた行と同じ長さだけ止めて自動で再開");
+  eq(perLineStop(4, true, "1.5x", 0.75), { kind: "gap", ms: 8000 }, "1行停止・×1.5・0.75 倍速 → 4×1.5÷0.75 = 8 秒");
+  eq(perLineStop(12, false, "1x", 1), { kind: "continue" }, "1行停止・間あり → 前奏・間奏（歌詞の無い行）の後は止めない");
+  eq(perLineStop(0, true, "1x", 1), { kind: "continue" }, "1行停止・間あり → 長さ 0 の行（同じ時刻の行）の後は止めない");
+
+  eq([repeatGapMs(3, true, "1x", 1), repeatGapMs(3, true, "1.5x", 1)], [3000, 4500], "行リピート: 行末で歌った長さ×係数だけ待ってから繰り返す");
+  eq([repeatGapMs(3, false, "1x", 1), repeatGapMs(3, true, "off", 1)], [0, 0], "行リピート: 歌詞の無い行・間なし → すぐ繰り返す（従来どおり）");
+
+  const base = { replay: true, synced: true, isCurrent: true, line: 3, lineCount: 10, repeatIdx: null };
+  eq(lookupResumeLine(base), 3, "調べた後の再開: 調べた行の頭から");
+  eq(
+    [
+      lookupResumeLine({ ...base, replay: false }),
+      lookupResumeLine({ ...base, synced: false }),
+      lookupResumeLine({ ...base, isCurrent: false }),
+      lookupResumeLine({ ...base, line: null }),
+    ],
+    [null, null, null, null],
+    "設定オフ・時間同期なし・別の曲を再生中・単語タブから開いた → 止めた位置から再開"
+  );
+  eq(
+    [lookupResumeLine({ ...base, line: 10 }), lookupResumeLine({ ...base, line: -1 }), lookupResumeLine({ ...base, line: 1.5 })],
+    [null, null, null],
+    "行番号が範囲外・整数でない → 止めた位置から再開"
+  );
+  eq(lookupResumeLine({ ...base, repeatIdx: 5 }), 5, "行リピート中 → リピートしている行の頭へ");
+  eq(lookupResumeLine({ ...base, repeatIdx: 12 }), 3, "リピートの行番号が範囲外 → 調べた行");
+  eq(lookupResumeLine({ ...base, line: 0 }), 0, "最初の行（0）も戻れる");
+
+  eq(selfTranslatedCount(["a", "b", "c"], { a: true, c: true, z: true }), 2, "自分で訳した行の数（この曲の行だけ数える）");
+  eq(selfTranslatedCount(["a"], undefined), 0, "印が無い → 0");
+  eq(selfTranslatedCount(["a", "b"], { a: "x" as unknown as true, b: true }), 1, "値が true でない印は数えない");
+}
+
 console.log("=== useProgress（ストア・移行・取り消し） ===");
 {
   const st = useProgress.getState();
@@ -1434,6 +1745,51 @@ console.log("=== useMusic.removeWord（曲ごとの記録） ===");
 }
 
 // ---------------------------------------------------------------------------
+// 曲の和訳（B3-08）: 自分で訳した行の印はハッシュだけ・機械翻訳の採用・行の後の間の既定値
+console.log("=== useMusic（自分で訳した行・機械翻訳の採用・行の後の間） ===");
+{
+  const { useMusic } = await import("../src/store/useMusic");
+  const M = () => useMusic.getState();
+  const LINE = "Linha inventada para o teste";
+  const H = lineHash(LINE);
+  useMusic.setState({ songs: { vidA: { offsetMs: 300, translations: { [H]: { text: "機械の訳", edited: false } } } } });
+  M().markSelfTranslated("vidA", H);
+  eq(M().songs.vidA, { offsetMs: 300, translations: { [H]: { text: "機械の訳", edited: false } }, selfTranslated: { [H]: true } }, "markSelfTranslated: 行のハッシュに印（同期・和訳はそのまま）");
+  const before = M().songs;
+  M().markSelfTranslated("vidA", H);
+  ok(M().songs === before, "markSelfTranslated: 印のある行にもう一度 → 変えない");
+  M().markSelfTranslated("vidA", LINE);
+  M().markSelfTranslated("vidA", "Olá");
+  eq(Object.keys(M().songs.vidA.selfTranslated ?? {}), [H], "markSelfTranslated: ハッシュの形でないキー（行の本文）は保存しない");
+  ok(!JSON.stringify(M().songs).includes(LINE), "曲のデータに行の本文が残らない");
+  M().markSelfTranslated("vidB", H);
+  eq(M().songs.vidB, { offsetMs: 0, translations: {}, selfTranslated: { [H]: true } }, "markSelfTranslated: まだデータの無い曲にも付けられる");
+
+  M().editTranslation("vidA", H, " 自分の訳 ");
+  eq(M().songs.vidA.translations[H], { text: "自分の訳", edited: true }, "自分の訳を保存 → edited");
+  eq(M().songs.vidA.selfTranslated, { [H]: true }, "editTranslation でも印は残る");
+  M().mergeTranslations("vidA", { [H]: "機械の訳2" });
+  eq(M().songs.vidA.translations[H].text, "自分の訳", "手で直した訳は機械翻訳で上書きしない（従来どおり）");
+  M().adoptMachineTranslation("vidA", H, " 機械の訳2 ");
+  eq(M().songs.vidA.translations[H], { text: "機械の訳2", edited: false }, "機械翻訳を採用 → 手で直した行も機械翻訳の訳（edited: false）に");
+  M().adoptMachineTranslation("vidA", H, "  ");
+  eq(M().songs.vidA.translations[H].text, "機械の訳2", "空の機械翻訳は採用しない");
+  eq([M().songs.vidA.offsetMs, M().songs.vidA.selfTranslated], [300, { [H]: true }], "採用しても同期・印はそのまま");
+
+  // 行の後の間（prefs.gapMode）は DEFAULT_PREFS とのマージで補う（保存データの移行は要らない）
+  mem.set(
+    "bp-music-v1",
+    JSON.stringify({ state: { songs: {}, addedWords: [], userWords: [], prefs: { showKana: false, rate: 0.75, playMode: "one" } }, version: 1 })
+  );
+  await useMusic.persist.rehydrate();
+  eq([M().prefs.gapMode, M().prefs.showKana, M().prefs.rate, M().prefs.playMode], ["off", false, 0.75, "one"], "gapMode の無い保存データ → off で補い、他の設定は保持");
+  M().setPrefs({ gapMode: "1.5x" });
+  eq(JSON.parse(mem.get("bp-music-v1") ?? "{}").state?.prefs?.gapMode, "1.5x", "gapMode を保存する");
+  useMusic.setState({ songs: {}, addedWords: [], userWords: [] });
+  M().setPrefs({ gapMode: "off", showKana: true, rate: 1, playMode: "all" });
+}
+
+// ---------------------------------------------------------------------------
 // 設定ストア。将来版（version:1）の保存データを旧版で開いても消えず、新しいキーは既定値で補われること
 console.log("=== useSettings（移行・既定値） ===");
 {
@@ -1446,6 +1802,8 @@ console.log("=== useSettings（移行・既定値） ===");
   eq([st.rate, st.dailyNewLimit, st.showKana], [0.8, 7, false], "version:1 のデータも保持（migrate で素通し）");
   eq([st.studyView, st.studyDirection, st.autoPlayOnReveal], ["session", "pt2ja", true], "新しいキーは既定値");
   eq([st.capoeiraShare, st.dailyReviewLimit], [0.25, 100], "B2 の新しいキー（capoeiraShare・dailyReviewLimit）も既定値");
+  eq([st.handsfreeGapSec, st.handsfreeDirection], [3, "pt2ja"], "B3-07 の新しいキー（耳だけ復習の考える間・向き）も既定値");
+  eq(st.replayAfterLookup, true, "B3-08 の新しいキー（調べた後は行の頭から再開）も既定値 true");
   st.set({ studyView: "list" });
   const saved = JSON.parse(mem.get("bp-settings-v1") ?? "{}");
   eq([saved.version, saved.state?.studyView, saved.state?.rate, saved.state?.futureKey], [0, "list", 0.8, "x"], "書き戻しても既存の値と未知の項目が残る");

@@ -5,6 +5,7 @@ import Flashcards from "./pages/Flashcards";
 import Quiz from "./pages/Quiz";
 import Practice from "./pages/Practice";
 import PatternPractice from "./pages/PatternPractice";
+import ConjugationDrill from "./pages/ConjugationDrill";
 import ChunkReading, { ChunkReadingDetail } from "./pages/ChunkReading";
 import Shadowing, { ShadowingDetail } from "./pages/Shadowing";
 import Dictation, { DictationDetail } from "./pages/Dictation";
@@ -29,6 +30,7 @@ export default function App() {
           <Route path="/quiz/:deckId" element={<Quiz />} />
           <Route path="/practice" element={<Practice />} />
           <Route path="/practice/pattern" element={<PatternPractice />} />
+          <Route path="/practice/conjugation" element={<ConjugationDrill />} />
           {/* 練習の詳細は URL で開く（Android の戻る操作で一覧に戻れるように） */}
           <Route path="/practice/chunk" element={<ChunkReading />} />
           <Route path="/practice/chunk/:id" element={<ChunkReadingDetail />} />

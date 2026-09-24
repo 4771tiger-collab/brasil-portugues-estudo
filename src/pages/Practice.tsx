@@ -1,7 +1,8 @@
 import { Link } from "react-router-dom";
 
 const items = [
-  { to: "/practice/pattern", title: "パターンプラクティス", emoji: "🔁", desc: "文型のスロットを入れ替えて発話。文法を体に染み込ませる。" },
+  { to: "/practice/pattern", title: "パターンプラクティス", emoji: "🔁", desc: "文型を入れ替えて発話。和文を見て言う発話ドリル・オートも。" },
+  { to: "/practice/conjugation", title: "活用ドリル", emoji: "🔤", desc: "動詞の活用形を入力。不規則動詞と、学習した動詞から出題。" },
   { to: "/practice/chunk", title: "チャンクリーディング", emoji: "📖", desc: "意味のカタマリ(/)で前から理解する速読特訓。" },
   { to: "/practice/shadowing", title: "シャドーイング", emoji: "🗣️", desc: "お手本を追いかけて発話＋マイク録音で聞き比べ。" },
   { to: "/practice/dictation", title: "ディクテーション", emoji: "✍️", desc: "音声を聴いて書き取る4ステップ学習。" },

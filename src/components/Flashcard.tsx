@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { Rating, SrsCard, Word } from "../data/types";
 import { getExtra } from "../data/loadWords";
 import { daysUntilDue } from "../srs/scheduler";
+import ConjugationTable from "./ConjugationTable";
 import Maskable from "./Maskable";
 import SpeakerButton from "./SpeakerButton";
 import RatingButtons from "./RatingButtons";
@@ -153,6 +154,10 @@ export default function Flashcard({
           )}
         </div>
       )}
+
+      {/* 動詞の活用表（折りたたみ・自動生成）。訳を開いたときに出す。
+          葡語が隠れている（和→葡で思い出している）間は、活用形から答えが分かってしまうので出さない */}
+      {ptVisible && jaVisible && <ConjugationTable pt={word.pt} pos={word.pos} align="start" />}
 
       {onRate && (
         <div className="mt-3">
