@@ -7,9 +7,13 @@ import { useSettings } from "../store/useSettings";
 import { audio } from "../services/audio";
 import { useWakeLock } from "../hooks/useWakeLock";
 import { useBack } from "../hooks/useBack";
+import { elapsedSec } from "../services/activityClock";
 
 /** 一覧の URL。詳細は /practice/chunk/:id（id は custom_… か psg_…） */
 const LIST_PATH = "/practice/chunk";
+
+/** 全文再生1回に記録する時間の上限（秒） */
+const LOG_CAP_SEC = 600;
 
 const SPEEDS = [0.8, 1.0, 1.2];
 
@@ -45,11 +49,16 @@ function Reader({ passage, onBack }: { passage: Passage; onBack: () => void }) {
     const ctrl = new AbortController();
     abortRef.current = ctrl;
     setPlaying(true);
+    const started = Date.now();
     try {
       await audio.speakSequence(
         passage.chunks.map((c) => c.pt),
         { rate: speed, voiceURI, gapMs: 250, onIndex: setActiveIdx, signal: ctrl.signal }
       );
+      // 学習ログ: 全文を最後まで流したとき（停止・画面の移動では記録しない）
+      if (!ctrl.signal.aborted && audio.isSupported()) {
+        useProgress.getState().logActivity("chunk", 1, elapsedSec(started, LOG_CAP_SEC));
+      }
     } finally {
       if (!ctrl.signal.aborted) {
         setPlaying(false);

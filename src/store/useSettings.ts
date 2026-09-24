@@ -19,6 +19,8 @@ const DEFAULTS: Settings = {
   studyView: "session",
   studyDirection: "pt2ja",
   autoPlayOnReveal: true,
+  capoeiraShare: 0.25,
+  dailyReviewLimit: 100,
 };
 
 export const useSettings = create<SettingsState>()(

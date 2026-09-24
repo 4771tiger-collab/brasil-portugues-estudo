@@ -7,9 +7,14 @@ import { audio } from "../services/audio";
 import { toKana } from "../services/pronunciation";
 import { useWakeLock } from "../hooks/useWakeLock";
 import { useBack } from "../hooks/useBack";
+import { elapsedSec } from "../services/activityClock";
+import { useProgress } from "../store/useProgress";
 
 /** 一覧の URL。詳細は /practice/shadowing/:id（id は SCRIPTS の id） */
 const LIST_PATH = "/practice/shadowing";
+
+/** 録音・通し再生1回に記録する時間の上限（秒） */
+const LOG_CAP_SEC = 600;
 
 const SPEEDS = [0.8, 1.0, 1.2];
 
@@ -36,6 +41,8 @@ function Player({ script, onBack }: { script: Script; onBack: () => void }) {
   const chunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
   const ownAudioRef = useRef<HTMLAudioElement | null>(null);
+  /** 録音を始めた時刻（学習ログに録音の長さを記録する） */
+  const recStartRef = useRef<number | null>(null);
 
   function stopModel() {
     abortRef.current?.abort();
@@ -47,6 +54,7 @@ function Player({ script, onBack }: { script: Script; onBack: () => void }) {
     const ctrl = new AbortController();
     abortRef.current = ctrl;
     setPlaying(true);
+    const started = Date.now();
     try {
       await audio.speakSequence(script.lines.map((l) => l.pt), {
         rate: speed,
@@ -55,6 +63,10 @@ function Player({ script, onBack }: { script: Script; onBack: () => void }) {
         onIndex: setActiveIdx,
         signal: ctrl.signal,
       });
+      // 学習ログ: 全文を最後まで流したとき（停止・画面の移動では記録しない）
+      if (!ctrl.signal.aborted && audio.isSupported()) {
+        useProgress.getState().logActivity("shadowing", 1, elapsedSec(started, LOG_CAP_SEC));
+      }
     } finally {
       if (!ctrl.signal.aborted) {
         setPlaying(false);
@@ -79,6 +91,7 @@ function Player({ script, onBack }: { script: Script; onBack: () => void }) {
       };
       recorderRef.current = rec;
       rec.start();
+      recStartRef.current = Date.now();
       setRecording(true);
     } catch (e) {
       setMicError("マイクにアクセスできませんでした。ブラウザの権限を確認してください。");
@@ -87,6 +100,11 @@ function Player({ script, onBack }: { script: Script; onBack: () => void }) {
   function stopRec() {
     recorderRef.current?.stop();
     setRecording(false);
+    // 学習ログ: 録音を止めたら1回（秒数は録音の長さ）
+    if (recStartRef.current !== null) {
+      useProgress.getState().logActivity("shadowing", 1, elapsedSec(recStartRef.current, LOG_CAP_SEC));
+      recStartRef.current = null;
+    }
   }
   function playOwn() {
     if (!recUrl) return;

@@ -19,7 +19,52 @@ import {
   review,
   todayStr,
 } from "../src/srs/scheduler";
-import { buildSession, dueWords, forecast, masteryBreakdown } from "../src/srs/queue";
+import {
+  REVIEWS_PER_NEW,
+  buildSession,
+  countDueOn,
+  dueWords,
+  forecast,
+  interleave,
+  masteryBreakdown,
+  orderNew,
+  pickForQuiz,
+  relativeOverdue,
+  seededShuffle,
+  spreadCategories,
+  WEAK_EASE,
+  WEAK_MIN,
+  weakWords,
+} from "../src/srs/queue";
+import { ALIAS_IDS, ALIAS_KEEP, siblingKey } from "../src/data/siblings";
+import {
+  askableByJa,
+  choiceKey,
+  distractorTier,
+  exclusionLevel,
+  isProperNoun,
+  pickDistractors,
+  posClass,
+  quizPieces,
+} from "../src/services/quizChoices";
+import capoeiraRaw from "../data/capoeira-words.json";
+import irregularRaw from "../data/verb-irregular.json";
+import colloquialRaw from "../data/colloquial.json";
+import { createLemmatizer, type ColloquialTable, type LexRef } from "../src/services/lemmatize";
+import type { IrregularTable } from "../src/services/conjugate";
+import {
+  addTargetId,
+  buildVocabItems,
+  bulkAddCandidates,
+  deckLabel,
+  levelLabel,
+  siblingCard,
+  siblingNote,
+  statusId,
+  studiedId,
+  type VocabItem,
+} from "../src/services/songVocab";
+import { clockRun, clockTake, elapsedSec, newClock } from "../src/services/activityClock";
 import {
   AGAIN_GAP,
   INTRO_GAP,
@@ -286,24 +331,494 @@ eq(quizDecision(EARLY, "hard", T), "none", "期限前 hard → none");
 eq(quizDecision(EARLY, "easy", T), "none", "期限前 easy → none");
 
 // ---------------------------------------------------------------------------
-console.log("=== buildSession（pinned） ===");
+console.log("=== seededShuffle / spreadCategories / interleave ===");
 function w(i: number): Word {
   const id = `words:${String(i).padStart(4, "0")}`;
   return { id, source: "words", index: i, category: "c", pt: `p${i}`, ja: `j${i}`, pos: "名詞", ptForSpeech: `p${i}`, kana: "", ipa: "" };
 }
+/**
+ * orderNew / buildSession 用の語。id は実データと重ならない 9000 番台
+ * （同じ綴りの判定は実データの兄弟グループに無い id なので pt の headKey で決まる）。
+ */
+let fxSeq = 0;
+function fx(source: "words" | "capoeira" | "dict", category: string, o: { pos?: string; pt?: string } = {}): Word {
+  const n = 9000 + fxSeq++;
+  const pt = o.pt ?? `${source}-${category}-${n}`;
+  return { id: `${source}:${n}`, source, index: n, category, pt, ja: `j${n}`, pos: o.pos ?? "名詞", ptForSpeech: pt, kana: "", ipa: "" };
+}
+const range = (n: number) => Array.from({ length: n }, (_, i) => i);
+const idsOf = (ws: Word[]) => ws.map((x) => x.id);
+const sortedIds = (ws: Word[]) => idsOf(ws).sort();
+const isCapW = (x: Word) => x.source === "capoeira";
+/** 同じカテゴリ（ソース＋カテゴリ）が続く最大の長さ */
+function maxRun(ws: Word[]): number {
+  let best = 0;
+  let run = 0;
+  let prev = "";
+  for (const x of ws) {
+    const k = `${x.source}:${x.category}`;
+    run = k === prev ? run + 1 : 1;
+    prev = k;
+    best = Math.max(best, run);
+  }
+  return best;
+}
+function countBy(ws: Word[], key: (x: Word) => string): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const x of ws) out[key(x)] = (out[key(x)] ?? 0) + 1;
+  return Object.fromEntries(Object.entries(out).sort(([a], [b]) => a.localeCompare(b)));
+}
 {
-  const words = [0, 1, 2, 3, 4, 5].map(w);
-  const cards = { "words:0001": card({ intervalDays: 3, reps: 1, last: "2026-09-21", due: T }) };
+  const a = range(20);
+  const frozen = JSON.stringify(a);
+  const s1 = seededShuffle(a, T);
+  eq(seededShuffle(a, T), s1, "seededShuffle: 同じ種 → 同じ並び");
+  eq([...s1].sort((x, y) => x - y), a, "seededShuffle: 要素は同じ（並べ替えだけ）");
+  ok(JSON.stringify(s1) !== frozen, "seededShuffle: 並びが変わる");
+  ok(JSON.stringify(seededShuffle(a, D(1))) !== JSON.stringify(s1), "seededShuffle: 種（日付）が違えば並びも違う");
+  eq(JSON.stringify(a), frozen, "seededShuffle: 入力は変更しない");
+  eq(seededShuffle([], T), [], "seededShuffle: 空");
+
+  const A = range(4).map(() => fx("words", "A"));
+  const B = range(3).map(() => fx("words", "B"));
+  const C = range(3).map(() => fx("words", "C"));
+  const sp = spreadCategories([...A, ...B, ...C]);
+  eq(sortedIds(sp), sortedIds([...A, ...B, ...C]), "spreadCategories: 要素は同じ");
+  eq(maxRun(sp), 1, "spreadCategories: A4 B3 C3 → 同じカテゴリが隣り合わない");
+  eq(idsOf(sp.filter((x) => x.category === "A")), idsOf(A), "spreadCategories: 同じカテゴリの中の順は保つ");
+  eq(maxRun(spreadCategories([...A, B[0]])), 2, "spreadCategories: A4 B1（隣接を避けられない）→ 連続は2語まで");
+  eq(
+    spreadCategories([...A, B[0]]).map((x) => x.category).join(""),
+    "AABAA",
+    "spreadCategories: A4 B1 → AABAA"
+  );
+  const sameName = [fx("words", "X"), fx("words", "X"), fx("capoeira", "X"), fx("capoeira", "X")];
+  eq(maxRun(spreadCategories(sameName)), 1, "spreadCategories: ソースが違えば同じ名前のカテゴリでも別扱い");
+  eq(spreadCategories([]), [], "spreadCategories: 空");
+
+  eq(interleave(["r1", "r2", "r3", "r4", "r5", "r6", "r7", "r8"], ["f1", "f2", "f3"], 4).join(" "), "r1 r2 r3 r4 f1 r5 r6 r7 r8 f2 f3", "interleave: 4枚ごとに1枚、残りは後ろ");
+  eq(interleave([], ["f1", "f2"], 4), ["f1", "f2"], "interleave: 復習なし → 新規だけ");
+  eq(interleave(["r1", "r2"], [], 4), ["r1", "r2"], "interleave: 新規なし → 復習だけ");
+  eq(REVIEWS_PER_NEW, 4, "REVIEWS_PER_NEW = 4");
+}
+
+// ---------------------------------------------------------------------------
+console.log("=== orderNew（新規語の導入順） ===");
+{
+  // 一般語彙: 6カテゴリ × 8語（ファイル順）、カポエイラ: 固有名詞 5語 + 3カテゴリ × 6語
+  const gen = ["G1", "G2", "G3", "G4", "G5", "G6"].flatMap((c) => range(8).map(() => fx("words", c)));
+  const nouns = range(5).map(() => fx("capoeira", "人物", { pos: "固有名詞（人名）" }));
+  const cap = ["K1", "K2", "K3"].flatMap((c) => range(6).map(() => fx("capoeira", c)));
+  const pool = [...gen, ...nouns, ...cap];
+  const frozen = JSON.stringify(pool);
+  const base = { limit: 16, capoeiraShare: 0.25, coreOrder: [] as string[], seed: T };
+
+  const r = orderNew(pool, {}, base);
+  eq(r.length, 16, "limit 語を返す");
+  eq(new Set(idsOf(r)).size, 16, "同じ語は1回");
+  eq(r.filter(isCapW).length, 4, "share 0.25 → 16語中4語がカポエイラ語");
+  ok(!r.some((x) => /固有名詞/.test(x.pos)), "固有名詞は出さない");
+  ok(maxRun(r) <= 2, "同じカテゴリは連続2語まで（セッション内の並び）");
+  eq(orderNew(pool, {}, base), r, "同じ日（種）なら同じ結果");
+  eq(JSON.stringify(pool), frozen, "入力は変更しない");
+  eq(orderNew(pool, {}, { ...base, capoeiraShare: 0 }).filter(isCapW).length, 0, "share 0 → カポエイラ語なし");
+  eq(orderNew(pool, {}, { ...base, capoeiraShare: 0.5 }).filter(isCapW).length, 8, "share 0.5 → 16語中8語");
+  eq(orderNew(pool, {}, { ...base, limit: 15, capoeiraShare: 0.33 }).filter(isCapW).length, 5, "share 0.33（3語に1語）→ 15語中5語");
+  eq(orderNew(pool, {}, { ...base, limit: 12, capoeiraShare: 0.33 }).filter(isCapW).length, 4, "share 0.33 → 12語中4語");
+  eq(orderNew(pool, {}, { ...base, limit: 15, capoeiraShare: 0.3 }).filter(isCapW).length, 4, "share 0.3 は 1/3 に丸めない → 15語中4語");
+  eq(orderNew(cap, {}, { ...base, capoeiraShare: 0, limit: 5 }).length, 5, "一般語が尽きたらカポエイラ語で埋める（share 0 でも）");
+  eq(orderNew(gen.slice(0, 3), {}, { ...base, capoeiraShare: 0.5, limit: 5 }).length, 3, "候補が尽きたらそこまで");
+  eq(orderNew(pool, {}, { ...base, limit: 0 }), [], "limit 0 → []");
+
+  // カテゴリの巡回: 先頭4カテゴリから4語ずつ（ファイル順）。上限に達したら次のカテゴリが窓に入る
+  const byCat = (ws: Word[]) => countBy(ws, (x) => x.category);
+  const g16 = orderNew(gen, {}, { ...base, capoeiraShare: 0 });
+  eq(byCat(g16), { G1: 4, G2: 4, G3: 4, G4: 4 }, "巡回: 先頭4カテゴリ × 4語");
+  eq(sortedIds(g16.filter((x) => x.category === "G1")), sortedIds(gen.slice(0, 4)), "巡回: カテゴリの中はファイル順");
+  const g20 = orderNew(gen, {}, { ...base, capoeiraShare: 0, limit: 20 });
+  eq(byCat(g20), { G1: 4, G2: 4, G3: 4, G4: 4, G5: 2, G6: 2 }, "巡回: 上限に達したカテゴリの次（G5・G6）が窓に入る");
+  const g7 = orderNew(gen, {}, { ...base, capoeiraShare: 0, limit: 7, width: 2, perCategoryCap: 3 });
+  eq(byCat(g7), { G1: 3, G2: 3, G3: 1 }, "巡回: width 2・perCategoryCap 3");
+
+  // カードのある語は候補にしない（曲から追加しただけのカードも）
+  const withCards = {
+    [gen[0].id]: card({ intervalDays: 2, reps: 1, last: D(-1), due: D(1) }),
+    [gen[1].id]: card({ last: null }),
+  };
+  const rc = orderNew(gen, withCards, { ...base, capoeiraShare: 0 });
+  ok(!idsOf(rc).includes(gen[0].id) && !idsOf(rc).includes(gen[1].id), "カードのある語は出さない");
+  eq(sortedIds(rc.filter((x) => x.category === "G1")), sortedIds(gen.slice(2, 6)), "カードのある語を飛ばして次の語");
+
+  // コア語が先（コア語はカテゴリの上限に数えない。一般語とカポエイラ語はそれぞれ core の順）
+  const core = [gen[47].id, gen[46].id, gen[45].id, cap[17].id, gen[44].id, gen[43].id];
+  const rcore = orderNew(pool, {}, { ...base, coreOrder: core, limit: 4 });
+  eq(sortedIds(rcore), [gen[47].id, gen[46].id, gen[45].id, cap[17].id].sort(), "コア語が先（i=3 でカポエイラのコア語）");
+  const rcore6 = orderNew(pool, {}, { ...base, coreOrder: core, limit: 6, capoeiraShare: 0 });
+  eq(sortedIds(rcore6), [gen[47].id, gen[46].id, gen[45].id, gen[44].id, gen[43].id, gen[0].id].sort(), "コア語（同じカテゴリ5語も可）→ 尽きたら巡回");
+  const rcore16 = orderNew(pool, {}, { ...base, coreOrder: core });
+  ok(core.every((id) => idsOf(rcore16).includes(id)), "limit がコア語より多ければコア語はすべて入る");
+
+  // dict はコア語か pinned のときだけ
+  const d1 = fx("dict", "辞書");
+  const d2 = fx("dict", "辞書");
+  const d3 = fx("dict", "辞書");
+  const rd = orderNew([...gen.slice(0, 8), d1, d2, d3], {}, { ...base, capoeiraShare: 0, coreOrder: [d1.id], pinned: [d3.id], limit: 20 });
+  ok(idsOf(rd).includes(d1.id) && idsOf(rd).includes(d3.id) && !idsOf(rd).includes(d2.id), "dict はコア語・pinned だけ");
+
+  // pinned は最優先（固有名詞でも入れる）。カードのある語・未知の id は無視
+  const pinned = [nouns[0].id, gen[30].id, gen[30].id, "words:9999"];
+  eq(sortedIds(orderNew(pool, {}, { ...base, pinned, limit: 2 })), [nouns[0].id, gen[30].id].sort(), "pinned が最優先（固有名詞も・重複除去）");
+  ok(!idsOf(orderNew(pool, { [gen[30].id]: card({ last: D(-1), due: D(2), intervalDays: 3, reps: 1 }) }, { ...base, pinned: [gen[30].id], limit: 1 })).includes(gen[30].id), "カードのある pinned は出さない");
+  eq(orderNew(pool, {}, { ...base, capoeiraShare: 0, pinned: [cap[0].id], limit: 3 }).filter(isCapW).length, 1, "pinned のカポエイラ語は share 0 でも入る");
+
+  // 別名（data/word-aliases.json の alias 側）は候補にしない。pinned なら入れる
+  ok(ALIAS_IDS.has("words:0954"), "前提: words:0954 は別名（bom dia の重複）");
+  const alias: Word = { ...fx("words", "G1", { pt: "Bom dia" }), id: "words:0954", index: 954 };
+  const all = { ...base, capoeiraShare: 0, limit: 100, perCategoryCap: 100, width: 100 };
+  ok(!idsOf(orderNew([alias, ...gen], {}, all)).includes(alias.id), "別名は出さない");
+  ok(idsOf(orderNew([alias, ...gen], {}, { ...all, pinned: [alias.id] })).includes(alias.id), "別名でも pinned なら出す");
+
+  // 別名の登録でつながる語（keep/alias）にカードがあれば、同じ語を2枚目のカードとして導入しない（pinned でも）
+  const rated = card({ intervalDays: 3, reps: 1, last: D(-2), due: D(1) });
+  eq(ALIAS_KEEP.get("capoeira:0077"), "words:0092", "前提: capoeira:0077 falar の keep は words:0092");
+  eq(ALIAS_KEEP.get("words:0546"), "words:0013", "前提: words:0546 sim の keep は words:0013");
+  eq([ALIAS_KEEP.get("words:0951"), ALIAS_KEEP.get("words:0957")], ["words:0012", "words:0012"], "前提: words:0012 の別名は 0951 と 0957");
+  const falar: Word = { ...fx("words", "G1", { pt: "falar" }), id: "words:0092", index: 92 };
+  ok(idsOf(orderNew([falar, ...gen], {}, { ...all, coreOrder: [falar.id] })).includes(falar.id), "keep（コア語）はどれにもカードが無ければ出す");
+  ok(!idsOf(orderNew([falar, ...gen], { "capoeira:0077": rated }, { ...all, coreOrder: [falar.id] })).includes(falar.id), "alias にカードがあれば keep（コア語）は出さない");
+  ok(!idsOf(orderNew([falar, ...gen], { "capoeira:0077": card({ last: null }) }, { ...all, coreOrder: [falar.id] })).includes(falar.id), "曲から追加しただけの alias のカードでも keep は出さない");
+  ok(!idsOf(orderNew([falar, ...gen], { "capoeira:0077": rated }, { ...all, pinned: [falar.id] })).includes(falar.id), "alias にカードがあれば pinned の keep も出さない");
+  const sim: Word = { ...fx("words", "G1", { pt: "sim" }), id: "words:0546", index: 546 };
+  ok(!idsOf(orderNew([sim, ...gen], { "words:0013": rated }, { ...all, pinned: [sim.id] })).includes(sim.id), "keep にカードがあれば pinned の alias は出さない");
+  const lic: Word = { ...fx("words", "G1", { pt: "com licença" }), id: "words:0957", index: 957 };
+  ok(!idsOf(orderNew([lic, ...gen], { "words:0951": rated }, { ...all, pinned: [lic.id] })).includes(lic.id), "同じ keep の別の alias にカードがあれば pinned の alias も出さない");
+
+  // 同じ綴り（兄弟グループ）は1回の選出で1語まで
+  const sw = fx("words", "G1", { pt: "roda" });
+  const sc = fx("capoeira", "K1", { pt: "Roda" });
+  eq(siblingKey(sw), siblingKey(sc), "前提: words と capoeira の roda は同じ兄弟グループ");
+  const rs = orderNew([sw, sc, ...gen.slice(0, 8), ...cap.slice(0, 6)], {}, { ...base, capoeiraShare: 0.5, coreOrder: [sw.id, sc.id], limit: 10 });
+  eq(rs.filter((x) => x.id === sw.id || x.id === sc.id).length, 1, "同じ綴りの語は1語だけ");
+
+  // isExcluded
+  ok(!orderNew(gen, {}, { ...base, capoeiraShare: 0, isExcluded: (x) => x.category === "G1" }).some((x) => x.category === "G1"), "isExcluded の語は出さない");
+}
+
+// ---------------------------------------------------------------------------
+console.log("=== buildSession（復習の上限・延滞順・新規の混ぜ方・同じ綴り） ===");
+{
+  // 評価済みで期限の来たカード（due の offset 日、間隔 i 日）
+  const rv = (dueOff: number, i: number) => card({ ease: 2.5, intervalDays: i, reps: 2, last: D(dueOff - i), due: D(dueOff) });
+  const R = range(6).map(() => fx("words", "R"));
+  // 相対延滞度 (延滞+1)/間隔: R0 0.1 / R1 3 / R2 2 / R3 0.367 / R4 1 / R5 1.33
+  const reviewCards = {
+    [R[0].id]: rv(0, 10),
+    [R[1].id]: rv(-5, 2),
+    [R[2].id]: rv(-1, 1),
+    [R[3].id]: rv(-10, 30),
+    [R[4].id]: rv(0, 1),
+    [R[5].id]: rv(-3, 3),
+  };
+  const N = ["N1", "N2", "N3"].flatMap((c) => range(4).map(() => fx("words", c)));
+  const K = range(4).map(() => fx("capoeira", "K"));
+  const pool = [...R, ...N, ...K];
+  const base = { newLimit: 3, introducedToday: 0, today: T, coreOrder: [] as string[], capoeiraShare: 0 };
+  const byOverdue = [R[1], R[2], R[5], R[4], R[3], R[0]].map((x) => x.id);
+
+  eq(relativeOverdue(rv(-5, 2), T), 3, "relativeOverdue: (延滞5+1)/間隔2 = 3");
+  eq(relativeOverdue(card({ intervalDays: 0, last: T, due: T }), T), 1, "relativeOverdue: 間隔0 は1として割る");
+
+  const s = buildSession(pool, reviewCards, base);
+  eq(idsOf(s.review), byOverdue, "復習は相対延滞度の降順");
+  eq([s.reason, s.dueTotal, s.fresh.length], [undefined, 6, 3], "上限内 → 新規も出す");
+  eq(
+    s.all.map((x) => (s.fresh.includes(x) ? "f" : "r")).join(""),
+    "rrrrfrrff",
+    "all = 復習4枚ごとに新規1枚（残りは後ろ）"
+  );
+  eq(s.fresh.filter(isCapW).length, 0, "capoeiraShare 0 → カポエイラ語なし");
+  eq(buildSession(pool, reviewCards, { ...base, capoeiraShare: 0.5, newLimit: 4 }).fresh.filter(isCapW).length, 2, "capoeiraShare を orderNew に渡す");
+
+  // 上限
+  const cap4 = buildSession(pool, reviewCards, { ...base, reviewLimit: 4 });
+  eq(idsOf(cap4.review), byOverdue.slice(0, 4), "reviewLimit 4 → 延滞の大きい4枚");
+  eq([cap4.reason, cap4.fresh, cap4.dueTotal], ["backlog", [], 6], "延滞が上限を超える → fresh=[]・reason=backlog");
+  eq(idsOf(cap4.all), byOverdue.slice(0, 4), "backlog の日は復習だけ");
+  const used = buildSession(pool, reviewCards, { ...base, reviewLimit: 8, reviewedToday: 5 });
+  eq([idsOf(used.review), used.reason], [byOverdue.slice(0, 3), "backlog"], "今日の評価済み5枚 → 残りの上限3枚");
+  const exact = buildSession(pool, reviewCards, { ...base, reviewLimit: 6 });
+  eq([exact.review.length, exact.reason, exact.fresh.length], [6, undefined, 3], "延滞がちょうど上限 → backlog ではない");
+  const spent = buildSession(pool, reviewCards, { ...base, reviewLimit: 100, reviewedToday: 100 });
+  eq([spent.all, spent.reason], [[], "backlog"], "上限を使い切って期限の語が残る → 何も出さず backlog");
+  const noDue = buildSession(N, {}, { ...base, reviewLimit: 1, reviewedToday: 100 });
+  eq([noDue.reason, noDue.fresh.length], [undefined, 3], "期限の語が無ければ上限を使い切っていても新規は出す");
+
+  // 今日 again にした語（再学習）は上限の外で必ず出す
+  const relearnW = fx("words", "R");
+  const withRelearn = { ...reviewCards, [relearnW.id]: card({ lapses: 1, last: T, due: T }) };
+  const rl = buildSession([...pool, relearnW], withRelearn, { ...base, reviewLimit: 2 });
+  eq(idsOf(rl.review), [...byOverdue.slice(0, 2), relearnW.id], "今日の再学習は上限の外（復習の後ろ）");
+  eq(rl.dueTotal, 6, "dueTotal に今日の再学習は数えない");
+
+  // 曲から追加した語（未評価）は別枠で後ろ
+  const m1 = fx("dict", "曲の単語");
+  const m2 = fx("dict", "曲の単語");
+  const withAdded = { ...reviewCards, [m1.id]: card({ last: null, due: D(-2) }), [m2.id]: card({ last: null, due: T }) };
+  const ad = buildSession([...pool, m1, m2], withAdded, { ...base, addedLimit: 1 });
+  eq([idsOf(ad.added), ad.all[ad.all.length - 1].id], [[m1.id], m1.id], "曲の語は上限まで・最後に");
+  eq(buildSession([...pool, m1, m2], withAdded, { ...base, addedLimit: 5, addedToday: 4 }).added.length, 1, "曲の語は今日の導入数を引く");
+  ok(!idsOf(ad.fresh).includes(m1.id), "カードのある曲の語は新規（fresh）に入らない");
+
+  // pinned（「今日の学習に追加」）は新規枠の中で最優先
+  const P0 = N[11].id;
+  const pn = buildSession(pool, reviewCards, { ...base, pinned: [P0, R[1].id, "words:9999"] });
+  ok(idsOf(pn.fresh).includes(P0) && pn.fresh.length === 3, "pinned が新規枠に入る");
+  ok(!idsOf(pn.fresh).includes(R[1].id), "カード作成済みの pinned は復習側のまま");
+  eq(idsOf(buildSession(pool, reviewCards, { ...base, introducedToday: 2, pinned: [P0] }).fresh), [P0], "新規枠の残りが1なら pinned だけ");
+  eq(buildSession(pool, reviewCards, { ...base, introducedToday: 3, pinned: [P0] }).fresh, [], "新規枠が尽きたら pinned も出さない");
+  eq(buildSession(pool, reviewCards, { ...base, reviewLimit: 1, pinned: [P0] }).fresh, [], "backlog の日は pinned も出さない");
+
+  // コア語（buildSession から orderNew へ）
+  const coreS = buildSession(pool, reviewCards, { ...base, coreOrder: [N[10].id, N[9].id, N[8].id] });
+  eq(sortedIds(coreS.fresh), [N[10].id, N[9].id, N[8].id].sort(), "新規はコア語から");
+
+  // 同じ綴り（兄弟グループ）は1日1枚まで
+  const rodaR = fx("words", "S", { pt: "roda" }); // 復習（期限）
+  const rodaN = fx("words", "K", { pt: "Roda" }); // 新規候補（コア語の先頭）
+  const casaT = fx("words", "S", { pt: "casa" }); // 今日評価済み（明日が期限）
+  const casaD = fx("capoeira", "K", { pt: "casa" }); // その兄弟が期限
+  const boaA = fx("words", "S", { pt: "bola" }); // 期限（延滞小）
+  const boaB = fx("capoeira", "K", { pt: "Bola" }); // 期限（延滞大）
+  const mesaR = fx("words", "S", { pt: "mesa" }); // 期限
+  const mesaM = fx("dict", "曲の単語", { pt: "mesa" }); // 曲から追加（同じ綴り）
+  const sib = [rodaR, rodaN, casaT, casaD, boaA, boaB, mesaR, mesaM];
+  const sibCards = {
+    [rodaR.id]: rv(0, 3),
+    [casaT.id]: card({ intervalDays: 1, reps: 1, last: T, due: D(1) }),
+    [casaD.id]: rv(-2, 4),
+    [boaA.id]: rv(0, 10),
+    [boaB.id]: rv(-4, 2),
+    [mesaR.id]: rv(0, 5),
+    [mesaM.id]: card({ last: null, due: T }),
+  };
+  const ss = buildSession([...sib, ...N], sibCards, { ...base, coreOrder: [rodaN.id], addedLimit: 5 });
+  const sIds = idsOf(ss.all);
+  ok(sIds.includes(rodaR.id) && !sIds.includes(rodaN.id), "復習の語と同じ綴りの新規語は出さない");
+  ok(!sIds.includes(casaD.id), "今日評価した語と同じ綴りの語は、期限でも明日へ");
+  ok(sIds.includes(boaB.id) && !sIds.includes(boaA.id), "同じ綴りの復習が2つ → 延滞の大きい方だけ");
+  ok(sIds.includes(mesaR.id) && !sIds.includes(mesaM.id), "曲の語も同じ綴りの復習があれば出さない");
+  eq(ss.dueTotal, 3, "dueTotal は同じ綴りで明日に回した語を除く（roda・bola・mesa）");
+  eq(new Set(ss.all.map((x) => siblingKey(x))).size, ss.all.length, "all の中に同じ綴りの語は1つだけ");
+
+  // countDueOn
+  const fw = [0, 1, 2, 3, 4, 5, 6, 0].map(w);
+  const fcards = {
+    "words:0000": card({ last: D(-1), due: T }),
+    "words:0001": card({ last: D(-5), due: D(-2) }),
+    "words:0002": card({ last: T, intervalDays: 1, reps: 1, due: D(1) }),
+    "words:0003": card({ last: T, intervalDays: 3, reps: 2, due: D(3) }),
+    "words:0006": card({ last: null, due: T }),
+  };
+  eq(countDueOn(fw, fcards, T), 2, "countDueOn 今日（評価済みで期限・重複は1回・未評価は数えない）");
+  eq(countDueOn(fw, fcards, D(1)), forecast(fw, fcards, T)[0], "countDueOn 明日 = 予報の1日目");
+  eq(countDueOn(fw, fcards, D(3)), 4, "countDueOn 3日後");
+}
+
+// ---------------------------------------------------------------------------
+console.log("=== クイズの誤答（quizChoices） ===");
+{
+  // id は実データと重ならない 9500 番台（同じ綴りの判定は pt の headKey で決まる）
+  let seq = 9500;
+  const qx = (o: { pt: string; ja: string; pos?: string; category?: string; source?: "words" | "capoeira" | "dict"; id?: string }): Word => {
+    const source = o.source ?? "words";
+    const n = seq++;
+    return {
+      id: o.id ?? `${source}:${n}`,
+      source,
+      index: n,
+      category: o.category ?? "c1",
+      pt: o.pt,
+      ja: o.ja,
+      pos: o.pos ?? "名詞",
+      ptForSpeech: o.pt,
+      kana: "",
+      ipa: "",
+    };
+  };
   const ids = (ws: Word[]) => ws.map((x) => x.id);
-  const base = { newLimit: 3, introducedToday: 0, today: T };
-  eq(ids(buildSession(words, cards, base).fresh), ["words:0000", "words:0002", "words:0003"], "pinned 無し → ファイル順");
-  const pinned = ["words:0004", "words:0001", "words:0004", "words:9999", "words:0002"];
-  const s = buildSession(words, cards, { ...base, pinned });
-  eq(ids(s.fresh), ["words:0004", "words:0002", "words:0000"], "pinned（カード無しのみ・重複除去）が先頭");
-  eq(ids(s.review), ["words:0001"], "カード作成済みの pinned は復習側のまま");
-  eq(ids(s.all), ["words:0001", "words:0004", "words:0002", "words:0000"], "all = 復習 + 新規");
-  eq(ids(buildSession(words, cards, { ...base, introducedToday: 2, pinned }).fresh), ["words:0004"], "新規枠の残りが1なら pinned の先頭だけ");
-  eq(ids(buildSession(words, cards, { ...base, introducedToday: 3, pinned }).fresh), [], "新規枠が尽きたら pinned も出さない");
+
+  // 表示の比較キー
+  eq(choiceKey({ pt: "Você", ja: "" }, "pt"), choiceKey({ pt: "voce?", ja: "" }, "pt"), "choiceKey pt: 大小・アクセント・記号を無視");
+  ok(choiceKey({ pt: "", ja: "ガム" }, "ja") !== choiceKey({ pt: "", ja: "カム" }, "ja"), "choiceKey ja: 濁点は区別する（fold しない）");
+  eq(choiceKey({ pt: "", ja: "トイレ ・浴室" }, "ja"), "トイレ・浴室", "choiceKey ja: 空白だけ除く");
+
+  // 品詞の大分類・固有名詞
+  eq(
+    ["固有名詞（人名）", "名詞・形容詞", "動詞（現在分詞）", "名詞", "フレーズ"].map(posClass),
+    ["固有名詞", "名詞", "動詞", "名詞", "フレーズ"],
+    "posClass"
+  );
+  eq([isProperNoun({ pos: "固有名詞（地名）" }), isProperNoun({ pos: "名詞" })], [true, false], "isProperNoun");
+  eq([askableByJa({ pos: "固有名詞（西暦）" }), askableByJa({ pos: "動詞" })], [false, true], "和→葡は固有名詞を出題しない");
+
+  // 和訳の片: カポエイラ語のカタカナ間の「・」は名前の区切りなので分けない
+  eq(quizPieces({ source: "capoeira", ja: "メストリ・ビンバの息子・マスター" }), ["メストリ・ビンバの息子", "マスター"], "quizPieces: カポエイラの名前は分けない");
+  eq(quizPieces({ source: "words", ja: "ペースト・フォルダ" }), ["ペースト", "フォルダ"], "quizPieces: words の「・」は同義語の区切り");
+  eq(quizPieces({ source: "words", ja: "足（足首から下）/ 脚" }), ["足", "脚"], "quizPieces: 括弧を除き / で分ける");
+
+  const A = qx({ pt: "casa", ja: "家・住まい" });
+  const B = qx({ pt: "carro", ja: "車" }); // 同品詞×同カテゴリ
+  const Bdup = qx({ pt: "auto", ja: "車" }); // B と表示（訳）が同じ
+  const C = qx({ pt: "lar", ja: "住まい" }); // 片が重なる → 段階1
+  const D = qx({ pt: "cão", ja: "犬", category: "c2" }); // 同品詞
+  const E = qx({ pt: "correr", ja: "走る", pos: "動詞" }); // 同カテゴリ
+  const F = qx({ pt: "azul", ja: "青い", pos: "形容詞", category: "c3" }); // その他
+  const G = qx({ pt: "Casa!", ja: "カーサ", category: "c9" }); // 同じ headKey → 段階2
+  const H = qx({ pt: "cása", ja: "箱", pos: "形容詞", category: "c9" }); // その他。pt の表示が A と同じ（fold）
+
+  eq([B, D, E, F].map((x) => distractorTier(A, x)), [0, 1, 2, 3], "distractorTier: 同品詞×同カテゴリ → 同品詞 → 同カテゴリ → その他");
+  eq(
+    [B, C, G, H].map((x) => exclusionLevel(A, x)),
+    [0, 1, 2, 0],
+    "exclusionLevel: 片の重なり=1・同じ headKey=2（綴りのアクセント違いは別の見出し）"
+  );
+  eq(exclusionLevel(qx({ pt: "meu/minha", ja: "私の" }), qx({ pt: "minha", ja: "わたしの" })), 2, "exclusionLevel: meu/minha と minha は同じ綴りのグループ");
+
+  const rnd = () => 0.37;
+  const pool = [A, F, E, D, B, Bdup, C, G, H];
+  // 段の順（各段1語のとき）
+  eq(ids(pickDistractors(A, [A, F, E, D, B], "ja", { n: 4, random: rnd })), ids([B, D, E, F]), "pickDistractors: 段の順に取る");
+  // 3つ: 段0から1つ（B と Bdup は表示が同じなので片方だけ。C は片が重なる）→ 段1の D（G は同じ綴り）→ 段2の E
+  const r3 = pickDistractors(A, pool, "ja", { random: rnd });
+  eq(r3.length, 3, "pickDistractors: 3つ選ぶ");
+  eq([r3.filter((x) => x === B || x === Bdup).length, r3[1]?.id, r3[2]?.id], [1, D.id, E.id], "pickDistractors: 表示が同じ候補は1つだけ・段の順");
+  ok(!r3.includes(A) && !r3.includes(C) && !r3.includes(G), "pickDistractors: 正解・片の重なり・同じ綴りを除く");
+  // 段階0（B|Bdup・D・E・F・H の5つ）が尽きたら段階1（片の重なり C）、さらに段階2（同じ綴り G）へ緩める
+  const r6 = pickDistractors(A, pool, "ja", { n: 6, random: rnd });
+  eq([r6.length, r6[5]?.id, r6.includes(G)], [6, C.id, false], "pickDistractors: 段階0 が尽きたら片の重なりを許す（同じ綴りはまだ）");
+  const r7 = pickDistractors(A, pool, "ja", { n: 7, random: rnd });
+  eq([r7.length, r7[5]?.id, r7[6]?.id], [7, C.id, G.id], "pickDistractors: さらに足りなければ同じ綴りも許す");
+  const rAll = pickDistractors(A, pool, "ja", { n: 20, random: rnd });
+  eq(rAll.length, 7, "pickDistractors: 表示の重複（B/Bdup）以外はすべて使える（ja）");
+  ok(!rAll.includes(A), "pickDistractors: 正解は選ばない");
+  // pt の表示が正解と同じ候補（cása）は、どの段階でも選ばない
+  const rPt = pickDistractors(A, [A, H, B, D], "pt", { n: 3, random: rnd });
+  eq(ids(rPt), ids([B, D]), "pickDistractors pt: 表示が正解と同じ（fold）候補は緩めても選ばない");
+  // 別名は段階1: 段の優先より段階が先
+  const aliasId = [...ALIAS_IDS][0];
+  const Al = qx({ pt: "zzz-alias", ja: "別名の訳", id: aliasId });
+  eq(exclusionLevel(A, Al), 1, "exclusionLevel: 別名（alias 側）=1");
+  eq(ids(pickDistractors(A, [A, Al, D], "ja", { n: 1, random: rnd })), ids([D]), "pickDistractors: 段0の別名より段1の普通の語を先に取る");
+  // 候補が少ないときは足りる分だけ（空でも落ちない）
+  eq(pickDistractors(A, [A], "ja").length, 0, "pickDistractors: 候補なしは空");
+  // 同じ乱数なら同じ結果
+  eq(ids(pickDistractors(A, pool, "ja", { random: rnd })), ids(r3), "pickDistractors: 乱数が同じなら同じ結果");
+}
+
+// ---------------------------------------------------------------------------
+// 曲の単語タブ（B2-13・バグ#15）。学習状況・追加済み・一括追加の除外は同じ綴りの見出しすべて（allIds）で見る
+console.log("=== 曲の単語タブ（songVocab） ===");
+{
+  // 辞書とカポエイラ単語帳の両方にある語（berimbau 型）、同じ意味の2見出し（casa 型）、機能語、同じ綴りの別の意味（jogo）
+  const ENTRIES: LexRef[] = [
+    { id: "dict:9001", pt: "berimbau", ja: "ビリンバウ（弓形の楽器）", pos: "名詞", source: "dict" },
+    { id: "capoeira:9002", pt: "berimbau", ja: "ホーダを司る弓形の楽器", pos: "名詞", source: "capoeira" },
+    { id: "words:9003", pt: "casa", ja: "家", pos: "名詞", source: "words" },
+    { id: "words:9004", pt: "casa", ja: "家", pos: "名詞", source: "words" },
+    { id: "words:9005", pt: "o", ja: "その（定冠詞）", pos: "冠詞", source: "words" },
+    { id: "words:9006", pt: "jogo", ja: "ゲーム", pos: "名詞", source: "words" },
+    { id: "capoeira:9007", pt: "jogo", ja: "カポエイラの試合", pos: "名詞", source: "capoeira" },
+    { id: "words:9008", pt: "mar", ja: "海", pos: "名詞", source: "words" },
+    { id: "dict:9010", pt: "mar", ja: "（間投詞の用法）", pos: "間投詞", source: "dict" },
+  ];
+  const lem = createLemmatizer({
+    entries: ENTRIES,
+    irregular: irregularRaw as unknown as IrregularTable,
+    colloquial: colloquialRaw as unknown as ColloquialTable,
+  });
+  const analyzed = ["Berimbau berimbau berimbaus", "mares casa o xyz blah", "o jogo o mar"].map((l) => lem.analyzeLine(l));
+  const user = { id: "user:xyz", pt: "xyz", ja: "自分の語", pos: "名詞" };
+  const { items, unknown } = buildVocabItems(lem, analyzed, (k) => (k === "xyz" ? user : undefined));
+  const byKey = new Map(items.map((i) => [i.key, i]));
+  const bIt = byKey.get("dict:9001");
+  eq(
+    bIt && [bIt.ids, bIt.allIds, bIt.count],
+    [["dict:9001"], ["dict:9001", "capoeira:9002"], 3],
+    "berimbau: ids は同じ意味だけ、allIds は同じ綴りすべて（複数形も同じ行に数える）"
+  );
+  eq(byKey.get("words:9003")?.ids, ["words:9003", "words:9004"], "casa: 同じ和訳・品詞の2見出しは ids にまとまる");
+  const mIt = byKey.get("words:9008");
+  eq(mIt && [mIt.allIds, mIt.count], [["words:9008", "dict:9010"], 2], "mares（名詞の見出しだけ）→ mar（全見出し）: 同じ行の allIds を足していく");
+  const uIt = byKey.get("user:xyz");
+  eq(uIt && [uIt.ids, uIt.allIds], [["user:xyz"], ["user:xyz"]], "自分の単語: ids = allIds = [user:…]");
+  eq(unknown.map((u) => u.token.key), ["blah"], "辞書にも自分の単語にも無い語だけが unknown");
+  eq(items.map((i) => i.key).slice(0, 2), ["dict:9001", "words:9005"], "出現回数の多い順（berimbau ×3、o ×3 は出てきた順）");
+  ok(items.every((i) => i.ids.every((id) => i.allIds.includes(id)) && i.ids[0] === i.allIds[0]), "ids ⊆ allIds・先頭は同じ");
+
+  const it = (ids: string[], allIds: string[], o: Partial<VocabItem> = {}): VocabItem => ({
+    key: ids[0],
+    ids,
+    allIds,
+    lemma: ids[0],
+    ja: "訳",
+    pos: "名詞",
+    count: 1,
+    surface: ids[0],
+    ...o,
+  });
+  const B = it(["dict:9001"], ["dict:9001", "capoeira:9002"]);
+  const rated = card({ last: T, intervalDays: 1, reps: 1 });
+  const none = {};
+  eq([studiedId(B.allIds, none), statusId(B, none), addTargetId(B, none)], [undefined, undefined, "dict:9001"], "カードが無い → 未学習・追加は先頭の見出し");
+  const capOnly = { "capoeira:9002": rated };
+  eq(
+    [statusId(B, capOnly), addTargetId(B, capOnly)],
+    ["capoeira:9002", "capoeira:9002"],
+    "カポエイラ単語帳のカードがある → 学習中とみなし、追加もそのカード（バグ#15: 2枚目を作らない）"
+  );
+  eq(statusId(B, { "capoeira:9002": rated, "dict:9001": rated }), "dict:9001", "同じ意味の見出しのカードを優先");
+  const C = it(["words:9003", "words:9004"], ["words:9003", "capoeira:9099", "words:9004"]);
+  eq(
+    [statusId(C, { "words:9004": rated, "capoeira:9099": rated }), addTargetId(C, { "words:9004": rated, "capoeira:9099": rated })],
+    ["words:9004", "words:9004"],
+    "ids のカード → allIds のカードの順（allIds の並びで別の見出しが先でも）"
+  );
+  // 別名（alias 側）が先頭で、keep 側が同じ候補にある → keep 側に追加する
+  const [aliasOf, keepOf] = [...ALIAS_KEEP.entries()][0];
+  eq(addTargetId(it([aliasOf], [aliasOf, keepOf]), none), keepOf, "先頭が別名で keep 側も同じ綴り → keep 側を追加");
+  eq(addTargetId(it([aliasOf], [aliasOf]), none), aliasOf, "keep 側が候補に無ければ先頭のまま");
+  eq(addTargetId(it([aliasOf], [aliasOf, keepOf]), { [aliasOf]: rated }), aliasOf, "別名でもカードがあればそのカード");
+
+  // 一括追加
+  const G = it(["words:9005"], ["words:9005"], { pos: "冠詞", ja: "その（定冠詞）" });
+  const J = it(["words:9006"], ["words:9006", "capoeira:9007"]);
+  const J2 = it(["capoeira:9007"], ["capoeira:9007"], { key: "capoeira:9007x" });
+  const Mr = it(["words:9008"], ["words:9008"]);
+  const bk = (xs: VocabItem[], cards: Record<string, SrsCard>, song: string[] = [], limit = 10) =>
+    bulkAddCandidates(xs, cards, new Set(song), limit).map((x) => x.ids[0]);
+  eq(bk([B, G, J, Mr], none), ["dict:9001", "words:9006", "words:9008"], "一括追加: 機能語（冠詞）を除く");
+  eq(bk([B, G, J, Mr], capOnly), ["words:9006", "words:9008"], "一括追加: 別の見出しで学習中の語は除く");
+  eq(bk([B, J, Mr], none, ["capoeira:9002"]), ["words:9006", "words:9008"], "一括追加: この曲で別の見出しを追加済みなら除く");
+  eq(bk([J, J2, Mr], none), ["words:9006", "words:9008"], "一括追加: 見出しが重なる行は1回だけ");
+  eq(bk([B, J, Mr], none, [], 2), ["dict:9001", "words:9006"], "一括追加: 最大 limit 語");
+
+  // 表示
+  eq(
+    [deckLabel("capoeira:0001"), deckLabel("words:0001"), deckLabel("dict:0001"), deckLabel("user:x")],
+    ["カポエイラ単語帳", "単語帳", "単語帳", "自分の単語"],
+    "deckLabel"
+  );
+  eq(
+    [card({ last: null }), rated, card({ last: T, intervalDays: 10, reps: 3 }), card({ last: T, intervalDays: 30, reps: 5 })].map(levelLabel),
+    ["未学習", "学習中", "定着中", "習得"],
+    "levelLabel = LEVEL_JA[displayLevel(card)]（未評価は未学習）"
+  );
+  const refs = ENTRIES.slice(0, 2);
+  eq(siblingCard(["dict:9001"], refs, capOnly)?.ref.id, "capoeira:9002", "siblingCard: 別の見出しのカード");
+  eq(siblingCard(["dict:9001"], refs, { "dict:9001": rated, "capoeira:9002": rated }), undefined, "siblingCard: 自分の見出しにカードがあれば出さない");
+  eq(siblingCard(["capoeira:9002"], refs, capOnly), undefined, "siblingCard: 自分自身は兄弟に数えない");
+  eq(siblingCard(["dict:9001"], refs, none), undefined, "siblingCard: どこにもカードが無い");
+  eq(siblingNote("capoeira:9002", rated), "カポエイラ単語帳で学習中", "siblingNote");
 }
 
 // ---------------------------------------------------------------------------
@@ -446,6 +961,81 @@ console.log("=== forecast ===");
 }
 
 // ---------------------------------------------------------------------------
+console.log("=== クイズの出題（pickForQuiz / weakWords） ===");
+{
+  // 優先順: 期限到来 → 延滞比の大きい順 → ease の低い順 → 最近 again（last の新しい順）→ 期限前 → 未評価
+  const ws = range(13).map(w);
+  const cards: Record<string, SrsCard> = {
+    "words:0000": card({ ease: 2.5, intervalDays: 10, reps: 3, last: D(-20), due: D(-10) }), // 延滞比 1.1
+    "words:0001": card({ ease: 2.5, intervalDays: 10, reps: 3, last: D(-10), due: T }), // 0.1
+    "words:0002": card({ ease: 2.5, intervalDays: 1, reps: 1, last: D(-1), due: T }), // 1.0
+    "words:0003": card({ ease: 1.8, intervalDays: 1, reps: 2, lapses: 1, last: D(-1), due: T }), // 1.0・ease が低い
+    "words:0004": card({ ease: 2.5, intervalDays: 2, reps: 1, last: D(-1), due: D(1) }), // 期限前 0
+    "words:0005": card({ ease: 1.5, intervalDays: 10, reps: 3, last: D(-5), due: D(5) }), // 期限前 -0.4（ease が低くても期限前）
+    "words:0006": card({ ease: 2.5, intervalDays: 1, reps: 2, last: D(-2), due: D(-1) }), // 2.0
+    "words:0007": card({ ease: 2.5, intervalDays: 0, reps: 0, lapses: 1, last: D(-1), due: D(-1) }), // 2.0・again（昨日）
+    "words:0008": card({ ease: 2.5, intervalDays: 0, reps: 0, lapses: 0, last: D(-2), due: D(-1) }), // 2.0・again（一昨日）
+    "words:0009": card({ ease: 2.5, intervalDays: 0, reps: 0, last: null, due: D(-3) }), // 曲から追加しただけ（未評価）
+  };
+  const expected = ["0007", "0008", "0006", "0000", "0003", "0002", "0001", "0004", "0005"].map((n) => `words:${n}`);
+  let seed = 3;
+  const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  const all = pickForQuiz([...ws, ws[2], ws[7]], cards, 50, T, rnd);
+  eq(idsOf(all).slice(0, 9), expected, "期限到来 → 延滞比 → ease → 最近 again の順、期限前はその後");
+  eq(sortedIds(all.slice(9)), ["words:0009", "words:0010", "words:0011", "words:0012"], "未評価（カード無し・追加しただけ）は最後");
+  eq(all.length, 13, "同じ語は1回（プールの重複を除く）");
+  eq(idsOf(pickForQuiz(ws, cards, 3, T, rnd)), expected.slice(0, 3), "n 語まで（優先の高い順）");
+  eq(pickForQuiz(ws, cards, 0, T), [], "n=0 → []");
+  eq(pickForQuiz([], cards, 5, T), [], "空のプール → []");
+  // 同じ順位（未評価どうし）は random で混ざる。順位の違う語の並びは random に左右されない
+  const orders = new Set<string>();
+  for (let k = 0; k < 20; k++) {
+    const r = pickForQuiz(ws, cards, 50, T, rnd);
+    orders.add(idsOf(r.slice(9)).join(","));
+    if (idsOf(r).slice(0, 9).join(",") !== expected.join(",")) orders.add("bad");
+  }
+  ok(!orders.has("bad") && orders.size > 1, "同順位は random で混ぜ、優先順は変わらない");
+  let seedA = 11;
+  let seedB = 11;
+  const rA = () => (seedA = (seedA * 16807) % 2147483647) / 2147483647;
+  const rB = () => (seedB = (seedB * 16807) % 2147483647) / 2147483647;
+  eq(idsOf(pickForQuiz(ws, cards, 50, T, rA)), idsOf(pickForQuiz(ws, cards, 50, T, rB)), "同じ乱数なら同じ並び");
+  // 延滞比の浮動小数点誤差は同じ値とみなし、ease で決める（(2+1)/3 と 1/1）
+  const tie = {
+    "words:0000": card({ ease: 2.5, intervalDays: 3, reps: 2, last: D(-5), due: D(-2) }), // 3/3 = 1
+    "words:0001": card({ ease: 2.0, intervalDays: 1, reps: 2, last: D(-1), due: T }), // 1/1 = 1
+  };
+  eq(idsOf(pickForQuiz([w(0), w(1)], tie, 2, T, rnd)), ["words:0001", "words:0000"], "延滞比が同じなら ease の低い順");
+  // ease の足し引きの誤差（1.3+0.15+0.15 = 1.5999…）は同じ ease とみなし、最近 again の語を先にする
+  const drift = {
+    "words:0000": card({ ease: 1.3 + 0.15 + 0.15, intervalDays: 1, reps: 2, last: D(-2), due: D(-1) }),
+    "words:0001": card({ ease: 1.6, intervalDays: 0, reps: 0, lapses: 2, last: D(-1), due: D(-1) }),
+  };
+  eq(idsOf(pickForQuiz([w(0), w(1)], drift, 2, T, rnd)), ["words:0001", "words:0000"], "ease の小数の誤差は同じとみなす");
+}
+{
+  const ws = range(8).map(w);
+  const cards: Record<string, SrsCard> = {
+    "words:0000": card({ ease: 2.5, lapses: 2, reps: 1, last: D(-1), due: D(3) }), // lapses≥2
+    "words:0001": card({ ease: 2.0, lapses: 0, reps: 3, last: D(-1), due: D(3) }), // ease<2.1
+    "words:0002": card({ ease: 2.5, lapses: 1, reps: 2, last: D(-1), due: D(3) }), // lapses 1（広げたときだけ）
+    "words:0003": card({ ease: 2.5, lapses: 0, reps: 3, last: D(-1), due: D(3) }), // 苦手ではない
+    "words:0004": card({ ease: WEAK_EASE, lapses: 0, reps: 3, last: D(-1), due: D(3) }), // ちょうど 2.1 は苦手ではない
+    "words:0005": card({ ease: 1.3, lapses: 3, reps: 0, last: null, due: T }), // 未評価は対象外
+  };
+  eq(WEAK_MIN, 10, "苦手が10語未満なら広げる");
+  eq(idsOf(weakWords(ws, cards)), ["words:0000", "words:0001", "words:0002"], "10語未満 → lapses≥1 まで広げる");
+  eq(idsOf(weakWords(ws, cards, 2)), ["words:0000", "words:0001"], "min 以上あれば lapses≥2 か ease<2.1 だけ");
+  eq(idsOf(weakWords([ws[0], ws[0], ws[1]], cards, 2)), ["words:0000", "words:0001"], "同じ語は1回");
+  eq(weakWords(ws, {}), [], "カード無し → []");
+  // 苦手が10語以上あれば広げない
+  const many = range(12).map((i) => w(100 + i));
+  const mc: Record<string, SrsCard> = {};
+  many.forEach((x, i) => (mc[x.id] = card({ ease: 2.5, lapses: i < 10 ? 2 : 1, reps: 1, last: D(-1), due: D(2) })));
+  eq(weakWords(many, mc).length, 10, "lapses≥2 が10語 → lapses 1 の語は入れない");
+}
+
+// ---------------------------------------------------------------------------
 // 進捗ストア。Node には localStorage が無いのでメモリ実装を差し込み、保存済みデータを仕込んでから読み込む。
 console.log("=== useProgress（純関数） ===");
 const mem = new Map<string, string>();
@@ -461,9 +1051,10 @@ const memStorage = {
 };
 Object.defineProperty(globalThis, "localStorage", { value: memStorage, configurable: true, writable: true });
 
-// 将来版（version:1）のデータ。旧版（このビルド）で開いても消えないこと（前方互換の migrate）
+// 将来版（version:2）のデータ。旧版（このビルド = version 1）で開いても消えないこと（前方互換の migrate）
 const TODAY = todayStr();
 const FUTURE_CARD = card({ ease: 2.2, intervalDays: 7, reps: 2, lapses: 1, level: "young", last: addDays(TODAY, -3), due: addDays(TODAY, 4) });
+const FUTURE_HISTORY = { [addDays(TODAY, -3)]: { reviews: 9, newWords: 5, again: 1, act: { drill: { n: 3, sec: 60 } }, futureCount: 7 } };
 mem.set(
   "bp-progress-v1",
   JSON.stringify({
@@ -476,14 +1067,15 @@ mem.set(
       totalReviews: 120,
       customPassages: [],
       pinnedNew: ["words:0200"],
-      history: { [addDays(TODAY, -3)]: { reviews: 9, newWords: 5, again: 1, act: {} } },
+      history: FUTURE_HISTORY,
+      futureField: { x: 1 },
     },
-    version: 1,
+    version: 2,
   })
 );
 
 const P = await import("../src/store/useProgress");
-const { applyRating, currentStreak, studiedToday, useProgress } = P;
+const { applyActivity, applyRating, currentStreak, migrateProgress, studiedToday, useProgress } = P;
 
 eq(currentStreak({ streak: 5, lastStudyDate: T }, T), 5, "currentStreak 今日学習済み → streak");
 eq(currentStreak({ streak: 5, lastStudyDate: D(-1) }, T), 5, "currentStreak 昨日まで → streak");
@@ -505,7 +1097,7 @@ ok(!studiedToday({ lastStudyDate: D(-1) }, T), "studiedToday 昨日 → false");
   const frozen = JSON.stringify(s0);
   const a = applyRating(s0, "words:0009", "good", T);
   eq(norm(a.cards!["words:0009"]), norm(review(card({}), "good", T)), "applyRating 新規語 → カード作成");
-  eq(a.daily, { date: T, newIntroduced: 1, reviewsDone: 1, studied: 1, musicIntroduced: 0 }, "applyRating 日付が変われば daily を作り直して加算");
+  eq(a.daily, { date: T, newIntroduced: 1, reviewsDone: 1, studied: 1, musicIntroduced: 0, dueReviewed: 0 }, "applyRating 日付が変われば daily を作り直して加算");
   eq([a.totalReviews, a.streak, a.bestStreak, a.lastStudyDate], [51, 4, 4, T], "applyRating totalReviews と連続記録");
   eq(a.pinnedNew, ["words:0005"], "applyRating 評価した語を pinnedNew から外す");
   eq(JSON.stringify(s0), frozen, "applyRating は入力を変更しない");
@@ -519,17 +1111,145 @@ ok(!studiedToday({ lastStudyDate: D(-1) }, T), "studiedToday 昨日 → false");
   eq([m.daily!.newIntroduced, m.daily!.musicIntroduced], [7, 3], "applyRating 曲から追加した語 → musicIntroduced を加算（新規枠は消費しない）");
   const same = applyRating({ ...s0, lastStudyDate: T, streak: 3 }, "words:0003", "again", T);
   ok(!("streak" in same), "applyRating 今日学習済みなら連続記録は変えない");
+
+  // dueReviewed（1日の復習の上限の残りを数える）: 期限の来た復習を今日はじめて評価したときだけ +1
+  eq(applyRating(s0, "words:0003", "good", T).daily!.dueReviewed, 1, "dueReviewed 期限到来の復習 → +1");
+  eq(applyRating(s0, "words:0003", "again", T).daily!.dueReviewed, 1, "dueReviewed 期限到来の again も +1");
+  eq(h.daily!.dueReviewed, 0, "dueReviewed 期限前（据え置き）→ 数えない");
+  eq(a.daily!.dueReviewed, 0, "dueReviewed 新規語 → 数えない");
+  eq(m.daily!.dueReviewed, 0, "dueReviewed 曲から追加しただけの語 → 数えない");
+  const again1 = applyRating(s0, "words:0003", "again", T);
+  const again2 = applyRating({ ...s0, cards: again1.cards!, daily: again1.daily! }, "words:0003", "good", T);
+  eq(again2.daily!.dueReviewed, 1, "dueReviewed 同じ日の再評価（again の後）→ 数えない");
+  const oldDaily = { date: T, newIntroduced: 2, reviewsDone: 5, studied: 5 }; // B2-04 より前に保存された daily
+  eq(applyRating({ ...s0, daily: oldDaily }, "words:0003", "good", T).daily!.dueReviewed, 1, "dueReviewed 保存済みの daily に無い → 0 から数える");
+  eq(
+    applyRating({ ...s0, daily: { ...oldDaily, dueReviewed: 7 } }, "words:0003", "hard", T).daily!.dueReviewed,
+    8,
+    "dueReviewed 同じ日なら加算"
+  );
+  eq(
+    applyRating({ ...s0, daily: { ...oldDaily, date: D(-1), dueReviewed: 7 } }, "words:0003", "hard", T).daily!.dueReviewed,
+    1,
+    "dueReviewed 日付が変われば数え直す"
+  );
+}
+
+console.log("=== useProgress（学習ログ history・純関数） ===");
+{
+  const s0 = {
+    cards: { "words:0002": ADDED, "words:0003": DUE },
+    daily: { date: T, newIntroduced: 0, reviewsDone: 0, studied: 0 },
+    streak: 2,
+    bestStreak: 5,
+    lastStudyDate: D(-1),
+    totalReviews: 10,
+    pinnedNew: [] as string[],
+  };
+  // history の無い古い状態（B1 の形）でも読める
+  const a = applyRating(s0, "words:0009", "good", T);
+  eq(a.history, { [T]: { reviews: 1, newWords: 1, again: 0, act: {} } }, "applyRating 新規語 → reviews・newWords +1（history 無し → 作る）");
+  const b = applyRating({ ...s0, history: a.history }, "words:0003", "again", T);
+  eq(b.history?.[T], { reviews: 2, newWords: 1, again: 1, act: {} }, "applyRating 復習の again → reviews・again +1");
+  const c = applyRating({ ...s0, history: b.history }, "words:0002", "good", T);
+  eq(c.history?.[T]?.newWords, 2, "applyRating 曲から追加しただけの語 → newWords +1");
+  const held = applyRating({ ...s0, cards: { x: EARLY }, history: c.history }, "x", "good", T);
+  eq(held.history?.[T]?.reviews, 4, "applyRating 据え置きでも reviews を数える（totalReviews と同じ）");
+  const frozen = JSON.stringify(c.history);
+  applyRating({ ...s0, history: c.history }, "words:0003", "good", T);
+  eq(JSON.stringify(c.history), frozen, "applyRating は history を変更しない");
+
+  // 400 日を超えた日は、その日のキーを新しく作るときに消す
+  const old = {
+    [D(-400)]: { reviews: 1, newWords: 0, again: 0, act: {} },
+    [D(-399)]: { reviews: 2, newWords: 0, again: 0, act: {} },
+    [D(-1)]: { reviews: 3, newWords: 0, again: 0, act: {} },
+  };
+  const p1 = applyRating({ ...s0, history: old }, "words:0003", "good", T);
+  eq(Object.keys(p1.history ?? {}).sort(), [D(-399), D(-1), T].sort(), "新しい日を作るとき 400 日より古い日を消す（今日を含めて 400 日）");
+  const p2 = applyRating({ ...s0, history: { ...old, [T]: { reviews: 1, newWords: 0, again: 0, act: {} } } }, "words:0003", "good", T);
+  ok(!!p2.history?.[D(-400)], "今日のキーが既にあれば古い日は消さない（キーを作るときだけ）");
+
+  // applyActivity（logActivity の本体）
+  const q = applyActivity(s0, "dictation", 1, 42, T);
+  eq(q?.history?.[T], { reviews: 0, newWords: 0, again: 0, act: { dictation: { n: 1, sec: 42 } } }, "applyActivity 回数と秒数を足す");
+  eq([q?.streak, q?.lastStudyDate, q?.bestStreak], [3, T, 5], "applyActivity 練習でも学習日に数える（昨日からの連続）");
+  ok(!q || !("daily" in q), "applyActivity は daily（単語の目標）を変えない");
+  const q2 = applyActivity({ ...s0, history: q?.history }, "dictation", 2, 8, T);
+  eq(q2?.history?.[T]?.act.dictation, { n: 3, sec: 50 }, "applyActivity 同じ日・同じ種類は加算");
+  eq(applyActivity(s0, "quiz", 0, 0, T), null, "applyActivity n も sec も 0 → 何もしない（null）");
+  eq(applyActivity(s0, "quiz", -3, Number.NaN, T), null, "applyActivity 負の数・NaN は 0 扱い");
+  const m1 = applyActivity(s0, "music", 0, 170, T);
+  eq([m1?.history?.[T]?.act.music, "lastStudyDate" in (m1 ?? {})], [{ n: 0, sec: 170 }, false], "applyActivity 音楽 170 秒 → 記録するが学習日にしない");
+  const m2 = applyActivity({ ...s0, history: m1?.history }, "music", 0, 10, T);
+  eq([m2?.history?.[T]?.act.music?.sec, m2?.lastStudyDate, m2?.streak], [180, T, 3], "applyActivity 音楽の合計が 180 秒に達したら学習日");
+  const m3 = applyActivity({ ...s0, lastStudyDate: T }, "shadowing", 1, 0, T);
+  ok(!!m3 && !("streak" in m3), "applyActivity 今日学習済みなら連続記録は変えない");
+
+  // persist の移行（純関数）
+  eq(migrateProgress({ cards: { a: DUE }, streak: 3 }, 0), { cards: { a: DUE }, streak: 3, history: {}, pinnedNew: [] }, "migrate v0 → history {}・pinnedNew [] を補う");
+  eq(migrateProgress({ pinnedNew: ["x"], history: { [T]: { reviews: 1 } } }, 0).pinnedNew, ["x"], "migrate v0 でも既にある値は残す");
+  const future = { cards: {}, history: { weird: 1 }, futureField: 2 };
+  eq(migrateProgress(future, 2), future, "migrate v2（将来版）→ 何も変えずに通す");
+  eq(migrateProgress(future, 1), future, "migrate v1 → そのまま");
+  eq(migrateProgress(undefined, 0), { history: {}, pinnedNew: [] }, "migrate 保存データなし → 空で補う");
+}
+
+console.log("=== activityClock（練習・音楽の時間の積算） ===");
+{
+  let c = newClock();
+  eq(clockTake(c, 1000).sec, 0, "止まっている時計 → 0 秒");
+  c = clockRun(c, true, 1000);
+  ok(clockRun(c, true, 5000) === c, "同じ状態への切り替えは同じオブジェクト（開始時刻を変えない）");
+  let t = clockTake(c, 31_500);
+  eq([t.sec, t.clock.acc, t.clock.since, t.clock.running], [30, 500, 31_500, true], "動いている時計: 整数の秒を取り出し、端数 500ms は持ち越す");
+  c = clockRun(t.clock, false, 32_000); // 0.5 秒進めて止める（隠れた）
+  eq(c.acc, 1000, "止めるとそこまでの ms を貯める");
+  c = clockRun(c, true, 100_000); // 隠れていた 68 秒は数えない
+  t = clockTake(c, 102_400);
+  eq([t.sec, t.clock.acc], [3, 400], "隠れていた間は数えず、再開後の分と貯めた分を合わせる");
+  eq(clockTake(clockRun(newClock(), true, 5000), 4000).sec, 0, "時刻が戻っても負にならない");
+  eq([elapsedSec(1000, 600, 43_600), elapsedSec(0, 600, 3_600_000), elapsedSec(5000, 600, 1000)], [43, 600, 0], "elapsedSec: 四捨五入・上限・負にならない");
 }
 
 console.log("=== useProgress（ストア・移行・取り消し） ===");
 {
   const st = useProgress.getState();
-  eq(norm(st.cards["words:0100"]), norm(FUTURE_CARD), "version:1 のデータも cards を保持（migrate で素通し）");
-  eq(st.pinnedNew, ["words:0200"], "version:1 のデータの pinnedNew を保持");
-  ok(!!(st as unknown as { history?: unknown }).history, "未知の項目（history）も捨てない");
+  eq(norm(st.cards["words:0100"]), norm(FUTURE_CARD), "version:2（将来版）のデータも cards を保持（migrate で素通し）");
+  eq(st.pinnedNew, ["words:0200"], "version:2 のデータの pinnedNew を保持");
+  eq(st.history, FUTURE_HISTORY as unknown, "version:2 のデータの history は中身を変えずに保持（未知の項目も）");
+  eq((st as unknown as { futureField?: unknown }).futureField, { x: 1 }, "未知の最上位の項目も捨てない");
   const saved = JSON.parse(mem.get("bp-progress-v1") ?? "{}");
-  ok(!!saved.state?.history && !!saved.state?.cards?.["words:0100"], "書き戻しても history と cards が残る");
-  eq(saved.version, 0, "書き戻した version は 0");
+  ok(!!saved.state?.history && !!saved.state?.cards?.["words:0100"] && !!saved.state?.futureField, "書き戻しても history・cards・未知の項目が残る");
+  eq(saved.version, 1, "書き戻した version は 1（このビルド）");
+
+  // v0（B1 のビルドが保存したデータ）→ v1: history {} を補い、cards などは保持する
+  mem.set(
+    "bp-progress-v1",
+    JSON.stringify({
+      state: {
+        cards: { "words:0101": FUTURE_CARD },
+        daily: { date: addDays(TODAY, -1), newIntroduced: 1, reviewsDone: 2, studied: 2 },
+        streak: 2,
+        bestStreak: 6,
+        lastStudyDate: addDays(TODAY, -1),
+        totalReviews: 50,
+        customPassages: [],
+      },
+      version: 0,
+    })
+  );
+  await useProgress.persist.rehydrate();
+  const v0 = useProgress.getState();
+  eq(norm(v0.cards["words:0101"]), norm(FUTURE_CARD), "v0 → v1: cards を保持");
+  eq([v0.streak, v0.bestStreak, v0.totalReviews], [2, 6, 50], "v0 → v1: 連続記録・評価回数を保持");
+  eq([v0.history, v0.pinnedNew], [{}, []], "v0 → v1: history {}・pinnedNew [] を補う");
+  const saved0 = JSON.parse(mem.get("bp-progress-v1") ?? "{}");
+  eq([saved0.version, saved0.state?.history, !!saved0.state?.cards?.["words:0101"]], [1, {}, true], "v0 → v1: version 1 と history {} で書き戻す");
+  // version の項目が無いデータ（手で書いたものなど）: zustand は migrate を通さずそのまま読む。消えないこと
+  mem.set("bp-progress-v1", JSON.stringify({ state: { cards: { "words:0102": FUTURE_CARD }, streak: 1, bestStreak: 1, lastStudyDate: null, totalReviews: 1 } }));
+  await useProgress.persist.rehydrate();
+  eq([!!useProgress.getState().cards["words:0102"], useProgress.getState().history], [true, {}], "version 無し → cards を保持（history は既定値のまま）");
 }
 {
   const S = () => useProgress.getState();
@@ -543,11 +1263,13 @@ console.log("=== useProgress（ストア・移行・取り消し） ===");
   eq(S().pinnedNew, ["words:0006"], "rate で pinnedNew から外れる");
   ok(!!S().cards["words:0005"], "rate 新規語 → カード作成");
   eq([S().daily.newIntroduced, S().totalReviews, S().streak, S().lastStudyDate], [1, 1, 1, TODAY], "rate カウンタと連続記録");
+  eq(S().history[TODAY], { reviews: 1, newWords: 1, again: 0, act: {} }, "rate で今日の history を記録");
   ok(S().canUndo() && S().canUndo("words:0005") && !S().canUndo("words:0006"), "canUndo(id)");
   eq(S().undo(), "words:0005", "undo は id を返す");
   ok(!S().cards["words:0005"], "undo 新規語 → カードを消す");
   eq(S().pinnedNew, ["words:0005", "words:0006"], "undo で pinnedNew も戻る");
   eq([S().daily.newIntroduced, S().totalReviews, S().streak, S().lastStudyDate], [0, 0, 0, null], "undo でカウンタと連続記録も戻る");
+  ok(!(TODAY in S().history), "undo その日の最初の評価 → 今日の history のキーも消す");
   eq([S().canUndo(), S().undo()], [false, null], "取り消しは1段だけ");
   S().pinNew(["words:0007"]);
   S().rate("words:0007", "good");
@@ -557,10 +1279,16 @@ console.log("=== useProgress（ストア・移行・取り消し） ===");
   // 既存カードの取り消し
   const prev = card({ ease: 2.5, intervalDays: 10, reps: 3, last: addDays(TODAY, -10), due: TODAY });
   useProgress.setState({ cards: { ...S().cards, "words:0010": prev } });
+  const dr0 = S().daily.dueReviewed ?? 0;
+  const h0 = S().history[TODAY];
   S().rate("words:0010", "again");
   eq(S().cards["words:0010"].lapses, 1, "期限到来カードの again → lapses+1");
+  eq(S().daily.dueReviewed, dr0 + 1, "rate 期限到来 → dueReviewed +1");
+  eq(S().history[TODAY], { reviews: 2, newWords: 1, again: 1, act: {} }, "rate again → 今日の history の reviews・again を加算");
   S().undo();
   eq(S().cards["words:0010"], prev, "undo 既存カード → 評価前に戻る");
+  eq(S().daily.dueReviewed ?? 0, dr0, "undo で dueReviewed も戻る");
+  eq(S().history[TODAY], h0, "undo で今日の history も評価前に戻る");
 
   // クイズ
   const studied0 = S().daily.studied;
@@ -578,25 +1306,67 @@ console.log("=== useProgress（ストア・移行・取り消し） ===");
   eq(S().rateQuiz("words:0013", "good"), "reviewed", "rateQuiz 期限到来の正解 → reviewed");
   eq(S().cards["words:0013"].intervalDays, 25, "rateQuiz reviewed → 間隔を伸ばす");
   ok(!S().canUndo(), "rateQuiz の後は直前の rate を取り消せない");
+  // rate 0007・0006 と rateQuiz 0012（lapsed）・0013（reviewed）が評価。rateQuiz 5回すべてをクイズとして記録
+  eq(
+    S().history[TODAY],
+    { reviews: 4, newWords: 2, again: 1, act: { quiz: { n: 5, sec: 0 } } },
+    "rateQuiz: SRS に反映した回は reviews/again、どの回も act.quiz に1問"
+  );
 
   const st1 = S().daily.studied;
   S().logPractice(3);
   eq(S().daily.studied, st1 + 3, "logPractice(3)");
   eq(S().lastStudyDate, TODAY, "logPractice で学習日を記録");
 
+  // 練習・音楽の記録（logActivity）
+  S().rate("words:0016", "good");
+  const st2 = S().daily.studied;
+  S().logActivity("dictation", 1, 30);
+  eq(S().history[TODAY].act.dictation, { n: 1, sec: 30 }, "logActivity 回数と秒数を今日の history に記録");
+  eq(S().daily.studied, st2, "logActivity は daily.studied（単語の目標）を変えない");
+  ok(!S().canUndo(), "logActivity で取り消しを破棄（取り消しは今日の history ごと戻すため）");
+  S().logActivity("pattern");
+  eq(S().history[TODAY].act.pattern, { n: 1, sec: 0 }, "logActivity 既定は n=1・sec=0");
+  S().logActivity("quiz", 0, 0);
+  eq(S().history[TODAY].act.quiz, { n: 5, sec: 0 }, "logActivity n も sec も 0 → 何もしない");
+  useProgress.setState({ lastStudyDate: addDays(TODAY, -1), streak: 3, bestStreak: 3 });
+  S().logActivity("music", 0, 120);
+  eq([S().history[TODAY].act.music, S().lastStudyDate, S().streak], [{ n: 0, sec: 120 }, addDays(TODAY, -1), 3], "音楽 2 分 → 記録するが学習日にしない");
+  S().logActivity("music", 0, 60);
+  eq([S().history[TODAY].act.music?.sec, S().lastStudyDate, S().streak, S().bestStreak], [180, TODAY, 4, 4], "音楽の合計 3 分 → 学習日に数え、連続記録を伸ばす");
+  useProgress.setState({ lastStudyDate: addDays(TODAY, -1), streak: 3, bestStreak: 4 });
+  S().logActivity("shadowing", 1, 12);
+  eq([S().lastStudyDate, S().streak], [TODAY, 4], "練習（音楽以外）は1回で学習日に数える");
+
   // エクスポート / インポート
   const json = S().exportJSON();
   eq(JSON.parse(json).pinnedNew, S().pinnedNew, "exportJSON に pinnedNew を含める");
+  eq(JSON.parse(json).history, S().history, "exportJSON に history を含める");
   S().rate("words:0014", "good");
-  ok(S().importJSON(JSON.stringify({ cards: {} })), "importJSON 旧形式（pinnedNew 無し）");
-  eq(S().pinnedNew, [], "importJSON pinnedNew 無し → []");
+  ok(S().importJSON(JSON.stringify({ cards: {} })), "importJSON 旧形式（pinnedNew・history 無し）");
+  eq([S().pinnedNew, S().history], [[], {}], "importJSON pinnedNew・history 無し → []・{}");
   ok(!S().canUndo(), "importJSON で取り消しを破棄");
   ok(S().importJSON(json), "importJSON 書き出したデータ");
   eq(S().pinnedNew, JSON.parse(json).pinnedNew, "importJSON pinnedNew を復元");
+  eq(S().history, JSON.parse(json).history, "importJSON history を復元");
+  ok(
+    S().importJSON(
+      JSON.stringify({
+        cards: {},
+        history: {
+          bad: { reviews: 1 },
+          [addDays(TODAY, -500)]: { reviews: 3 },
+          [TODAY]: { reviews: "x", again: -1, act: { quiz: { n: 2, sec: 5 }, unknownKind: { n: 1, sec: 1 }, chunk: 3 } },
+        },
+      })
+    ),
+    "importJSON 形の崩れた history"
+  );
+  eq(S().history, { [TODAY]: { reviews: 0, newWords: 0, again: 0, act: { quiz: { n: 2, sec: 5 } } } }, "importJSON history: 日付でないキー・400 日より古い日・不正な値・知らない種類を落とす");
   S().rate("words:0015", "good");
   S().resetAll();
-  eq([S().pinnedNew, S().canUndo(), Object.keys(S().cards).length], [[], false, 0], "resetAll で pinnedNew と取り消しも消える");
-  eq(JSON.parse(mem.get("bp-progress-v1") ?? "{}").version, 0, "保存時の version は 0");
+  eq([S().pinnedNew, S().canUndo(), Object.keys(S().cards).length, S().history], [[], false, 0, {}], "resetAll で pinnedNew・取り消し・history も消える");
+  eq(JSON.parse(mem.get("bp-progress-v1") ?? "{}").version, 1, "保存時の version は 1");
 }
 
 // ---------------------------------------------------------------------------
@@ -640,6 +1410,27 @@ console.log("=== useMusic.removeWord（曲ごとの記録） ===");
   eq(entries(), ["0601@vidA*"], "他の語の記録は残る");
   S().resetAll();
   useMusic.setState({ addedWords: [] });
+
+  // B2-13: カポエイラ単語帳で学習中の語を、曲の単語タブ（辞書の見出しが先頭の行）から追加する
+  const item: VocabItem = {
+    key: "dict:9001",
+    ids: ["dict:9001"],
+    allIds: ["dict:9001", "capoeira:9002"],
+    lemma: "berimbau",
+    ja: "ビリンバウ",
+    pos: "名詞",
+    count: 1,
+    surface: "berimbau",
+  };
+  S().addCard("capoeira:9002");
+  S().rate("capoeira:9002", "good");
+  M().addWord(addTargetId(item, S().cards), "vidA", item.surface);
+  ok(!S().cards["dict:9001"], "別の見出しで学習中 → 辞書の見出しのカードは作らない");
+  eq(entries(), ["9002@vidA"], "学習中のカードをこの曲の単語に入れる（createdCard=false）");
+  const songIds = new Set(M().addedWords.filter((a) => a.videoId === "vidA").map((a) => a.id));
+  eq(bulkAddCandidates([item], S().cards, songIds).length, 0, "一括追加の候補にもならない");
+  S().resetAll();
+  useMusic.setState({ addedWords: [] });
 }
 
 // ---------------------------------------------------------------------------
@@ -654,9 +1445,212 @@ console.log("=== useSettings（移行・既定値） ===");
   const st = useSettings.getState();
   eq([st.rate, st.dailyNewLimit, st.showKana], [0.8, 7, false], "version:1 のデータも保持（migrate で素通し）");
   eq([st.studyView, st.studyDirection, st.autoPlayOnReveal], ["session", "pt2ja", true], "新しいキーは既定値");
+  eq([st.capoeiraShare, st.dailyReviewLimit], [0.25, 100], "B2 の新しいキー（capoeiraShare・dailyReviewLimit）も既定値");
   st.set({ studyView: "list" });
   const saved = JSON.parse(mem.get("bp-settings-v1") ?? "{}");
   eq([saved.version, saved.state?.studyView, saved.state?.rate, saved.state?.futureKey], [0, "list", 0.8, "x"], "書き戻しても既存の値と未知の項目が残る");
+}
+
+// ---------------------------------------------------------------------------
+// 実データ: コア語（data/core-order.json）・reviewPool・導入順（loadWords は発音生成を読み込むので動的 import）
+console.log("=== 実データ: CORE_ORDER・reviewPool・導入順 ===");
+{
+  const L = await import("../src/data/loadWords");
+  const { CORE_ORDER, CORE_DICT_IDS, reviewPool, resolveWord } = L;
+  ok(CORE_ORDER.length >= 100, `CORE_ORDER を読み込む（${CORE_ORDER.length}語）`);
+  eq(new Set(CORE_ORDER).size, CORE_ORDER.length, "CORE_ORDER に重複なし");
+  ok(CORE_ORDER.every((id) => !!resolveWord(id)), "CORE_ORDER の ID はすべて解決できる");
+  ok(!CORE_ORDER.some((id) => ALIAS_IDS.has(id)), "CORE_ORDER に別名（alias 側）が無い");
+  eq(CORE_DICT_IDS, CORE_ORDER.filter((id) => id.startsWith("dict:")), "CORE_DICT_IDS = コア語の dict の ID");
+  ok(CORE_DICT_IDS.length > 0, `コア語に dict がある（${CORE_DICT_IDS.length}語）`);
+  const pool0 = reviewPool([]);
+  const poolIds = new Set(pool0.map((x) => x.id));
+  ok(CORE_DICT_IDS.every((id) => poolIds.has(id)), "reviewPool は曲の追加が無くてもコア語の dict を含む");
+  const pool1 = reviewPool([CORE_DICT_IDS[0], "dict:0007"]);
+  eq(pool1.length, pool0.length + 1, "reviewPool: 曲から追加した dict とコア語の dict が重複しない");
+  eq(new Set(pool1.map((x) => x.id)).size, pool1.length, "reviewPool に重複なし");
+
+  // 導入のシミュレーション（1日15語・カポエイラ 0.25・毎日すべて good）
+  const coreSet = new Set(CORE_ORDER);
+  const cards: Record<string, SrsCard> = {};
+  const days: Word[][] = [];
+  for (let d = 0; d < 12; d++) {
+    const day = D(d);
+    const picks = orderNew(pool0, cards, { limit: 15, capoeiraShare: 0.25, coreOrder: CORE_ORDER, seed: day });
+    days.push(picks);
+    for (const x of picks) cards[x.id] = card({ intervalDays: 1, reps: 1, last: day, due: addDays(day, 1) });
+  }
+  const flat = days.flat();
+  ok(days.every((p) => p.length === 15), "毎日15語");
+  eq(new Set(idsOf(flat)).size, flat.length, "同じ語を2回導入しない");
+  ok(!flat.some((x) => /固有名詞/.test(x.pos)), "固有名詞を導入しない");
+  ok(!flat.some((x) => ALIAS_IDS.has(x.id)), "別名を導入しない");
+  ok(days.every((p) => new Set(p.map((x) => siblingKey(x))).size === p.length), "同じ日に同じ綴りの語を入れない");
+  ok(days.every((p) => maxRun(p) <= 2), "毎日、同じカテゴリの連続は2語まで");
+  ok(days.every((p) => p.filter(isCapW).length === 3), "毎日カポエイラ語は15語中3語（share 0.25）");
+  ok(days[0].every((x) => coreSet.has(x.id)), "1日目はすべてコア語");
+  const coreGen = CORE_ORDER.filter((id) => !id.startsWith("capoeira:")).length;
+  const genDays = Math.floor(coreGen / 12) - 1; // 一般のコア語が尽きるより前の日
+  ok(
+    days.slice(0, genDays).every((p) => p.filter((x) => !isCapW(x)).every((x) => coreSet.has(x.id))),
+    `一般語は最初の${genDays}日すべてコア語`
+  );
+  ok(flat.slice(0, 45).some((x) => x.source === "dict"), "コア語の dict も導入する");
+  const introducedCore = CORE_ORDER.filter((id) => cards[id]).length;
+  ok(introducedCore >= 140, `12日でコア語をほぼ導入（${introducedCore}/${CORE_ORDER.length}）`);
+  const opts = { limit: 15, capoeiraShare: 0.25, coreOrder: CORE_ORDER, seed: T };
+  eq(idsOf(orderNew(pool0, {}, opts)), idsOf(orderNew(pool0, {}, opts)), "実データ: 同じ日は同じ並び");
+}
+
+// ---------------------------------------------------------------------------
+// 実データ: カポエイラ語の訳の分割（読みを外して解説へ）と、クイズの誤答
+console.log("=== 実データ: カポエイラ訳の分割・クイズの誤答 ===");
+{
+  const L = await import("../src/data/loadWords");
+  const { splitKanaGloss, makeWord, WORDS_CAPOEIRA, WORDS_GENERAL, ALL_WORDS, resolveWord } = L;
+
+  // 純関数
+  eq(splitKanaGloss("ジンガ（基本のステップ）"), { ja: "基本のステップ", note: "ジンガ（基本のステップ）" }, "splitKanaGloss: 読み（意味）→ 意味と解説");
+  eq(
+    splitKanaGloss("ケダ・ジ・ヒン（肘を脇腹（腎臓あたり）に当てる）").ja,
+    "肘を脇腹（腎臓あたり）に当てる",
+    "splitKanaGloss: 括弧の中の括弧はそのまま"
+  );
+  eq(splitKanaGloss("ピアォン・ジ·カベッサ（「頭上独楽」）").ja, "「頭上独楽」", "splitKanaGloss: 半角の中黒（·）も読みの一部");
+  eq(splitKanaGloss("メストリ・トニー"), { ja: "メストリ・トニー" }, "splitKanaGloss: 括弧なしはそのまま");
+  eq(splitKanaGloss("アウー（アウー・フェシャード）"), { ja: "アウー（アウー・フェシャード）" }, "splitKanaGloss: 括弧の中もカタカナだけならそのまま");
+  eq(splitKanaGloss("足（足首から下）"), { ja: "足（足首から下）" }, "splitKanaGloss: 先頭が読みでなければそのまま");
+  eq(splitKanaGloss("シルクのスカーフ（レンソ・ジ・セーダ）"), { ja: "シルクのスカーフ（レンソ・ジ・セーダ）" }, "splitKanaGloss: 意味（読み）の形はそのまま");
+  const raw = { カテゴリ: "x", ポルトガル語: "ginga", 日本語: "ジンガ（基本のステップ）", 品詞: "名詞" };
+  eq(makeWord(raw, "words", 0).ja, "ジンガ（基本のステップ）", "makeWord: words の訳は分けない");
+  ok(!("note" in makeWord(raw, "words", 0)), "makeWord: 分けない語に note は付かない");
+  eq([makeWord(raw, "capoeira", 0).ja, makeWord(raw, "capoeira", 0).note], ["基本のステップ", "ジンガ（基本のステップ）"], "makeWord: capoeira は分ける");
+
+  // 実データ（データは書き換えず、実行時だけ分ける）
+  const withNote = WORDS_CAPOEIRA.filter((x) => x.note);
+  eq(withNote.length, 150, `カポエイラ語の訳の分割: ${withNote.length}語（形の一致149語＋半角中黒1語）`);
+  ok(!WORDS_GENERAL.some((x) => x.note), "一般語には解説を付けない");
+  const capRaw = capoeiraRaw as { 日本語: string }[];
+  ok(withNote.every((x) => x.note === capRaw[x.index].日本語 && x.ja !== x.note), "解説 = 元の訳（生データのまま）");
+  eq(resolveWord("capoeira:0040")?.ja, "カポエイラの基本となるリズミカルな左右のステップ動作", "ginga の訳から読み（ジンガ）を外す");
+  ok(capRaw[40].日本語.startsWith("ジンガ（"), "capoeira-words.json は書き換えない");
+  const kanaOnly = /^[\p{Script=Katakana}・ー·･\s]+$/u;
+  ok(
+    WORDS_CAPOEIRA.filter((x) => kanaOnly.test(x.ja)).every(isProperNoun),
+    "訳がカタカナの読みだけの語は固有名詞だけ（和→葡では出題しない）"
+  );
+
+  // クイズの誤答（誤答の候補は単語帳の全語）
+  ok(!ALL_WORDS.filter(askableByJa).some((x) => /固有名詞/.test(x.pos)), "和→葡の出題候補に固有名詞が無い");
+  const w0931 = resolveWord("words:0931")!; // ao invés de（〜の代わりに）
+  const w0934 = resolveWord("words:0934")!; // em vez de（〜の代わりに）
+  eq(exclusionLevel(w0931, w0934), 1, "ao invés de と em vez de は訳が重なる（互いの誤答にしない）");
+  eq(exclusionLevel(resolveWord("words:0001")!, resolveWord("words:0954")!), 2, "Bom dia と bom dia は同じ綴り");
+  const wordsRoda = WORDS_GENERAL.find((x) => x.pt === "roda");
+  if (wordsRoda) eq(exclusionLevel(resolveWord("capoeira:0063")!, wordsRoda), 2, "roda（ホーダ）と roda（車輪）は同じ綴りのグループ");
+  eq(exclusionLevel(resolveWord("capoeira:0000")!, resolveWord("capoeira:0005")!), 0, "メストリ同士は「カポエイラ」の片だけでは重ならない");
+  // 性質テスト: 全語に対して、3つ・正解なし・表示の重複なし・除外の段階0だけ（候補が多いので緩めない）
+  let seed = 7;
+  const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  let bad = 0;
+  let relaxed = 0;
+  for (const side of ["pt", "ja"] as const) {
+    for (const x of ALL_WORDS) {
+      const d = pickDistractors(x, ALL_WORDS, side, { random: rnd });
+      const keys = new Set([x, ...d].map((c) => choiceKey(c, side)));
+      if (d.length !== 3 || d.some((c) => c.id === x.id) || keys.size !== 4) bad++;
+      if (d.some((c) => exclusionLevel(x, c) > 0)) relaxed++;
+    }
+  }
+  eq([bad, relaxed], [0, 0], "全語で誤答3つ・正解や重複なし・もう1つの正解に見える語なし（pt/ja 両方）");
+  let tier0 = 0;
+  let total = 0;
+  for (const x of ALL_WORDS) {
+    for (const c of pickDistractors(x, ALL_WORDS, "ja", { random: rnd })) {
+      total++;
+      if (distractorTier(x, c) === 0) tier0++;
+    }
+  }
+  ok(tier0 / total > 0.9, `誤答の9割以上が同品詞×同カテゴリ（${tier0}/${total}）`);
+}
+
+// ---------------------------------------------------------------------------
+// 実データ: デッキの語（Flashcards と Quiz の /quiz/:deckId で共通）
+console.log("=== 実データ: 曲の単語タブ（辞書とカポエイラ単語帳の同じ綴り） ===");
+{
+  const Mu = await import("../src/data/music");
+  const { tokenize } = await import("../src/services/lemmatize");
+  const lem = createLemmatizer({
+    entries: Mu.lexiconEntries(),
+    irregular: irregularRaw as unknown as IrregularTable,
+    colloquial: colloquialRaw as unknown as ColloquialTable,
+  });
+  // berimbau: 辞書（dict）が先頭の見出し。カポエイラ単語帳は和訳が違うので ids に入らない → allIds で見る
+  const b = buildVocabItems(lem, [lem.analyzeLine("berimbau")], () => undefined).items[0];
+  const capId = b?.allIds.find((id) => id.startsWith("capoeira:"));
+  ok(!!b && b.ids[0].startsWith("dict:") && !!capId && !b.ids.includes(capId), "berimbau: 先頭は辞書、カポエイラ単語帳の見出しは allIds にだけある");
+  if (b && capId) {
+    const cards = { [capId]: card({ last: T, intervalDays: 3, reps: 2 }) };
+    eq([statusId(b, cards), addTargetId(b, cards)], [capId, capId], "berimbau: カポエイラ単語帳のカードで学習中・追加もそのカード");
+    eq(bulkAddCandidates([b], cards, new Set()).length, 0, "berimbau: 一括追加から除く");
+    const refs = lem.lookup("berimbau").candidates[0].refs;
+    const sib = siblingCard([b.ids[0]], refs, cards);
+    eq(sib && [sib.ref.id, siblingNote(sib.ref.id, sib.card)], [capId, "カポエイラ単語帳で学習中"], "WordSheet: 辞書の意味に「カポエイラ単語帳で学習中」の注記");
+  }
+  // 全見出しの語で: ids ⊆ allIds、allIds に重複なし、別の見出しのカードで学習中なら状況・追加ともそのカード
+  const keys = new Set<string>();
+  for (const e of Mu.lexiconEntries()) for (const t of tokenize(e.pt)) keys.add(t.key);
+  const all = buildVocabItems(lem, [...keys].map((k) => tokenize(k)), () => undefined).items;
+  ok(all.length > 1000, `全見出しから行を作れる（${all.length} 行）`);
+  ok(
+    all.every((i) => i.ids.length > 0 && i.ids.every((id) => i.allIds.includes(id)) && new Set(i.allIds).size === i.allIds.length),
+    "ids ⊆ allIds・allIds に重複なし"
+  );
+  const wider = all.filter((i) => i.allIds.length > i.ids.length);
+  ok(wider.length > 50, `同じ綴りで別の見出しがある行（${wider.length} 行）`);
+  const bad = wider.filter((i) => {
+    const other = i.allIds[i.allIds.length - 1];
+    const cards = { [other]: card({ last: T, intervalDays: 1, reps: 1 }) };
+    return statusId(i, cards) !== other || addTargetId(i, cards) !== other || bulkAddCandidates([i], cards, new Set()).length !== 0;
+  });
+  eq(bad.map((i) => i.lemma).slice(0, 5), [], "別の見出しで学習中 → どの行でも学習中と判定し、そのカードに追加し、一括追加から除く");
+}
+
+console.log("=== 実データ: parseDeckId / resolveDeckWords / deckTitle ===");
+{
+  const L = await import("../src/data/loadWords");
+  const { ALL_DECKS, parseDeckId, resolveDeckWords, deckTitle, userWordMap } = L;
+  eq(parseDeckId("today"), { kind: "today" }, "today");
+  eq(parseDeckId("music"), { kind: "music", videoId: null }, "music");
+  eq(parseDeckId("music:abc"), { kind: "music", videoId: "abc" }, "music:<videoId>");
+  eq(parseDeckId("0")?.kind, "deck", "番号");
+  eq(
+    ["", "-1", "1.5", "abc", String(ALL_DECKS.length), "1e3"].map((x) => parseDeckId(x)),
+    [null, null, null, null, null, null],
+    "知らない ID・範囲外は null（空文字を 0 番にしない）"
+  );
+  eq(resolveDeckWords("0", []), ALL_DECKS[0].words, "番号のデッキ = ALL_DECKS の語");
+  eq(resolveDeckWords("today", []), null, "今日の学習はデッキとしては解決しない");
+  eq(resolveDeckWords("nope", []), null, "知らない ID は null");
+  const added = [
+    { id: "words:0001", videoId: "v1" },
+    { id: "dict:0007", videoId: "v2" },
+    { id: "words:0001", videoId: "v2" },
+    { id: "user:xyz", videoId: "v1" },
+    { id: "dict:9999999", videoId: "v1" },
+  ];
+  const um = userWordMap([{ id: "user:xyz", pt: "xyz", ja: "テスト", pos: "名詞" }]);
+  eq(idsOf(resolveDeckWords("music", added, um)!), ["words:0001", "dict:0007", "user:xyz"], "music: 全曲の語（重複なし・解決できない ID は除く）");
+  eq(idsOf(resolveDeckWords("music:v2", added, um)!), ["dict:0007", "words:0001"], "music:<videoId>: その曲の語");
+  eq(resolveDeckWords("music:none", added, um), [], "語の無い曲は []");
+  eq(idsOf(resolveDeckWords("music", added)!), ["words:0001", "dict:0007"], "userMap が無ければ user 語は解決しない");
+  const d0 = ALL_DECKS[0];
+  eq(deckTitle("0"), d0.totalParts > 1 ? `${d0.category} (${d0.part}/${d0.totalParts})` : d0.category, "番号のデッキの見出し");
+  const multi = ALL_DECKS.findIndex((d) => d.totalParts > 1);
+  if (multi >= 0) eq(deckTitle(String(multi)), `${ALL_DECKS[multi].category} (1/${ALL_DECKS[multi].totalParts})`, "分割したデッキは (n/m) を付ける");
+  eq(deckTitle("music:v1", (v) => (v === "v1" ? "曲A" : undefined)), "🎵 曲A", "曲のデッキは曲名");
+  eq(deckTitle("music:v9", () => undefined), "🎵 曲の単語", "曲名が無ければ「曲の単語」");
+  eq([deckTitle("music"), deckTitle("today"), deckTitle("x")], ["🎵 曲の単語", "今日の学習", null], "music・today・不明");
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

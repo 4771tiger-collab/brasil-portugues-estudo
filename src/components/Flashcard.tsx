@@ -64,8 +64,11 @@ export default function Flashcard({
   onRate,
 }: Props) {
   const [openExample, setOpenExample] = useState(false);
+  const [openNote, setOpenNote] = useState(false);
   const extra = getExtra(word);
   const hasExample = !!(extra?.examples?.length || extra?.collocations?.length);
+  // 解説（カポエイラ語の元の訳）は読み（≒葡語）と意味の両方を含むので、葡・和の両方が見えている時だけ出す
+  const showNote = !!word.note && ptVisible && jaVisible;
   const notDue = card?.last ? daysUntilDue(card, today) : 0;
 
   return (
@@ -99,16 +102,33 @@ export default function Flashcard({
         </Maskable>
       </div>
 
-      {hasExample && (
+      {(hasExample || showNote) && (
         <div className="mt-2">
-          <button
-            type="button"
-            onClick={() => setOpenExample((v) => !v)}
-            className="text-xs font-medium text-brand-blue"
-          >
-            {openExample ? "例文を隠す" : "例文・コロケーション"}
-          </button>
-          {openExample && (
+          <div className="flex flex-wrap items-center gap-x-4">
+            {showNote && (
+              <button
+                type="button"
+                onClick={() => setOpenNote((v) => !v)}
+                aria-expanded={openNote}
+                className="text-xs font-medium text-brand-blue"
+              >
+                {openNote ? "解説を隠す" : "解説"}
+              </button>
+            )}
+            {hasExample && (
+              <button
+                type="button"
+                onClick={() => setOpenExample((v) => !v)}
+                className="text-xs font-medium text-brand-blue"
+              >
+                {openExample ? "例文を隠す" : "例文・コロケーション"}
+              </button>
+            )}
+          </div>
+          {showNote && openNote && (
+            <div className="mt-2 rounded-lg bg-slate-50 p-3 text-sm text-slate-600">{word.note}</div>
+          )}
+          {hasExample && openExample && (
             <div className="mt-2 space-y-2 rounded-lg bg-slate-50 p-3">
               {extra?.examples?.map((ex, i) => (
                 <div key={i} className="text-sm">

@@ -22,6 +22,11 @@ export interface Word {
   pt: string;
   /** 日本語訳 */
   ja: string;
+  /**
+   * 解説（任意）。カポエイラ語の訳が「カタカナの読み（意味）」の形なら、実行時に ja を括弧の中身にし、
+   * 元の訳をここに回す（和→葡で読み＝答えが見えないように。データは書き換えない）
+   */
+  note?: string;
   /** 品詞 */
   pos: string;
   /** 音声合成用に整形したポルトガル語（"/" 除去など） */
@@ -148,4 +153,8 @@ export interface Settings {
   studyDirection: StudyDirection;
   /** 1枚ずつ学習で答えを開いたとき・新しい語の紹介時に発音を自動で再生する */
   autoPlayOnReveal: boolean;
+  /** 今日の学習の新しい語に混ぜるカポエイラ語の割合（0〜1。画面の選択肢は 0 / 0.25 / 0.33 / 0.5） */
+  capoeiraShare: number;
+  /** 1日の復習の上限（枚）。期限の来た復習がこれを超える日は新しい語を出さない */
+  dailyReviewLimit: number;
 }

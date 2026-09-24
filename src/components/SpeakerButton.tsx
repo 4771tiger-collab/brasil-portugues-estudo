@@ -9,15 +9,18 @@ interface Props {
   title?: string;
   /** アイコンサイズ(px) */
   size?: number;
+  /** 押したときに呼ぶ（学習ログの記録など）。読み上げの前に同期で呼ぶ */
+  onPlay?: () => void;
 }
 
-export default function SpeakerButton({ text, rate, className = "", title = "発音を再生", size = 20 }: Props) {
+export default function SpeakerButton({ text, rate, className = "", title = "発音を再生", size = 20, onPlay }: Props) {
   const voiceURI = useSettings((s) => s.voiceURI);
   const defaultRate = useSettings((s) => s.rate);
   const [speaking, setSpeaking] = useState(false);
 
   async function play(e: React.MouseEvent) {
     e.stopPropagation();
+    onPlay?.();
     setSpeaking(true);
     try {
       await audio.speak(text, { rate: rate ?? defaultRate, voiceURI });

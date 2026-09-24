@@ -77,8 +77,8 @@ const DEFAULT_PREFS: MusicPrefs = { showKana: true, showJa: true, autoScroll: tr
 /** ハッシュ済みのキー（cyrb53 の base36・11文字以下）か */
 const isHashKey = (k: string) => /^[0-9a-z]{1,11}$/.test(k);
 
-/** 旧形式（行テキストそのもの）のキーをハッシュに変換 */
-function hashTranslationKeys(songs: Record<string, SongState>): Record<string, SongState> {
+/** 旧形式（行テキストそのもの）のキーをハッシュに変換（統合インポートの前にも使う） */
+export function hashTranslationKeys(songs: Record<string, SongState>): Record<string, SongState> {
   const out: Record<string, SongState> = {};
   for (const [vid, s] of Object.entries(songs)) {
     const translations: Record<string, LineTranslation> = {};

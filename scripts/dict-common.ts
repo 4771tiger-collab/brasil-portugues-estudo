@@ -1,5 +1,9 @@
 // 辞書スクリプト共通: 見出しキーの正規化・許可する品詞
 import type { RawWord } from "../src/data/types";
+import { headKeys } from "../src/data/headKey";
+
+// headKey / headKeys は src/data/headKey.ts へ移した（アプリ側でも使うため）。既存スクリプト向けに再 export
+export { headKey, headKeys } from "../src/data/headKey";
 
 export const DICT_POS = [
   "名詞",
@@ -17,25 +21,6 @@ export const DICT_POS = [
 ] as const;
 
 export const DELETED = "_deleted";
-
-/** 見出しの比較用キー（NFC・小文字・括弧注記除去・前後の記号除去） */
-export function headKey(pt: string): string {
-  return pt
-    .normalize("NFC")
-    .toLowerCase()
-    .replace(/[’ʼ‘]/g, "'")
-    .replace(/\s*[（(][^）)]*[）)]\s*/g, " ")
-    .replace(/^[¿¡?!.,;:…\s]+|[¿¡?!.,;:…\s]+$/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-/** "meu/minha" → ["meu","minha"] */
-export function headKeys(pt: string): string[] {
-  const k = headKey(pt);
-  const parts = k.split("/").map((x) => x.trim());
-  return parts.length > 1 && parts.every(Boolean) ? parts : [k];
-}
 
 /** 品詞の大分類（重複判定用: 名詞・形容詞 などの複合ラベルを先頭で代表） */
 export function posGroup(pos: string): string {

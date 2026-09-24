@@ -14,6 +14,8 @@
     "deploy": "node scripts/deploy.mjs",
     "icons": "node scripts/make-icons.mjs",
     "enrich": "tsx scripts/enrich.ts",
+    "core-order": "tsx scripts/build-core-order.ts",
+    "aliases": "tsx scripts/find-aliases.ts",
     "check": "npm run typecheck && npm run check:srs && npm run check:pron && npm run check:backup && npm run check:grade && npm run check:content && npm run check:lemma && npm run check:dict",
     "check:lemma": "tsx scripts/check-lemmatize.ts",
     "check:dict": "tsx scripts/check-dict.ts",

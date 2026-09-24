@@ -70,6 +70,9 @@ export function displayLevel(card: SrsCard): SrsLevel {
   return levelFor(card.intervalDays, card.reps);
 }
 
+/** 習熟度の表示名。引くときは LEVEL_JA[displayLevel(card)]（保存済みの card.level は使わない） */
+export const LEVEL_JA: Readonly<Record<SrsLevel, string>> = { new: "未学習", learning: "学習中", young: "定着中", mature: "習得" };
+
 /**
  * 歌詞の色分けで「覚えた語」（緑）とみなすか。評価済みで、間隔3日以上。
  * 習熟度の「定着」（7日以上）とは別基準で、歌詞では手応えを早めに見せる。

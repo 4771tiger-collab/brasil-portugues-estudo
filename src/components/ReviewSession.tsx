@@ -37,9 +37,13 @@ interface Props {
   onSwitchView?: () => void;
   /** 完了画面の「あと5語」（今日の学習のみ） */
   onExtra?: () => void;
+  /** 今日の学習で新しい語を止めた理由（完了画面に出す） */
+  reason?: "backlog";
   /** 評価・取り消しを親へ知らせる（表示を切り替えたときに合格済みの語を出し直さないため） */
   onRated?: (id: string, r: Rating) => void;
   onUnrated?: (id: string) => void;
+  /** 完了画面の「このデッキでクイズ」のリンク先（今日の学習では無し） */
+  quizPath?: string;
 }
 
 /** 状態が変わった直後、この時間だけ画面上のボタンの押下を無視する（ダブルタップが次のボタンに当たらないように） */
@@ -74,10 +78,14 @@ function Done({
   s,
   onAgainRound,
   onExtra,
+  reason,
+  quizPath,
 }: {
   s: SessionState;
   onAgainRound: (words: Word[]) => void;
   onExtra?: () => void;
+  reason?: "backlog";
+  quizPath?: string;
 }) {
   const fc = useForecast();
   const againWords = useMemo(() => {
@@ -91,11 +99,23 @@ function Done({
       forecast={fc}
       onAgainRound={againWords.length ? () => onAgainRound(againWords) : undefined}
       onExtra={onExtra}
+      reason={reason}
+      quizPath={quizPath}
     />
   );
 }
 
-export default function ReviewSession({ words, title, onExit, onSwitchView, onExtra, onRated, onUnrated }: Props) {
+export default function ReviewSession({
+  words,
+  title,
+  onExit,
+  onSwitchView,
+  onExtra,
+  reason,
+  onRated,
+  onUnrated,
+  quizPath,
+}: Props) {
   const today = useToday();
   const cards = useProgress((st) => st.cards);
   const showKana = useSettings((st) => st.showKana);
@@ -284,7 +304,7 @@ export default function ReviewSession({ words, title, onExit, onSwitchView, onEx
   if (done || !cur) {
     return (
       <div className="pb-4">
-        <Done s={s} onAgainRound={againRound} onExtra={onExtra} />
+        <Done s={s} onAgainRound={againRound} onExtra={onExtra} reason={reason} quizPath={quizPath} />
         {toastEl}
       </div>
     );

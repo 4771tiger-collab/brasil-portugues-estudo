@@ -6,10 +6,14 @@
 //   - 語末の弱化(無強勢): o→u(ウ), e→i(イ)  ※アクセント付きは除外(café, avô)
 //   - 口蓋化(BR): ti→チ(tʃi), di→ジ(dʒi)（語末弱化でiになった場合も）
 //   - 鼻母音: ã/õ, 母音+m/n(コーダ)→ン。鼻二重音 ão→アウン, ãe→アイン, õe→オイン
+//     語末の -em/-ens(-ém/-êm/-éns)→ẽj(bem→ベイン, homens→オメインス), 語末の -am→ɐ̃w(falam→ファラウン)
+//     IPA の鼻音記号(U+0303)は母音の側に1つだけ付ける（manhã→/maɲɐ̃/, pão→/pɐ̃w/。ɐ̃̃ や w̃ にしない）
 //   - 語末/音節末の l → 母音化 w(ウ)  (Brasil→ブラジウ, sal→サウ)
 //   - r: 語頭・rr・n/l/s後→強いr(/h/ハ行) / 母音間→弾き音(/ɾ/ラ行) / 語末→脱落
 //   - s: 母音間→有声化 z(ザ行)
-//   - ch→ʃ, lh→ʎ, nh→ɲ(直前の母音は鼻音コーダにしない), qu/gu(+e,i,ê)→k/g(u黙字。-quência は kw), ç→s
+//   - ch→ʃ, tch→tʃ(tchau→チャウ), lh→ʎ, nh→ɲ(直前の母音は鼻音コーダにしない),
+//     qu/gu(+e,i,ê)→k/g(u黙字。-quência は kw), ç→s
+//   - x→ʃ。ただし語頭の ex+母音 は z（exemplo→エゼンプル, êxito→エジトゥ。例外 exu→エシュ）
 //   - c/g(+e,i,ê)→s/ʒ（você→ヴォセ, gênero→ジェネル）
 // 不規則・借用語は overrides(pronunciation-overrides.json)で個別補正可能。
 // ============================================================================
@@ -62,7 +66,9 @@ type Phon =
   | { t: "c"; v: Cons }
   | { t: "v"; base: BaseVowel; ipa: string; accented?: boolean }
   | { t: "g"; g: "j" | "w" }
-  | { t: "n" }; // 鼻音コーダ
+  | { t: "n" }; // 鼻音コーダ（カナの「ン」だけを出す。IPA の鼻音記号は直前の母音の ipa が持つ）
+
+type Vowel = Extract<Phon, { t: "v" }>;
 
 const VOWEL_CHARS = "aeiouáàâãéêíóôõúüy";
 const isVowelChar = (c: string) => c.length === 1 && VOWEL_CHARS.includes(c);
@@ -75,8 +81,18 @@ const isI = (c: string) => c.length === 1 && "iíî".includes(c);
 // qu/gu の u が黙字か（s[i] が q/g）。前舌母音の前では読まない(queijo→ケイジュ, quê→ケ)。
 // ただし -quência 系(frequência, sequência)は u を読む（旧綴り qüência。ラテン語 -quentia 由来）。
 const isSilentU = (s: string, i: number) => isFront(s[i + 2] ?? "") && !s.startsWith("ênci", i + 2);
+// 語頭の ex+母音 を z と読まない語（アフリカ系の固有名。Exu=エシュ /eʃu/）
+const EX_SH = new Set(["exu", "exus"]);
 
-function vowelToken(c: string): Phon {
+// 母音の IPA を鼻母音にする（U+0303 を付ける）。
+// é/ó は鼻音の前では狭い e/o になる（ɛ̃・ɔ̃ は pt-BR に無い音。ninguém→/nĩɡẽj/）。
+const nasalIpa = (ipa: string) => (ipa === "ɛ" ? "e" : ipa === "ɔ" ? "o" : ipa) + "\u0303";
+function nasalVowel(c: string): Vowel {
+  const v = vowelToken(c);
+  return { ...v, ipa: nasalIpa(v.ipa) };
+}
+
+function vowelToken(c: string): Vowel {
   switch (c) {
     case "a": return { t: "v", base: "a", ipa: "a" };
     case "á": case "à": case "â": return { t: "v", base: "a", ipa: "a", accented: true };
@@ -144,13 +160,25 @@ function phonemize(word: string): Phon[] {
     // --- 母音 ---
     if (isVowelChar(c)) {
       const after2 = s[i + 2] ?? "";
+      // 語末の -em/-ens（-ém/-êm/-éns）→ 鼻二重母音 ẽj（bem→ベイン, homens→オメインス, ninguém→ニンゲイン）
+      if ("eéê".includes(c) && ((c2 === "m" && i + 2 === n) || (c2 === "n" && after2 === "s" && i + 3 === n))) {
+        out.push(nasalVowel(c), { t: "g", g: "j" }, { t: "n" });
+        i += 2; // 語末の s は次の周回で子音として読む
+        continue;
+      }
+      // 語末の -am → ɐ̃w（-ão と同じ音。falam→ファラウン）
+      if (c === "a" && c2 === "m" && i + 2 === n) {
+        out.push({ t: "v", base: "a", ipa: "ɐ̃" }, { t: "g", g: "w" }, { t: "n" });
+        i += 2;
+        continue;
+      }
       if (
         (c2 === "m" || c2 === "n") &&
         (after2 === "" || !isVowelChar(after2)) &&
         !(c2 === "n" && after2 === "h") // nh は次の子音(ɲ)。ここで n を消費しない（minha→ミニャ）
       ) {
         // 母音 + 鼻子音コーダ
-        out.push(vowelToken(c), { t: "n" });
+        out.push(nasalVowel(c), { t: "n" });
         i += 2;
         continue;
       }
@@ -193,10 +221,15 @@ function phonemize(word: string): Phon[] {
         else cons = "s";
         break;
       }
-      case "t": cons = isI(next) ? "tʃ" : "t"; break;
+      case "t":
+        if (next === "c" && s[i + 2] === "h") { out.push({ t: "c", v: "tʃ" }); i += 3; continue; } // tch→tʃ(tchau→チャウ)
+        cons = isI(next) ? "tʃ" : "t"; break;
       case "v": cons = "v"; break;
       case "w": out.push({ t: "g", g: "w" }); i++; continue;
-      case "x": cons = "ʃ"; break;
+      case "x":
+        // 語頭の ex+母音 → z（exemplo→エゼンプル, exame→エザミ, êxito→エジトゥ）。それ以外は ʃ
+        cons = i === 1 && "eéê".includes(s[0]) && isVowelChar(next) && !EX_SH.has(s) ? "z" : "ʃ";
+        break;
       case "z": cons = isVowelChar(next) ? "z" : "s"; break;
       default: i++; continue;
     }
@@ -223,8 +256,10 @@ function reduceFinal(phons: Phon[], word: string): void {
   if (vi === -1) return;
   const after = phons[vi + 1];
   if (after && after.t === "n") return; // 鼻母音は弱化しない
-  const v = phons[vi] as Extract<Phon, { t: "v" }>;
+  const v = phons[vi] as Vowel;
   if (v.accented) return;
+  // 鼻二重母音(põe, corações, milhões)の õ も弱化しない（綴りは e で終わるが最後の母音は õ）
+  if (v.ipa.normalize("NFD").includes("\u0303")) return;
   if (v.base === "o") { v.base = "u"; v.ipa = "u"; }
   else if (v.base === "e") {
     v.base = "i"; v.ipa = "i";
@@ -245,8 +280,8 @@ function render(phons: Phon[]): { kana: string; ipa: string } {
       kana += VOWEL_KANA[p.base];
       ipa += p.ipa;
     } else if (p.t === "n") {
+      // IPA は足さない。鼻音記号は直前の母音の ipa に付いている（ã や ão に重ねて ɐ̃̃・ɐ̃w̃ にしない）
       kana += "ン";
-      ipa += "̃";
     } else if (p.t === "g") {
       const prev = phons[i - 1];
       const nx = phons[i + 1];

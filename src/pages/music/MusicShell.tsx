@@ -12,6 +12,7 @@ import { Outlet, useMatch, useNavigate } from "react-router-dom";
 import { SONGS, SONG_BY_ID, songIndex } from "../../data/music";
 import { loadYouTubeApi, watchUrl, YT_STATE, type YTPlayer } from "../../services/youtube";
 import { useMusic } from "../../store/useMusic";
+import { useActivityTimer } from "../../hooks/useActivityTimer";
 
 export interface MusicPlayerApi {
   /** 再生中（または読み込み済み）の動画 */
@@ -80,6 +81,9 @@ export default function MusicShell() {
   const [retryNonce, setRetryNonce] = useState(0);
   const [transportSlot, setTransportSlot] = useState<HTMLDivElement | null>(null);
   const [stickyEl, setStickyEl] = useState<HTMLDivElement | null>(null);
+
+  // 学習ログ: 動画の再生中かつ画面の表示中の秒数を 30 秒ごとにまとめて記録（1日 3 分以上で学習日）
+  useActivityTimer("music", playerState === YT_STATE.PLAYING);
 
   const hostParentRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<YTPlayer | null>(null);

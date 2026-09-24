@@ -8,10 +8,19 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { SONGS, SONG_BY_ID, getLemmatizer, prepareLemmatizer, songIndex } from "../../data/music";
-import { isCovered, isGrammarWord, type Lemmatizer, type Token } from "../../services/lemmatize";
+import { isCovered, type Lemmatizer, type Token } from "../../services/lemmatize";
 import { lineHash, lineKey, type LyricLine as Line } from "../../services/lyrics";
 import { toKana } from "../../services/pronunciation";
 import { translateLines } from "../../services/translate";
+import {
+  addTargetId,
+  buildVocabItems,
+  bulkAddCandidates,
+  levelLabel,
+  siblingNote,
+  statusId,
+  type VocabItem,
+} from "../../services/songVocab";
 import { YT_STATE } from "../../services/youtube";
 import { isKnownForLyrics } from "../../srs/scheduler";
 import { useMusic, userWordId } from "../../store/useMusic";
@@ -207,55 +216,23 @@ function VocabTab({
   const [onlyNew, setOnlyNew] = useState(false);
 
   const { items, unknown } = useMemo(() => {
-    // ids = 同じ意味の見出しID（単語帳とカポエイラ単語帳の同義語など）。学習状況はどれか1つのカードで判定する
-    type Item = { key: string; ids: string[]; lemma: string; ja: string; pos: string; count: number; surface: string };
-    const m = new Map<string, Item>();
-    const unk = new Map<string, { token: Token; count: number }>();
+    // ids = 同じ意味の見出しID、allIds = 同じ綴りの見出しすべて（単語帳・カポエイラ単語帳・辞書）。
+    // 学習状況・追加済み・一括追加の除外は allIds で判定する（berimbau などで2枚目のカードを作らない）
     const userById = new Map(userWords.map((u) => [u.id, u]));
-    const bump = (key: string, make: () => Item) => {
-      const e = m.get(key);
-      if (e) e.count++;
-      else m.set(key, make());
-    };
-    analyzed.forEach((toks) =>
-      toks.forEach((t, ti) => {
-        const c = lem.lookup(t.text, { lineStart: ti === 0 }).candidates[0];
-        if (!c || !isCovered(c)) {
-          // 自分で意味を登録した語
-          const u = userById.get(userWordId(t.key));
-          if (u) {
-            bump(u.id, () => ({ key: u.id, ids: [u.id], lemma: u.pt, ja: u.ja, pos: u.pos, count: 1, surface: t.text }));
-            return;
-          }
-          const x = unk.get(t.key);
-          if (x) x.count++;
-          else unk.set(t.key, { token: t, count: 1 });
-          return;
-        }
-        const parts = c.parts ? c.parts.map((p) => p.top).filter((x): x is NonNullable<typeof x> => !!x) : [c];
-        for (const it of parts) {
-          const ref = it.refs[0];
-          if (!ref || it.kind === "interjection") continue;
-          const ids = it.refs.filter((r) => r.ja === ref.ja && r.pos === ref.pos).map((r) => r.id);
-          bump(ref.id, () => ({ key: ref.id, ids, lemma: it.lemma, ja: ref.ja, pos: ref.pos, count: 1, surface: t.text }));
-        }
-      })
-    );
-    return {
-      items: [...m.values()].sort((a, b) => b.count - a.count),
-      unknown: [...unk.values()].sort((a, b) => b.count - a.count),
-    };
+    return buildVocabItems(lem, analyzed, (key) => userById.get(userWordId(key)));
   }, [lem, analyzed, userWords]);
 
-  const studiedId = (ids: string[]) => ids.find((id) => cards[id]);
   // 「追加済み」はこの曲で追加したかで判定（別の曲で追加した語もこの曲のデッキに入れられる）
-  const inThisSong = (ids: string[]) => addedWords.some((w) => w.videoId === videoId && ids.includes(w.id));
-  const shown = onlyNew ? items.filter((w) => !studiedId(w.ids)) : items;
+  const songIds = useMemo(
+    () => new Set(addedWords.filter((w) => w.videoId === videoId).map((w) => w.id)),
+    [addedWords, videoId]
+  );
+  const inThisSong = (w: VocabItem) => w.allIds.some((id) => songIds.has(id));
+  const shown = onlyNew ? items.filter((w) => !statusId(w, cards)) : items;
   // 一括追加は冠詞・前置詞・接続詞・目的格/再帰の代名詞を除く（o, a, do, na, pra… で枠を埋めない）。一覧からの個別追加はできる
-  const candidatesToAdd = items
-    .filter((w) => !studiedId(w.ids) && !inThisSong(w.ids) && !isGrammarWord(w.pos, w.ja))
-    .slice(0, 10);
-  const add = (w: (typeof items)[number]) => addWord(studiedId(w.ids) ?? w.ids[0], videoId, w.surface);
+  const candidatesToAdd = bulkAddCandidates(items, cards, songIds, 10);
+  // 学習中のカードがあればそれを使う（同じ語で別のカードを作らない）
+  const add = (w: VocabItem) => addWord(addTargetId(w, cards), videoId, w.surface);
 
   function bulkAdd() {
     if (!candidatesToAdd.length) return;
@@ -289,9 +266,11 @@ function VocabTab({
       </div>
       <div className="card divide-y divide-slate-100">
         {shown.map((w) => {
-          const sid = studiedId(w.ids);
+          const sid = statusId(w, cards);
           const card = sid ? cards[sid] : undefined;
-          const added = inThisSong(w.ids);
+          const added = inThisSong(w);
+          // 別の見出し（例: カポエイラ単語帳の berimbau）のカードで学習している
+          const other = sid && card && !w.ids.includes(sid) ? siblingNote(sid, card) : null;
           return (
             <div key={w.key} className="flex items-center gap-2 px-3 py-2">
               <div className="min-w-0 flex-1">
@@ -301,12 +280,13 @@ function VocabTab({
                   <span className="text-[11px] text-slate-400">×{w.count}</span>
                 </div>
                 <div className="truncate text-xs text-slate-500">{w.ja}</div>
+                {other && <div className="truncate text-[11px] text-slate-400">※{other}</div>}
               </div>
               {added ? (
-                <span className="chip bg-emerald-50 text-emerald-600">✓ 追加済み</span>
+                <span className="chip bg-emerald-50 text-emerald-600">✓ 追加済み{card ? `（${levelLabel(card)}）` : ""}</span>
               ) : (
                 <div className="flex shrink-0 items-center gap-1.5">
-                  {card?.last && <span className="text-[11px] text-slate-400">学習中</span>}
+                  {card && !other && <span className="text-[11px] text-slate-400">{levelLabel(card)}</span>}
                   <button onClick={() => add(w)} className="btn-primary px-2.5 py-1 text-xs">
                     ＋ 追加
                   </button>

@@ -96,8 +96,8 @@ export function tokenize(line: string): Token[] {
   return out;
 }
 
-/** 見出し語の表記ゆれ（"meu/minha"・括弧注記）を展開 */
-function alternatives(pt: string): string[] {
+/** 見出し語の表記ゆれ（"meu/minha"・括弧注記）を展開（grade.expandAlternatives でも使う） */
+export function alternatives(pt: string): string[] {
   const s = pt.normalize("NFC").replace(/\s*[（(][^）)]*[）)]\s*/g, " ").trim();
   const parts = s.split("/").map((x) => x.trim());
   return parts.length > 1 && parts.every(Boolean) ? parts : [s];

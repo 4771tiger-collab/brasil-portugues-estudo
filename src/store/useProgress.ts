@@ -2,14 +2,31 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { Passage, Rating, SrsCard } from "../data/types";
 import { addDays, newCard, quizDecision, review, todayStr } from "../srs/scheduler";
+import {
+  MUSIC_STUDY_SEC,
+  addActivity,
+  pruneHistory,
+  readHistory,
+  updateDay,
+  type ActivityKind,
+  type DayLog,
+  type History,
+} from "./history";
 
-interface DailyCounters {
+export type { ActivityKind, ActivityLog, DayLog, History } from "./history";
+
+export interface DailyCounters {
   date: string;
   newIntroduced: number;
   reviewsDone: number;
   studied: number;
   /** 曲から追加した語を今日はじめて評価した数（一般語彙の新規枠とは別管理） */
   musicIntroduced?: number;
+  /**
+   * 期限の来た復習を今日はじめて評価した数（1日の復習の上限 dailyReviewLimit の残りを数える）。
+   * B2-04 で追加。保存済みの古い daily には無いので、読むときは `?? 0`。
+   */
+  dueReviewed?: number;
 }
 
 /** クイズ1問の SRS への反映結果（結果画面の「SRSに反映」表示用） */
@@ -30,6 +47,11 @@ export interface ProgressData {
   customPassages: Passage[];
   /** 「今日の学習に追加」で指定された未学習語。buildSession の新規枠で先に出す。評価したら外す */
   pinnedNew: string[];
+  /**
+   * 日ごとの学習ログ（キーは YYYY-MM-DD、最大 400 日）。B2-06（persist の version 1）で追加。
+   * 評価（reviews/newWords/again）と、練習・音楽の回数と秒数（act）を持つ。
+   */
+  history: History;
 }
 
 interface ProgressState extends ProgressData {
@@ -44,6 +66,11 @@ interface ProgressState extends ProgressData {
   rateQuiz: (id: string, rating: Rating) => QuizEffect;
   /** SRS に書かない練習量を記録（daily.studied とストリーク） */
   logPractice: (n?: number) => void;
+  /**
+   * 練習・音楽の記録を今日の history に足す（n = 回数、sec = 秒数）。daily.studied は変えない。
+   * 学習日（ストリーク）にも数える。ただし音楽はその日の合計が 3 分以上になったときだけ。
+   */
+  logActivity: (kind: ActivityKind, n?: number, sec?: number) => void;
   /** 直前の rate を取り消す。取り消した語の id を返す（無ければ null） */
   undo: () => string | null;
   /** 取り消せる評価があるか（id を渡すとその語の評価に限る） */
@@ -67,7 +94,7 @@ export function todayCounters(daily: DailyCounters): DailyCounters {
 }
 
 function freshDaily(today: string = todayStr()): DailyCounters {
-  return { date: today, newIntroduced: 0, reviewsDone: 0, studied: 0, musicIntroduced: 0 };
+  return { date: today, newIntroduced: 0, reviewsDone: 0, studied: 0, musicIntroduced: 0, dueReviewed: 0 };
 }
 
 type StreakFields = Pick<ProgressData, "streak" | "lastStudyDate">;
@@ -102,7 +129,7 @@ export function applyRating(
   state: Pick<
     ProgressData,
     "cards" | "daily" | "streak" | "bestStreak" | "lastStudyDate" | "totalReviews" | "pinnedNew"
-  >,
+  > & { history?: History },
   id: string,
   rating: Rating,
   today: string = todayStr()
@@ -111,6 +138,8 @@ export function applyRating(
   const wasNew = !prev;
   // addCard で作られ、まだ一度も評価していないカード（曲から追加した語）
   const wasAddedNew = !!prev && prev.last === null;
+  // 期限の来た復習を今日はじめて評価した（同じ日の再評価・期限前の評価は復習の上限に数えない）
+  const wasDueReview = !!prev && prev.last !== null && prev.last !== today && prev.due <= today;
   const updated = review(prev ?? newCard(today), rating, today);
 
   const baseDaily = state.daily.date === today ? state.daily : freshDaily(today);
@@ -120,17 +149,76 @@ export function applyRating(
     studied: baseDaily.studied + 1,
     newIntroduced: baseDaily.newIntroduced + (wasNew ? 1 : 0),
     musicIntroduced: (baseDaily.musicIntroduced ?? 0) + (wasAddedNew ? 1 : 0),
+    dueReviewed: (baseDaily.dueReviewed ?? 0) + (wasDueReview ? 1 : 0),
   };
+
+  // 日ごとの学習ログ（その日のキーを新しく作るときに 400 日より古い日を消す）
+  const history = updateDay(state.history, today, (d) => ({
+    ...d,
+    reviews: d.reviews + 1,
+    newWords: d.newWords + (wasNew || wasAddedNew ? 1 : 0),
+    again: d.again + (rating === "again" ? 1 : 0),
+  }));
 
   const out: Partial<ProgressData> = {
     // 据え置きなら同じオブジェクトが返る → cards も作り直さない
     cards: updated === prev ? state.cards : { ...state.cards, [id]: updated },
     daily,
     totalReviews: state.totalReviews + 1,
+    history,
     ...recordStudyDay(state, today),
   };
   if (state.pinnedNew.includes(id)) out.pinnedNew = state.pinnedNew.filter((x) => x !== id);
   return out;
+}
+
+/** SRS に書かない練習量（daily.studied と学習日）。logPractice / rateQuiz の本体（純関数） */
+function practicePatch(
+  state: Pick<ProgressData, "daily" | "streak" | "bestStreak" | "lastStudyDate">,
+  n: number,
+  today: string
+): Partial<ProgressData> {
+  const baseDaily = state.daily.date === today ? state.daily : freshDaily(today);
+  return { daily: { ...baseDaily, studied: baseDaily.studied + n }, ...recordStudyDay(state, today) };
+}
+
+/** 0 以上の有限の数（それ以外は 0） */
+const nonNeg = (v: number): number => (Number.isFinite(v) && v > 0 ? v : 0);
+
+/**
+ * 練習・音楽の記録1回分の状態変化（純関数）。logActivity の本体。
+ * history[today].act[kind] に n と sec を足し、学習日を記録する（音楽はその日の合計が
+ * MUSIC_STUDY_SEC 秒以上になったときだけ）。daily.studied は変えない。
+ * n も sec も 0 なら何もしない（null）。
+ */
+export function applyActivity(
+  state: Pick<ProgressData, "streak" | "bestStreak" | "lastStudyDate"> & { history?: History },
+  kind: ActivityKind,
+  n: number,
+  sec: number,
+  today: string = todayStr()
+): Partial<ProgressData> | null {
+  const dn = nonNeg(n);
+  const ds = nonNeg(sec);
+  if (!dn && !ds) return null;
+  const history = updateDay(state.history, today, (d) => addActivity(d, kind, dn, ds));
+  const studied = kind !== "music" || (history[today].act.music?.sec ?? 0) >= MUSIC_STUDY_SEC;
+  return { history, ...(studied ? recordStudyDay(state, today) : {}) };
+}
+
+/**
+ * persist の移行（純関数）。
+ * - v0（B1 まで。version を指定していなかった頃の保存データも zustand が version:0 で書いている）
+ *   → v1: history と pinnedNew が無ければ空で補う
+ * - v1 より新しい版（将来のアプリで保存したデータ）は捨てずにそのまま通す
+ */
+export function migrateProgress(persisted: unknown, version: number): Partial<ProgressData> {
+  const s = { ...((persisted ?? {}) as Partial<ProgressData>) };
+  if (version < 1) {
+    s.history ??= {};
+    s.pinnedNew ??= [];
+  }
+  return s;
 }
 
 // ---------------------------------------------------------------------------
@@ -146,10 +234,12 @@ interface UndoSnapshot {
   lastStudyDate: string | null;
   totalReviews: number;
   pinnedNew: string[];
+  /** 評価した日の history の記録（評価前のもの。undefined ならその日のキーは無かった） */
+  historyDay: [string, DayLog | undefined];
 }
 let snap: UndoSnapshot | null = null;
 
-function takeSnapshot(s: ProgressData, id: string): UndoSnapshot {
+function takeSnapshot(s: ProgressData, id: string, today: string): UndoSnapshot {
   return {
     id,
     prevCard: s.cards[id],
@@ -159,6 +249,7 @@ function takeSnapshot(s: ProgressData, id: string): UndoSnapshot {
     lastStudyDate: s.lastStudyDate,
     totalReviews: s.totalReviews,
     pinnedNew: s.pinnedNew,
+    historyDay: [today, s.history?.[today]],
   };
 }
 
@@ -173,6 +264,7 @@ export const useProgress = create<ProgressState>()(
       totalReviews: 0,
       customPassages: [],
       pinnedNew: [],
+      history: {},
 
       getCard: (id) => get().cards[id],
 
@@ -213,31 +305,38 @@ export const useProgress = create<ProgressState>()(
 
       rate: (id, rating) => {
         const state = get();
-        snap = takeSnapshot(state, id);
-        set(applyRating(state, id, rating, todayStr()));
+        const today = todayStr();
+        snap = takeSnapshot(state, id, today);
+        set(applyRating(state, id, rating, today));
       },
 
       rateQuiz: (id, rating) => {
         const state = get();
         const today = todayStr();
         const decision = quizDecision(state.cards[id], rating, today);
-        if (decision === "rate") {
-          snap = null; // クイズの評価は取り消し対象外（直前の単語帳の取り消しも無効）
-          set(applyRating(state, id, rating, today));
-          return rating === "again" ? "lapsed" : "reviewed";
-        }
-        // 未学習・今日評価済み・期限前の正解: SRS には書かず練習量だけ記録
-        get().logPractice(1);
+        // クイズの評価は取り消し対象外（直前の単語帳の取り消しも無効）
+        snap = null;
+        // "rate": SRS に反映。それ以外（未学習・今日評価済み・期限前の正解）: SRS には書かず練習量だけ記録
+        const patch = decision === "rate" ? applyRating(state, id, rating, today) : practicePatch(state, 1, today);
+        // どちらでも今日の history にクイズ1問を記録する（B2-06）
+        const act = applyActivity({ ...state, ...patch }, "quiz", 1, 0, today);
+        set({ ...patch, ...act });
+        if (decision === "rate") return rating === "again" ? "lapsed" : "reviewed";
         return decision === "log" ? "untracked" : "unchanged";
       },
 
       logPractice: (n = 1) => {
         if (!(n > 0)) return;
-        const state = get();
-        const today = todayStr();
-        const baseDaily = state.daily.date === today ? state.daily : freshDaily(today);
         snap = null;
-        set({ daily: { ...baseDaily, studied: baseDaily.studied + n }, ...recordStudyDay(state, today) });
+        set(practicePatch(get(), n, todayStr()));
+      },
+
+      logActivity: (kind, n = 1, sec = 0) => {
+        const patch = applyActivity(get(), kind, n, sec, todayStr());
+        if (!patch) return;
+        // 取り消しは今日の history の記録ごと戻すので、間に入った練習の記録を消さないよう破棄する
+        snap = null;
+        set(patch);
       },
 
       undo: () => {
@@ -247,6 +346,10 @@ export const useProgress = create<ProgressState>()(
         const cards = { ...get().cards };
         if (u.prevCard) cards[u.id] = u.prevCard;
         else delete cards[u.id]; // 初見で作ったカードは消す
+        const history = { ...get().history };
+        const [day, dayLog] = u.historyDay;
+        if (dayLog) history[day] = dayLog;
+        else delete history[day]; // その日の最初の記録だった
         set({
           cards,
           daily: u.daily,
@@ -255,6 +358,7 @@ export const useProgress = create<ProgressState>()(
           lastStudyDate: u.lastStudyDate,
           totalReviews: u.totalReviews,
           pinnedNew: u.pinnedNew,
+          history,
         });
         return u.id;
       },
@@ -286,6 +390,7 @@ export const useProgress = create<ProgressState>()(
           totalReviews: 0,
           customPassages: [],
           pinnedNew: [],
+          history: {},
         });
       },
 
@@ -302,6 +407,7 @@ export const useProgress = create<ProgressState>()(
             totalReviews: s.totalReviews,
             customPassages: s.customPassages,
             pinnedNew: s.pinnedNew,
+            history: s.history,
           },
           null,
           2
@@ -324,6 +430,8 @@ export const useProgress = create<ProgressState>()(
             pinnedNew: Array.isArray(data.pinnedNew)
               ? data.pinnedNew.filter((x: unknown): x is string => typeof x === "string")
               : [],
+            // B2-06 で追加（旧バックアップには無い → {}）。形を確かめ、400 日より古い日は落とす
+            history: pruneHistory(readHistory(data.history), todayStr()),
           });
           return true;
         } catch {
@@ -335,10 +443,11 @@ export const useProgress = create<ProgressState>()(
       // キー名は絶対に変えない（既存の進捗が読めなくなる）
       name: "bp-progress-v1",
       // zustand の persist は保存済みの version と違い migrate も無いと、初期状態で起動して
-      // 空の進捗を上書き保存してしまう。将来版（v1 以降）のデータを旧版で開いても消えないよう、
-      // 何もしない migrate で必ず通す（足りない項目は既定値との浅いマージで補われる）。
-      version: 0,
-      migrate: (persisted) => persisted as ProgressState,
+      // 空の進捗を上書き保存してしまう。必ず migrate を通す（足りない項目は既定値との浅いマージでも補われる）。
+      // v1（B2-06）: history を追加。v0 のデータには空の history を補う。将来版（v2 以降）のデータは
+      // 捨てずにそのまま通す（旧版のアプリで開いても進捗が消えない）。
+      version: 1,
+      migrate: (persisted, version) => migrateProgress(persisted, version) as ProgressState,
     }
   )
 );

@@ -7,18 +7,16 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { resolveWord } from "../data/loadWords";
-import type { SrsLevel, Word } from "../data/types";
+import type { Word } from "../data/types";
 import { getLemmatizer } from "../data/music";
 import { isCovered, type Candidate, type LexRef, type Token } from "../services/lemmatize";
+import { deckLabel, levelLabel, siblingCard, siblingNote } from "../services/songVocab";
 import { translateText } from "../services/translate";
-import { displayLevel } from "../srs/scheduler";
 import { useMusic, userWordId, useUserWordMap } from "../store/useMusic";
 import { useProgress } from "../store/useProgress";
 import { useSettings } from "../store/useSettings";
 import SpeakerButton from "./SpeakerButton";
 
-/** 表示は displayLevel（現在の間隔から導く）で引く。保存済みの card.level は使わない */
-const LEVEL_JA: Record<SrsLevel, string> = { new: "未学習", learning: "学習中", young: "定着中", mature: "習得" };
 const POS_OPTIONS = ["名詞", "動詞", "形容詞", "副詞", "代名詞", "前置詞", "接続詞", "間投詞", "フレーズ", "固有名詞"];
 
 interface Props {
@@ -27,6 +25,11 @@ interface Props {
   videoId: string;
   onClose: () => void;
   onMove?: (index: number) => void;
+}
+
+/** 注記に添える和訳は短く切る */
+function short(s: string, n = 16): string {
+  return s.length > n ? s.slice(0, n) + "…" : s;
 }
 
 /** 同じ意味の見出しをまとめる（casa 家 ×2 → 1つ） */
@@ -57,7 +60,7 @@ function AddButton({ ids, surface, videoId }: { ids: string[]; surface: string; 
     return (
       <div className="flex items-center gap-2">
         <span className="chip bg-emerald-50 text-emerald-600">
-          ✓ 追加済み{card ? `（${LEVEL_JA[displayLevel(card)]}）` : ""}
+          ✓ 追加済み{card ? `（${levelLabel(card)}）` : ""}
         </span>
         {/* この曲の記録だけを外す（別の曲で追加した記録と学習履歴は残す） */}
         <button onClick={() => removeWord(addedId, videoId)} className="text-[11px] text-slate-400 underline">
@@ -74,7 +77,7 @@ function AddButton({ ids, surface, videoId }: { ids: string[]; surface: string; 
       {addedElsewhere ? (
         <span className="text-[11px] text-slate-400">別の曲で追加済み</span>
       ) : (
-        card && <span className="text-[11px] text-slate-400">単語帳で{LEVEL_JA[displayLevel(card)]}</span>
+        cardId && card && <span className="text-[11px] text-slate-400">{deckLabel(cardId)}で{levelLabel(card)}</span>
       )}
     </div>
   );
@@ -102,6 +105,7 @@ function CandidateBlock({
   primary: boolean;
 }) {
   const userMap = useUserWordMap();
+  const cards = useProgress((s) => s.cards);
   const showKana = useSettings((s) => s.showKana);
   const showIpa = useSettings((s) => s.showIpa);
   const groups = groupRefs(c.refs);
@@ -115,16 +119,26 @@ function CandidateBlock({
       </div>
       {primary && <WordLine word={head} showKana={showKana} showIpa={showIpa} />}
       {c.note && <div className="text-xs text-brand-blue">{c.note}</div>}
-      {groups.map((g) => (
-        <div key={g[0].id} className="space-y-1">
-          <div className="flex items-start gap-2">
-            <span className="chip shrink-0 bg-slate-100 text-slate-500">{g[0].pos}</span>
-            <span className={`${primary ? "text-base" : "text-sm"} text-slate-700`}>{g[0].ja}</span>
+      {groups.map((g) => {
+        const ids = g.map((r) => r.id);
+        // この意味にはカードが無いが、同じ綴りの別の見出し（例: カポエイラ単語帳の berimbau）で学習している
+        const sib = siblingCard(ids, c.refs, cards);
+        return (
+          <div key={g[0].id} className="space-y-1">
+            <div className="flex items-start gap-2">
+              <span className="chip shrink-0 bg-slate-100 text-slate-500">{g[0].pos}</span>
+              <span className={`${primary ? "text-base" : "text-sm"} text-slate-700`}>{g[0].ja}</span>
+            </div>
+            {g[0].source === "capoeira" && <div className="text-[11px] text-slate-400">※カポエイラ単語帳の意味</div>}
+            <AddButton ids={ids} surface={surface} videoId={videoId} />
+            {sib && (
+              <div className="text-[11px] text-amber-700">
+                ※同じ綴りの語を{siblingNote(sib.ref.id, sib.card)}（{short(sib.ref.ja)}）
+              </div>
+            )}
           </div>
-          {g[0].source === "capoeira" && <div className="text-[11px] text-slate-400">※カポエイラ単語帳の意味</div>}
-          <AddButton ids={g.map((r) => r.id)} surface={surface} videoId={videoId} />
-        </div>
-      ))}
+        );
+      })}
       {c.parts && (
         <div className="space-y-1.5">
           {c.parts.map((p, i) => (

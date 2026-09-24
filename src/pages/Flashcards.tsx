@@ -1,16 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { ALL_DECKS, resolveWord, reviewPool } from "../data/loadWords";
+import { ALL_DECKS, deckTitle, resolveDeckWords, reviewPool } from "../data/loadWords";
 import { SONG_BY_ID } from "../data/music";
 import type { Rating, StudyViewMode, Word } from "../data/types";
 import { todayCounters, useProgress } from "../store/useProgress";
 import { useSettings } from "../store/useSettings";
 import { useAddedIds, useMusic, useUserWordMap } from "../store/useMusic";
-import { buildSession, countAddedNew, countReview } from "../srs/queue";
+import { countReview } from "../srs/queue";
 import { isHeld, newCard, todayStr } from "../srs/scheduler";
 import { MAX_REQUEUE } from "../srs/session";
 import { audio } from "../services/audio";
 import { useToday } from "../hooks/useToday";
+import { planToday, useTodayPlan } from "../hooks/useTodayPlan";
 import { useWakeLock } from "../hooks/useWakeLock";
 import Flashcard, { type RatedInfo } from "../components/Flashcard";
 import ReviewSession from "../components/ReviewSession";
@@ -24,17 +25,13 @@ const SPEEDS = [0.8, 1.0, 1.2];
 function DeckPicker() {
   const today = useToday();
   const cards = useProgress((s) => s.cards);
-  const daily = todayCounters(useProgress((s) => s.daily));
-  const dailyNewLimit = useSettings((s) => s.dailyNewLimit);
-  const musicNewLimit = useSettings((s) => s.musicNewLimit);
   const addedIds = useAddedIds();
   const addedWords = useMusic((s) => s.addedWords);
-  const userMap = useUserWordMap();
-  const pool = useMemo(() => reviewPool(addedIds, userMap), [addedIds, userMap]);
-  const due = useMemo(() => countReview(pool, cards, today), [pool, cards, today]);
-  const addedNew = useMemo(() => countAddedNew(pool, cards, today), [pool, cards, today]);
-  const newRemaining = Math.max(0, dailyNewLimit - daily.newIntroduced);
-  const musicNew = Math.min(addedNew, Math.max(0, musicNewLimit - (daily.musicIntroduced ?? 0)));
+  // 数字は実際に始めるセッションと同じ計算（復習の上限・新しい語の選び方・同じ綴りは1日1枚）
+  const plan = useTodayPlan();
+  const due = plan.review.length;
+  const newCount = plan.fresh.length;
+  const musicNew = plan.added.length;
 
   const decks = ALL_DECKS.map((d, i) => ({ ...d, i }));
   const sections: { source: "words" | "capoeira"; title: string }[] = [
@@ -59,10 +56,14 @@ function DeckPicker() {
       <Link to="/flashcards/today" className="card block bg-gradient-to-br from-brand-green to-emerald-600 p-4 text-white">
         <div className="text-sm opacity-90">今日の学習（おすすめ）</div>
         <div className="mt-1 text-2xl font-extrabold">
-          復習 {due} ＋ 新規 {newRemaining}
+          復習 {due} ＋ 新規 {newCount}
           {musicNew > 0 && <span> ＋ 🎵 {musicNew}</span>}
         </div>
-        <div className="mt-1 text-xs opacity-90">間隔反復で最適な順に出題します ›</div>
+        <div className="mt-1 text-xs opacity-90">
+          {plan.reason === "backlog"
+            ? `復習が溜まっているため、新しい語はお休み中です（期限の来た復習 ${plan.dueTotal}語）›`
+            : "間隔反復で最適な順に出題します ›"}
+        </div>
       </Link>
 
       {/* 曲の単語 */}
@@ -153,49 +154,44 @@ function StudyView({ deckId }: { deckId: string }) {
   const today = useToday();
   const cards = useProgress((s) => s.cards);
   const daily = todayCounters(useProgress((s) => s.daily));
-  const dailyNewLimit = useSettings((s) => s.dailyNewLimit);
-  const musicNewLimit = useSettings((s) => s.musicNewLimit);
   const studyViewSetting = useSettings((s) => s.studyView);
   const addedWords = useMusic((s) => s.addedWords);
   const userMap = useUserWordMap();
 
   const isToday = deckId === "today";
   const isMusicDeck = deckId === "music" || deckId.startsWith("music:");
-  const musicVideoId = deckId.startsWith("music:") ? deckId.slice(6) : null;
   // 完了画面の「あと5語」で来たとき: 今日の新規語の上限を cap 語まで広げる（今日の学習のみ・d が今日のときだけ）。
   // 増やす数ではなく上限そのものを持つので、戻る・再読み込みで同じ URL を開き直しても、使い切った分は増えない
   const capParam = isToday ? searchParams.get("cap") : null;
   const capDate = isToday ? searchParams.get("d") : null;
 
-  const words = useMemo<Word[]>(() => {
-    if (isMusicDeck) {
-      // 曲から追加した語（music = 全曲 / music:<videoId> = その曲）
-      const ids = [...new Set(addedWords.filter((w) => !musicVideoId || w.videoId === musicVideoId).map((w) => w.id))];
-      return ids.map((id) => resolveWord(id, userMap)).filter((w): w is Word => !!w);
-    }
+  // 出題する語と、新しい語を止めた理由（今日の学習のみ）
+  const { words, reason } = useMemo<{ words: Word[]; reason?: "backlog" }>(() => {
     if (isToday) {
       const addedIds = [...new Set(addedWords.map((w) => w.id))];
+      const settings = useSettings.getState();
       // 「あと5語」の上限。別の日の URL（タブの復元など）や既定の上限以下の値は無視し、
       // 書き換えた URL でも今の導入数 +50 語までにとどめる
       const cap = Math.floor(Number(capParam));
       const newLimit =
-        capParam !== null && capDate === todayStr() && Number.isFinite(cap) && cap > dailyNewLimit
-          ? Math.min(cap, Math.max(dailyNewLimit, daily.newIntroduced) + 50)
-          : dailyNewLimit;
-      const { all } = buildSession(reviewPool(addedIds, userMap), cards, {
-        newLimit,
-        introducedToday: daily.newIntroduced,
-        addedLimit: musicNewLimit,
-        addedToday: daily.musicIntroduced ?? 0,
-        // クイズ結果の「今日の学習に追加」で指定した語を新規枠の先頭に
+        capParam !== null && capDate === todayStr() && Number.isFinite(cap) && cap > settings.dailyNewLimit
+          ? Math.min(cap, Math.max(settings.dailyNewLimit, daily.newIntroduced) + 50)
+          : settings.dailyNewLimit;
+      // ホームの数字と同じ計算（新しい語は orderNew。「あと5語」も上限を広げて同じ orderNew を通す）
+      const plan = planToday({
+        pool: reviewPool(addedIds, userMap),
+        cards,
+        daily,
+        settings,
         pinned: useProgress.getState().pinnedNew,
         today,
+        newLimit,
       });
       // 空なら完了画面を出す（上限を超えて新規を黙って足すことはしない）
-      return all;
+      return { words: plan.all, reason: plan.reason };
     }
-    const idx = Number(deckId);
-    return ALL_DECKS[idx]?.words ?? [];
+    // 単語帳のデッキ（番号）と曲の語（music = 全曲 / music:<videoId> = その曲）。クイズの /quiz/:deckId と共通
+    return { words: resolveDeckWords(deckId, addedWords, userMap) ?? [] };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deckId, capParam, capDate]);
 
@@ -224,13 +220,9 @@ function StudyView({ deckId }: { deckId: string }) {
     setView(v);
   };
 
-  const title = isMusicDeck
-    ? musicVideoId
-      ? `🎵 ${SONG_BY_ID.get(musicVideoId)?.title ?? "曲の単語"}`
-      : "🎵 曲の単語"
-    : isToday
-      ? "今日の学習"
-      : ALL_DECKS[Number(deckId)]?.category ?? "単語帳";
+  const title = deckTitle(deckId, (id) => SONG_BY_ID.get(id)?.title) ?? "単語帳";
+  // 「このデッキでクイズ」（今日の学習は日ごとに変わるので付けない）
+  const quizPath = isToday ? undefined : `/quiz/${deckId}`;
 
   const onExit = () => navigate("/flashcards");
   // 「あと5語」: 今の導入数（上限を超えていればそこ）+5 を今日の上限にする。
@@ -250,7 +242,7 @@ function StudyView({ deckId }: { deckId: string }) {
           <button onClick={onExit} className="min-h-11 text-sm text-brand-green">
             ‹ 単語帳に戻る
           </button>
-          <EmptyToday onExtra={onExtra} />
+          <EmptyToday onExtra={onExtra} reason={reason} />
         </div>
       );
     }
@@ -285,9 +277,16 @@ function StudyView({ deckId }: { deckId: string }) {
           ‹ 単語帳に戻る
         </button>
         {isToday ? (
-          <EmptyToday onExtra={onExtra} />
+          <EmptyToday onExtra={onExtra} reason={reason} />
         ) : (
-          <div className="card p-8 text-center text-slate-500">この単語帳の語は、すべて評価し終えました。</div>
+          <div className="card space-y-3 p-8 text-center text-slate-500">
+            <div>この単語帳の語は、すべて評価し終えました。</div>
+            {quizPath && (
+              <Link to={quizPath} className="btn-primary min-h-11 w-full">
+                🎯 このデッキでクイズ
+              </Link>
+            )}
+          </div>
         )}
       </div>
     );
@@ -301,8 +300,10 @@ function StudyView({ deckId }: { deckId: string }) {
         onExit={onExit}
         onSwitchView={() => switchView("list")}
         onExtra={onExtra}
+        reason={reason}
         onRated={onRated}
         onUnrated={onUnrated}
+        quizPath={quizPath}
       />
     );
   }
@@ -313,16 +314,18 @@ function StudyView({ deckId }: { deckId: string }) {
       onExit={onExit}
       onSwitchView={() => switchView("session")}
       onExtra={onExtra}
+      reason={reason}
       onRated={onRated}
       onUnrated={onUnrated}
+      quizPath={quizPath}
     />
   );
 }
 
-/** 今日の分が最初から無いとき（「あと5語」と予報だけ出す） */
-function EmptyToday({ onExtra }: { onExtra?: () => void }) {
+/** 今日の分が最初から無いとき（「あと5語」と予報だけ出す。復習が溜まっていればその理由） */
+function EmptyToday({ onExtra, reason }: { onExtra?: () => void; reason?: "backlog" }) {
   const fc = useForecast();
-  return <SessionComplete stats={null} againWords={[]} forecast={fc} onExtra={onExtra} />;
+  return <SessionComplete stats={null} againWords={[]} forecast={fc} reason={reason} onExtra={onExtra} />;
 }
 
 // ============================ 一覧表示 ============================
@@ -355,17 +358,23 @@ function ListView({
   onExit,
   onSwitchView,
   onExtra,
+  reason,
   onRated,
   onUnrated,
+  quizPath,
 }: {
   words: Word[];
   title: string;
   onExit: () => void;
   onSwitchView: () => void;
   onExtra?: () => void;
+  /** 今日の学習で新しい語を止めた理由（完了のまとめに出す） */
+  reason?: "backlog";
   /** 評価・取り消しを親へ知らせる（表示を切り替えたときに合格済みの語を出し直さないため） */
   onRated?: (id: string, r: Rating) => void;
   onUnrated?: (id: string) => void;
+  /** 「このデッキでクイズ」のリンク先（今日の学習では無し） */
+  quizPath?: string;
 }) {
   const today = useToday();
   const cards = useProgress((s) => s.cards);
@@ -570,6 +579,16 @@ function ListView({
         </div>
       </div>
 
+      {quizPath && (
+        <Link
+          to={quizPath}
+          className="mb-3 flex min-h-11 items-center justify-between rounded-xl bg-brand-blue/5 px-3 text-sm font-medium text-brand-blue ring-1 ring-brand-blue/20"
+        >
+          <span>🎯 このデッキでクイズ</span>
+          <span aria-hidden>›</span>
+        </Link>
+      )}
+
       {/* カード一覧 */}
       <div className="space-y-3">
         {items.map((it, i) => {
@@ -601,7 +620,14 @@ function ListView({
       {/* すべて評価したら完了のまとめ */}
       {allRated && (
         <div className="mt-6">
-          <ListDone st={st} againWords={againWords} onAgainRound={againRound} onExtra={onExtra} />
+          <ListDone
+            st={st}
+            againWords={againWords}
+            onAgainRound={againRound}
+            onExtra={onExtra}
+            reason={reason}
+            quizPath={quizPath}
+          />
         </div>
       )}
 
@@ -624,11 +650,15 @@ function ListDone({
   againWords,
   onAgainRound,
   onExtra,
+  reason,
+  quizPath,
 }: {
   st: ListState;
   againWords: Word[];
   onAgainRound: (ws: Word[]) => void;
   onExtra?: () => void;
+  reason?: "backlog";
+  quizPath?: string;
 }) {
   const fc = useForecast();
   const firsts = Object.values(st.first);
@@ -644,6 +674,8 @@ function ListDone({
       forecast={fc}
       onAgainRound={againWords.length ? () => onAgainRound(againWords) : undefined}
       onExtra={onExtra}
+      reason={reason}
+      quizPath={quizPath}
     />
   );
 }

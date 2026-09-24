@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { SrsCard, Word } from "../data/types";
 import { getExtra } from "../data/loadWords";
 import { daysUntilDue } from "../srs/scheduler";
@@ -52,6 +53,28 @@ function ExampleBlock({ word }: { word: Word }) {
   );
 }
 
+/**
+ * 解説（カポエイラ語の元の訳「読み（意味）」）の切替。読み＝答えの音写を含むので、
+ * 答えを開いた後（裏）と紹介のときだけ出す。
+ */
+function NoteToggle({ word }: { word: Word }) {
+  const [open, setOpen] = useState(false);
+  if (!word.note) return null;
+  return (
+    <div className="mt-3 flex w-full flex-col items-center">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className="min-h-11 px-3 text-xs font-medium text-brand-blue"
+      >
+        {open ? "解説を隠す" : "解説"}
+      </button>
+      {open && <div className="w-full rounded-lg bg-slate-50 p-3 text-left text-sm text-slate-600">{word.note}</div>}
+    </div>
+  );
+}
+
 /** 期限前のカード: 今評価しても「もう一度」以外は間隔が変わらないことを示す */
 function NotDueNote({ card, today }: { card?: SrsCard; today: string }) {
   if (!card?.last) return null;
@@ -78,6 +101,7 @@ export default function ReviewCard({ word, kind, phase, direction, showKana, sho
         <PtBlock word={word} showKana={showKana} showIpa={showIpa} big />
         <span className="chip mt-2 bg-slate-100 text-slate-500">{word.pos}</span>
         <div className="mt-4 border-t border-dashed border-slate-200 pt-4 text-center text-lg text-slate-700">{word.ja}</div>
+        <NoteToggle word={word} />
         <ExampleBlock word={word} />
         <p className="mt-4 text-center text-xs text-slate-400">数枚あとに、表だけでテストします</p>
       </div>
@@ -121,6 +145,7 @@ export default function ReviewCard({ word, kind, phase, direction, showKana, sho
           <PtBlock word={word} showKana={showKana} showIpa={showIpa} />
         )}
       </div>
+      <NoteToggle word={word} />
       <ExampleBlock word={word} />
       <NotDueNote card={card} today={today} />
     </div>

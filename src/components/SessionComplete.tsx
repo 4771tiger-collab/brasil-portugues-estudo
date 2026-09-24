@@ -1,10 +1,10 @@
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import type { Word } from "../data/types";
-import { reviewPool } from "../data/loadWords";
+import { CORE_ORDER, reviewPool } from "../data/loadWords";
 import { useProgress } from "../store/useProgress";
 import { useAddedIds, useUserWordMap } from "../store/useMusic";
-import { forecast as buildForecast } from "../srs/queue";
+import { forecast as buildForecast, orderNew } from "../srs/queue";
 import { addDays } from "../srs/scheduler";
 import type { SessionStats } from "../srs/session";
 import { useToday } from "../hooks/useToday";
@@ -33,12 +33,14 @@ interface Props {
   againWords: Word[];
   /** 明日からの復習数（useForecast） */
   forecast: number[];
-  /** 復習が溜まって新規を止めている理由（B2-04 で使う） */
+  /** 新しい語を止めている理由。backlog = 期限の来た復習が1日の復習の上限を超えている（buildSession） */
   reason?: "backlog";
   /** again だった語をもう1周（無ければボタンを出さない） */
   onAgainRound?: () => void;
   /** 「あと5語」（今日の学習のみ。無ければ出さない） */
   onExtra?: () => void;
+  /** 次の一手のクイズを、このデッキのクイズ（/quiz/:deckId）にする。無ければ /quiz */
+  quizPath?: string;
 }
 
 /** 明日から7日分の予報（単一系列の棒。値は棒の上に直接書く） */
@@ -77,12 +79,15 @@ function ForecastBars({ values, today }: { values: number[]; today: string }) {
   );
 }
 
-export default function SessionComplete({ stats, againWords, forecast, reason, onAgainRound, onExtra }: Props) {
+export default function SessionComplete({ stats, againWords, forecast, reason, onAgainRound, onExtra, quizPath }: Props) {
   const today = useToday();
   const cards = useProgress((s) => s.cards);
   const pool = usePool();
-  // まだ学んでいない語が残っているときだけ「あと5語」を出す
-  const hasUnseen = useMemo(() => pool.some((w) => !cards[w.id]), [pool, cards]);
+  // 導入できる語（orderNew の候補。固有名詞・別名などは除く）が残っているときだけ「あと5語」を出す
+  const hasUnseen = useMemo(
+    () => orderNew(pool, cards, { limit: 1, capoeiraShare: 0, coreOrder: CORE_ORDER, seed: today }).length > 0,
+    [pool, cards, today]
+  );
   const tomorrow = forecast[0] ?? 0;
   const accuracy = stats && stats.words ? Math.round((stats.firstCorrect / stats.words) * 100) : null;
 
@@ -92,7 +97,11 @@ export default function SessionComplete({ stats, againWords, forecast, reason, o
         <div className="bg-gradient-to-br from-brand-green to-emerald-600 p-5 text-white">
           <div className="text-2xl font-extrabold">{stats ? "🎉 おつかれさまでした" : "🎉 今日の分は完了しています"}</div>
           <div className="mt-1 text-sm opacity-90">
-            {stats ? "ひと通り終わりました" : "復習も新しい語も、今日の予定はありません"}
+            {stats
+              ? "ひと通り終わりました"
+              : reason === "backlog"
+                ? "今日の復習は上限まで終わりました。残りは明日以降に回ります"
+                : "復習も新しい語も、今日の予定はありません"}
           </div>
         </div>
         {stats && (
@@ -143,7 +152,7 @@ export default function SessionComplete({ stats, againWords, forecast, reason, o
 
       {reason === "backlog" && (
         <div className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800 ring-1 ring-amber-200">
-          復習が溜まっているため、新しい語はお休みしています。復習を減らすと再開します。
+          期限の来た復習が1日の上限（設定の「1日の復習の上限」）を超えているため、新しい語はお休みしています。延滞の大きい語から順に出しているので、復習が上限内に収まると新しい語も再開します。
         </div>
       )}
 
@@ -157,9 +166,9 @@ export default function SessionComplete({ stats, againWords, forecast, reason, o
       <section className="space-y-2">
         <h2 className="px-1 text-sm font-bold text-slate-500">次の一手</h2>
         <div className="grid grid-cols-2 gap-3">
-          <Link to="/quiz" className="card flex min-h-11 flex-col gap-1 p-4 transition hover:ring-brand-green/40">
+          <Link to={quizPath ?? "/quiz"} className="card flex min-h-11 flex-col gap-1 p-4 transition hover:ring-brand-green/40">
             <span className="text-2xl">🎯</span>
-            <span className="font-semibold text-brand-ink">クイズ</span>
+            <span className="font-semibold text-brand-ink">{quizPath ? "このデッキでクイズ" : "クイズ"}</span>
             <span className="text-xs text-slate-500">覚えた語を確かめる</span>
           </Link>
           <Link to="/practice/shadowing" className="card flex min-h-11 flex-col gap-1 p-4 transition hover:ring-brand-green/40">

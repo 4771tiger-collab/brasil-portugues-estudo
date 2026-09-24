@@ -4,6 +4,7 @@
 // v1: 進捗だけ（useProgress.exportJSON の形。version が無い古いファイルも v1）
 // v2: v1 と同じ最上位フィールド ＋ music
 // v3: v2 ＋ app・settings（任意フィールドを足しただけ。旧版のアプリでも最上位の項目で読める）
+//     B2-06 で任意フィールド history（日ごとの学習ログ）を足した（version は 3 のまま。無ければ {}）。
 // v4 以降（新しいアプリで作ったファイル）: 警告を出し、このアプリが知っている項目だけ読む。
 // 歌詞の本文・歌詞キャッシュ（lyricsCache）は書き出さず、読み込みでも拾わない。
 // ============================================================================
@@ -11,6 +12,7 @@
 import type { Passage, Settings, SrsCard, SrsLevel } from "../data/types";
 import type { UserWordRaw } from "../data/loadWords";
 import type { AddedWord, LineTranslation, MusicExport, SongState } from "./useMusic";
+import { readHistory, type History } from "./history";
 
 export const BACKUP_VERSION = 3;
 
@@ -28,6 +30,8 @@ export interface ProgressPart {
   totalReviews: number;
   customPassages: Passage[];
   pinnedNew: string[];
+  /** 日ごとの学習ログ（B2-06 で追加した任意フィールド。無い古いファイルは {}） */
+  history: History;
 }
 
 /** parseBackup で読み取った中身（知っている項目だけ・型を確かめ済み） */
@@ -50,11 +54,11 @@ export type ParseResult =
 
 // ---------------------------------------------------------------------------
 // 設定の項目表。Settings に項目を足すと、ここに足すまで型エラーになる（書き出し漏れを防ぐ）。
-// - "count": 0 以上の有限の数 / "positive": 0 より大きい有限の数 / "boolean"
+// - "count": 0 以上の有限の数 / "positive": 0 より大きい有限の数 / "ratio": 0 以上 1 以下の数 / "boolean"
 // - 文字列の配列: その値のどれか
 // - null: バックアップに入れない（voiceURI は端末ごとに違うため）
 // ---------------------------------------------------------------------------
-type SettingKind = "count" | "positive" | "boolean" | readonly string[] | null;
+type SettingKind = "count" | "positive" | "ratio" | "boolean" | readonly string[] | null;
 
 const SETTINGS_SCHEMA: { [K in keyof Settings]-?: SettingKind } = {
   rate: "positive",
@@ -68,6 +72,9 @@ const SETTINGS_SCHEMA: { [K in keyof Settings]-?: SettingKind } = {
   studyView: ["session", "list"],
   studyDirection: ["pt2ja", "ja2pt", "mixed"],
   autoPlayOnReveal: "boolean",
+  // B2-03/B2-04 で追加（任意フィールド。無い古いファイルでは端末側の値のまま）
+  capoeiraShare: "ratio",
+  dailyReviewLimit: "positive",
 };
 
 function settingOk(kind: SettingKind, v: unknown): boolean {
@@ -75,6 +82,7 @@ function settingOk(kind: SettingKind, v: unknown): boolean {
   if (kind === "boolean") return typeof v === "boolean";
   if (kind === "count") return typeof v === "number" && Number.isFinite(v) && v >= 0;
   if (kind === "positive") return typeof v === "number" && Number.isFinite(v) && v > 0;
+  if (kind === "ratio") return typeof v === "number" && Number.isFinite(v) && v >= 0 && v <= 1;
   return typeof v === "string" && kind.includes(v);
 }
 
@@ -172,6 +180,8 @@ export function composeBackup(p: {
 }): Record<string, unknown> {
   return {
     ...p.progress,
+    // 学習ログも読み込みと同じ規則で組み直す（日付のキーと件数・秒数だけ）
+    ...(p.progress.history !== undefined ? { history: readHistory(p.progress.history) } : {}),
     version: BACKUP_VERSION,
     app: p.app,
     // ストアに紛れ込んだ未知の項目も書き出さない（読み込みと同じ規則で組み直す）
@@ -231,6 +241,8 @@ export function parseBackup(json: string): ParseResult {
     customPassages: Array.isArray(raw.customPassages) ? raw.customPassages.filter(readPassage) : [],
     // v3 で足した任意フィールド（無ければ空）
     pinnedNew: Array.isArray(raw.pinnedNew) ? raw.pinnedNew.filter((x): x is string => typeof x === "string") : [],
+    // B2-06 で足した任意フィールド。日付のキー・既知の項目だけで組み直す（無い・不正なら {}）
+    history: readHistory(raw.history),
   };
 
   return {
@@ -259,6 +271,8 @@ export function describeBackup(d: BackupData): string {
   const studied = Object.values(d.progress.cards).filter((c) => c.last).length;
   parts.push(`学習した単語 ${studied}語`);
   parts.push(`評価 ${d.progress.totalReviews}回`);
+  const days = Object.keys(d.progress.history).length;
+  if (days) parts.push(`学習ログ ${days}日分`);
   if (d.music) parts.push(`曲の単語 ${new Set(d.music.addedWords.map((w) => w.id)).size}語`);
   if (d.settings && Object.keys(d.settings).length) parts.push("設定を含む");
   return parts.join("・");

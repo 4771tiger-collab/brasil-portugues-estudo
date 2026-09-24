@@ -15,7 +15,23 @@ import {
   readMusic,
   type BackupData,
   type ParseResult,
+  type ProgressPart,
 } from "../src/store/backupFormat";
+import {
+  cardDiff,
+  compareCards,
+  mergeAddedWords,
+  mergeCards,
+  mergeHistory,
+  mergeMusic,
+  mergeProgress,
+  mergeStreak,
+  mergeTranslations,
+  unionBy,
+} from "../src/store/merge";
+import type { AddedWord, MusicExport } from "../src/store/useMusic";
+import { addDays, todayStr } from "../src/srs/scheduler";
+import { lineHash } from "../src/services/lyrics";
 
 let fail = 0;
 let pass = 0;
@@ -51,6 +67,11 @@ const PROGRESS = {
   lastStudyDate: "2026-09-24",
   totalReviews: 321,
   customPassages: [{ id: "custom_1", title: "自作", level: "short", source: "custom", chunks: [{ pt: "Oi", ja: "やあ" }] }],
+};
+/** 日ごとの学習ログ（B2-06） */
+const HISTORY = {
+  "2026-09-23": { reviews: 12, newWords: 3, again: 2, act: { quiz: { n: 10, sec: 0 }, music: { n: 0, sec: 240 } } },
+  "2026-09-24": { reviews: 5, newWords: 1, again: 0, act: {} },
 };
 const MUSIC = {
   songs: { vidA: { offsetMs: 250, translations: { abc123: { text: "訳の例", edited: true } } } },
@@ -92,6 +113,7 @@ console.log("=== parseBackup: v1（version 無し・1。music を持たない）
     );
     eq(d.progress.customPassages.map((p) => p.id), ["custom_1"], "customPassages");
     eq(d.progress.pinnedNew, [], "pinnedNew が無い → []");
+    eq(d.progress.history, {}, "history が無い（B2-06 より前のファイル）→ {}");
     eq([d.music, d.settings, d.app], [null, null, null], "music・settings・app は null");
     eq(d.exportedAt, PROGRESS.exportedAt, "exportedAt");
   }
@@ -158,6 +180,21 @@ const V3 = {
   }
   eq(r.ok && r.warnings, [], "v3 → 警告なし");
   eq(BACKUP_VERSION, 3, "現行の書き出し version は 3");
+  ok(!!d?.settings && !("capoeiraShare" in d.settings) && !("dailyReviewLimit" in d.settings), "B2 より前の v3（新しい設定なし）→ 新しい設定は端末側のまま");
+}
+{
+  // B2-03/B2-04 で足した設定（任意フィールド。version は 3 のまま）
+  const V3B2 = { ...V3, settings: { ...V3.settings, capoeiraShare: 0.33, dailyReviewLimit: 150 } };
+  const r = parseBackup(JSON.stringify(V3B2));
+  const d = data(r, "v3 + B2 の設定");
+  eq(d?.settings && [d.settings.capoeiraShare, d.settings.dailyReviewLimit], [0.33, 150], "v3: capoeiraShare・dailyReviewLimit を読む");
+  eq(r.ok && r.warnings, [], "v3 + B2 の設定 → 警告なし");
+  const bad = data(
+    parseBackup(JSON.stringify({ ...V3, settings: { ...V3.settings, capoeiraShare: 1.5, dailyReviewLimit: 0 } })),
+    "v3 + 範囲外の B2 設定"
+  );
+  ok(!!bad?.settings && !("capoeiraShare" in bad.settings) && !("dailyReviewLimit" in bad.settings), "範囲外の capoeiraShare・dailyReviewLimit は読まない");
+  eq(bad?.settings?.dailyNewLimit, 12, "範囲外の項目があっても他の設定は読む");
 }
 
 console.log("=== parseBackup: 未知の version（新しいアプリで作ったファイル） ===");
@@ -169,7 +206,7 @@ console.log("=== parseBackup: 未知の version（新しいアプリで作った
     history: { "2026-09-24": { reviews: 9 } },
     drill: { x: 1 },
     lyricsCache: { vidA: { plainLyrics: "linha inventada" } },
-    settings: { ...V3.settings, capoeiraShare: 0.33 },
+    settings: { ...V3.settings, capoeiraShare: 0.5, futureOption: "x" },
   };
   const r = parseBackup(JSON.stringify(future));
   const d = data(r, "v4");
@@ -177,11 +214,62 @@ console.log("=== parseBackup: 未知の version（新しいアプリで作った
     eq(d.version, 4, "version 4 のまま返す");
     eq(Object.keys(d.progress.cards).length, 2, "知っている項目（cards）は読む");
     eq(d.music, MUSIC, "music も読む");
-    ok(!!d.settings && !("capoeiraShare" in d.settings), "知らない設定は読まない");
+    ok(!!d.settings && !("futureOption" in d.settings), "知らない設定は読まない");
+    eq(d.settings?.capoeiraShare, 0.5, "v4 でも知っている設定（capoeiraShare）は読む");
+    eq(d.progress.history, { "2026-09-24": { reviews: 9, newWords: 0, again: 0, act: {} } }, "v4 でも知っている項目（history）は読み、足りない数は 0");
     eq(Object.keys(d).sort(), ["app", "exportedAt", "music", "progress", "settings", "version"], "知らない最上位の項目は持ち込まない");
+    ok(!JSON.stringify(d).includes('"drill"') && !JSON.stringify(d).includes("linha inventada"), "知らない項目（drill・lyricsCache）は読まない");
   }
   eq(r.ok && r.warnings.length, 1, "警告が1件");
   ok(r.ok && /新しいバージョン/.test(r.warnings[0]) && r.warnings[0].includes("v0.9.0"), "警告に「新しいバージョン」と版");
+}
+
+console.log("=== parseBackup: 学習ログ history（B2-06 の任意フィールド。v1/v2/v3 のどれでも読む） ===");
+{
+  for (const v of [undefined, 1, 2, 3] as const) {
+    const label = v === undefined ? "v1（version 無し）" : `v${v}`;
+    const src = { ...PROGRESS, ...(v === undefined ? {} : { version: v }), ...(v && v >= 2 ? { music: MUSIC } : {}), history: HISTORY };
+    const d = data(parseBackup(JSON.stringify(src)), `${label} + history`);
+    eq(d?.progress.history, HISTORY, `${label}: history を読む`);
+    // 読んだもの → 書き出し（v3）→ 読み直しで同じ中身（往復）
+    if (d) {
+      const out = composeBackup({
+        progress: { version: 1, exportedAt: d.exportedAt, ...d.progress },
+        music: d.music ?? { songs: {}, addedWords: [], userWords: [] },
+        settings: d.settings ?? {},
+        app: { version: "0.1.0", build: "abc1234" },
+      });
+      const back = data(parseBackup(JSON.stringify(out)), `${label} の往復`);
+      eq(back?.progress.history, HISTORY, `${label} → v3 → 読み直し: history が同じ`);
+      eq(back?.progress.cards, d.progress.cards, `${label} → v3 → 読み直し: cards が同じ`);
+      eq([back?.progress.streak, back?.progress.totalReviews], [d.progress.streak, d.progress.totalReviews], `${label} → v3 → 読み直し: 連続記録・評価回数が同じ`);
+    }
+  }
+  const messy = data(
+    parseBackup(
+      JSON.stringify({
+        cards: {},
+        history: {
+          "2026-09-24": { reviews: 3, newWords: "2", again: -1, act: { quiz: { n: 2, sec: 0 }, conjugation: { n: 1, sec: 9 }, music: "x" }, lyric: "linha inventada" },
+          "24/09/2026": { reviews: 1 },
+          "2026-09-23": "x",
+          "2026-09-22": null,
+        },
+      })
+    ),
+    "形の崩れた history"
+  );
+  eq(
+    messy?.progress.history,
+    { "2026-09-24": { reviews: 3, newWords: 0, again: 0, act: { quiz: { n: 2, sec: 0 } } } },
+    "history: 日付でないキー・object でない日・不正な数・知らない種類・知らない項目を落とす"
+  );
+  ok(!JSON.stringify(messy).includes("linha inventada"), "history の知らない項目（文字列）を持ち込まない");
+  for (const bad of [null, [], "x", 3]) {
+    eq(data(parseBackup(JSON.stringify({ cards: {}, history: bad })), "history 不正")?.progress.history, {}, `history が ${JSON.stringify(bad)} → {}`);
+  }
+  const d = data(parseBackup(JSON.stringify({ ...PROGRESS, history: HISTORY })), "describe");
+  ok(!!d && describeBackup(d).includes("学習ログ 2日分"), "describeBackup: 学習ログの日数");
 }
 
 console.log("=== parseBackup: カード・曲のデータの検査 ===");
@@ -263,13 +351,35 @@ console.log("=== pickSettings ===");
     "型・範囲・選択肢の合わない値、voiceURI、関数、未知の項目を落とす"
   );
   eq(pickSettings(null), {}, "object でない → {}");
+  eq(
+    pickSettings({ capoeiraShare: 0, dailyReviewLimit: 100 }),
+    { capoeiraShare: 0, dailyReviewLimit: 100 },
+    "capoeiraShare 0（混ぜない）・dailyReviewLimit を読む"
+  );
+  eq(
+    pickSettings({ capoeiraShare: 1 }),
+    { capoeiraShare: 1 },
+    "capoeiraShare 1 は範囲内"
+  );
+  eq(
+    pickSettings({ capoeiraShare: -0.1, dailyReviewLimit: -5 }),
+    {},
+    "capoeiraShare が負・dailyReviewLimit が負 → 落とす"
+  );
+  eq(pickSettings({ capoeiraShare: "0.25", dailyReviewLimit: "100" }), {}, "文字列の数値は落とす");
   eq(pickSettings({ dailyNewLimit: Infinity, rate: NaN }), {}, "Infinity・NaN を落とす");
 }
 
 console.log("=== composeBackup（v3 の書き出し） ===");
 {
   const out = composeBackup({
-    progress: { version: 1, ...PROGRESS, pinnedNew: ["words:0100"] },
+    progress: {
+      version: 1,
+      ...PROGRESS,
+      pinnedNew: ["words:0100"],
+      // ストアに紛れ込んだ未知の項目は、学習ログでも書き出さない
+      history: { ...HISTORY, "2026-09-20": { reviews: 1, newWords: 0, again: 0, act: {}, note: "linha inventada" } },
+    },
     music: {
       ...MUSIC,
       // ストアに紛れ込んだ未知の項目も書き出さない
@@ -279,7 +389,9 @@ console.log("=== composeBackup（v3 の書き出し） ===");
     app: { version: "0.1.0", build: "abc1234" },
   });
   eq(out.version, 3, "version は 3 に上書き");
-  for (const k of ["cards", "streak", "bestStreak", "lastStudyDate", "totalReviews", "customPassages", "exportedAt", "pinnedNew"]) {
+  const HISTORY_OUT = { ...HISTORY, "2026-09-20": { reviews: 1, newWords: 0, again: 0, act: {} } };
+  eq(out.history, HISTORY_OUT, "history は既知の項目だけで組み直して書き出す");
+  for (const k of ["cards", "streak", "bestStreak", "lastStudyDate", "totalReviews", "customPassages", "exportedAt", "pinnedNew", "history"]) {
     ok(k in out, `進捗の ${k} は最上位に置く（旧版のアプリでも読める）`);
   }
   eq(out.app, { version: "0.1.0", build: "abc1234" }, "app");
@@ -295,12 +407,228 @@ console.log("=== composeBackup（v3 の書き出し） ===");
     eq(d.version, 3, "往復: version");
     eq(d.progress.cards, PROGRESS.cards, "往復: cards");
     eq(d.progress.pinnedNew, ["words:0100"], "往復: pinnedNew");
+    eq(d.progress.history, HISTORY_OUT, "往復: history");
     eq(d.music, MUSIC, "往復: music");
     eq(d.settings, pickSettings(V3.settings), "往復: settings");
     ok(describeBackup(d).includes("学習した単語 2語") && describeBackup(d).includes("評価 321回"), "describeBackup: 語数と評価回数");
     ok(describeBackup(d).includes("曲の単語 1語") && describeBackup(d).includes("設定を含む"), "describeBackup: 曲の単語と設定");
   }
   eq(r.ok && r.warnings, [], "往復: 警告なし");
+}
+
+// ---------------------------------------------------------------------------
+// 統合インポート（merge.ts の純関数）
+console.log("=== merge: cards（last → reps → intervalDays → 端末側） ===");
+{
+  const L: Record<string, SrsCard> = {
+    same: card({ last: "2026-09-20", reps: 2 }),
+    localNewer: card({ last: "2026-09-24", reps: 3 }),
+    remoteNewer: card({ last: "2026-09-10", reps: 5 }),
+    moreReps: card({ last: "2026-09-22", reps: 2, intervalDays: 3 }),
+    longerIv: card({ last: "2026-09-22", reps: 2, intervalDays: 3 }),
+    fullTie: card({ last: "2026-09-22", reps: 2, intervalDays: 3, ease: 2.6 }),
+    nullLocal: card({ last: null, reps: 0 }),
+    nullBoth: card({ last: null, reps: 0, due: "2026-09-01" }),
+    onlyLocal: card(),
+  };
+  const R: Record<string, SrsCard> = {
+    same: card({ last: "2026-09-20", reps: 2 }),
+    localNewer: card({ last: "2026-09-20", reps: 9 }),
+    remoteNewer: card({ last: "2026-09-12", reps: 1 }),
+    moreReps: card({ last: "2026-09-22", reps: 4, intervalDays: 1 }),
+    longerIv: card({ last: "2026-09-22", reps: 2, intervalDays: 7 }),
+    fullTie: card({ last: "2026-09-22", reps: 2, intervalDays: 3, ease: 2.2 }),
+    nullLocal: card({ last: "2026-09-01", reps: 1 }),
+    nullBoth: card({ last: null, reps: 0, due: "2026-09-30" }),
+    onlyRemote: card({ last: "2026-09-21" }),
+  };
+  const lFrozen = JSON.stringify(L);
+  const rFrozen = JSON.stringify(R);
+  const m = mergeCards(L, R);
+  const from = Object.fromEntries(Object.entries(m).map(([id, c]) => [id, c === L[id] ? "L" : c === R[id] ? "R" : "?"]));
+  eq(
+    from,
+    {
+      same: "L",
+      localNewer: "L",
+      remoteNewer: "R",
+      moreReps: "R",
+      longerIv: "R",
+      fullTie: "L",
+      nullLocal: "R",
+      nullBoth: "L",
+      onlyLocal: "L",
+      onlyRemote: "R",
+    },
+    "語ごと: last が新しい方（reps より優先）・同じなら reps・intervalDays・それも同じなら端末側、null は最も古い"
+  );
+  eq(Object.keys(m), [...Object.keys(L), "onlyRemote"], "端末側の順に並べ、ファイルにだけある語を後ろに足す");
+  eq([JSON.stringify(L), JSON.stringify(R)], [lFrozen, rFrozen], "mergeCards は入力を変更しない");
+  for (const id of Object.keys(R)) {
+    if (!L[id]) continue;
+    eq(Math.sign(compareCards(L[id], R[id])), -Math.sign(compareCards(R[id], L[id])), `compareCards は対称（${id}）`);
+  }
+  eq(mergeCards({}, R), R, "端末が空 → ファイルのカード");
+  eq(mergeCards(L, {}), L, "ファイルが空 → 端末のカード");
+
+  eq(
+    cardDiff({ a: card(), b: card({ reps: 1 }), c: card() }, { a: card(), b: card({ reps: 2 }), d: card() }),
+    { added: 1, updated: 1, removed: 1 },
+    "cardDiff: 追加・学習状況の変化・削除を数える"
+  );
+  eq(cardDiff({ a: card() }, { a: { ...card(), level: "young" as const } }), { added: 0, updated: 0, removed: 0 }, "cardDiff: level（表示用）だけの違いは数えない");
+}
+
+console.log("=== merge: 連続記録（streak を数え直す）・学習ログ ===");
+{
+  const day = (reviews: number, act: Record<string, { n: number; sec: number }> = {}) => ({ reviews, newWords: 0, again: 0, act });
+  eq(
+    mergeStreak({ streak: 10, bestStreak: 12, lastStudyDate: "2026-09-20" }, { streak: 1, bestStreak: 3, lastStudyDate: "2026-09-24" }, {}),
+    { streak: 1, bestStreak: 12, lastStudyDate: "2026-09-24" },
+    "途切れた古い大きな streak は引き継がない（lastStudyDate は新しい方・bestStreak は大きい方）"
+  );
+  eq(
+    mergeStreak({ streak: 5, bestStreak: 5, lastStudyDate: "2026-09-23" }, { streak: 1, bestStreak: 1, lastStudyDate: "2026-09-24" }, {}),
+    { streak: 6, bestStreak: 6, lastStudyDate: "2026-09-24" },
+    "続いている2つの連続区間はつなぐ（9/19〜9/23 と 9/24 → 6日）"
+  );
+  eq(
+    mergeStreak({ streak: 5, bestStreak: 7, lastStudyDate: "2026-09-24" }, { streak: 3, bestStreak: 3, lastStudyDate: "2026-09-24" }, {}),
+    { streak: 5, bestStreak: 7, lastStudyDate: "2026-09-24" },
+    "同じ日まで → 大きい方"
+  );
+  eq(
+    mergeStreak(
+      { streak: 1, bestStreak: 1, lastStudyDate: "2026-09-24" },
+      { streak: 1, bestStreak: 1, lastStudyDate: "2026-09-23" },
+      {
+        "2026-09-22": day(3),
+        "2026-09-21": day(0, { music: { n: 0, sec: 200 } }),
+        "2026-09-20": day(0, { music: { n: 0, sec: 100 } }),
+        "2026-09-19": day(4),
+      }
+    ),
+    { streak: 4, bestStreak: 4, lastStudyDate: "2026-09-24" },
+    "端末を交互に使った日も、学習ログで学習日だった日（音楽は 3 分以上）をつないで数える"
+  );
+  eq(
+    mergeStreak({ streak: 0, bestStreak: 0, lastStudyDate: null }, { streak: 3, bestStreak: 4, lastStudyDate: "2026-09-24" }, {}),
+    { streak: 3, bestStreak: 4, lastStudyDate: "2026-09-24" },
+    "端末が未学習 → ファイル側"
+  );
+  eq(
+    mergeStreak({ streak: 0, bestStreak: 0, lastStudyDate: null }, { streak: 0, bestStreak: 2, lastStudyDate: null }, {}),
+    { streak: 0, bestStreak: 2, lastStudyDate: null },
+    "どちらも学習日なし"
+  );
+
+  const LH = {
+    "2026-09-23": { reviews: 5, newWords: 2, again: 1, act: { quiz: { n: 3, sec: 0 }, music: { n: 0, sec: 100 } } },
+    "2026-09-24": day(2),
+  };
+  const RH = {
+    "2026-09-23": { reviews: 2, newWords: 4, again: 0, act: { quiz: { n: 5, sec: 0 }, dictation: { n: 1, sec: 30 } } },
+    "2026-09-22": day(7),
+  };
+  eq(
+    mergeHistory(LH, RH),
+    {
+      "2026-09-23": { reviews: 5, newWords: 4, again: 1, act: { quiz: { n: 5, sec: 0 }, dictation: { n: 1, sec: 30 }, music: { n: 0, sec: 100 } } },
+      "2026-09-24": day(2),
+      "2026-09-22": day(7),
+    },
+    "history: 日ごと・項目ごとに大きい方（片方にしか無い日・種類はそのまま）"
+  );
+  eq(mergeHistory(LH, LH), LH, "history: 同じもの同士 → 変わらない");
+}
+
+console.log("=== merge: 進捗全体（mergeProgress） ===");
+{
+  const base: ProgressPart = { cards: {}, streak: 0, bestStreak: 0, lastStudyDate: null, totalReviews: 0, customPassages: [], pinnedNew: [], history: {} };
+  const psg = (id: string, title: string) => ({ id, title, level: "short" as const, source: "custom" as const, chunks: [] });
+  const local: ProgressPart = {
+    ...base,
+    cards: { a: card({ last: "2026-09-24" }), p1: card({ last: null }) },
+    streak: 3,
+    bestStreak: 8,
+    lastStudyDate: "2026-09-24",
+    totalReviews: 300,
+    customPassages: [psg("custom_1", "端末の題")],
+    pinnedNew: ["p1", "p2"],
+    history: { "2026-09-24": { reviews: 4, newWords: 1, again: 0, act: {} } },
+  };
+  const remote: ProgressPart = {
+    ...base,
+    cards: { a: card({ last: "2026-09-20" }), p3: card({ last: "2026-09-23" }) },
+    streak: 9,
+    bestStreak: 9,
+    lastStudyDate: "2026-09-23",
+    totalReviews: 250,
+    customPassages: [psg("custom_1", "ファイルの題"), psg("custom_2", "新しい教材")],
+    pinnedNew: ["p2", "p3", "p4"],
+    history: {
+      "2026-09-24": { reviews: 1, newWords: 3, again: 2, act: {} },
+      "2025-01-01": { reviews: 9, newWords: 0, again: 0, act: {} }, // 400 日より前 → 消す
+    },
+  };
+  const m = mergeProgress(local, remote, "2026-09-24");
+  ok(m.cards.a === local.cards.a && m.cards.p3 === remote.cards.p3, "cards を語ごとに統合");
+  eq([m.streak, m.bestStreak, m.lastStudyDate], [10, 10, "2026-09-24"], "連続記録: 9/15〜9/23 と 9/22〜9/24 をつないで 10日");
+  eq(m.totalReviews, 300, "totalReviews は大きい方");
+  eq(m.customPassages.map((p) => `${p.id}:${p.title}`), ["custom_1:端末の題", "custom_2:新しい教材"], "customPassages: 和集合（同じ ID は端末側）");
+  eq(m.pinnedNew, ["p1", "p2", "p4"], "pinnedNew: 和集合。ファイル側で評価済みになった語（p3）は外す");
+  eq(m.history, { "2026-09-24": { reviews: 4, newWords: 3, again: 2, act: {} } }, "history: 項目ごとに大きい方・400 日より前の日は消す");
+  const again = mergeProgress(m, m, "2026-09-24");
+  eq(again, m, "同じもの同士の統合は変わらない（何度統合しても同じ）");
+  eq(unionBy([1, 2], [2, 3, 3], String), [1, 2, 3], "unionBy: 端末側の順、重複を除く");
+}
+
+console.log("=== merge: 曲のデータ（和訳・同期・曲の単語） ===");
+{
+  const tr = (text: string, edited: boolean) => ({ text, edited });
+  eq(
+    mergeTranslations(
+      { k1: tr("端末1", false), k2: tr("端末2", true), k3: tr("端末3", false) },
+      { k1: tr("ファイル1", true), k2: tr("ファイル2", true), k3: tr("ファイル3", false), k4: tr("ファイル4", false) }
+    ),
+    { k1: tr("ファイル1", true), k2: tr("端末2", true), k3: tr("端末3", false), k4: tr("ファイル4", false) },
+    "和訳: 手で直した方を優先（どちらも直した・どちらも機械翻訳なら端末側）、端末に無い行は足す"
+  );
+
+  const aw = (id: string, videoId: string, createdCard: boolean, addedAt: string): AddedWord => ({ id, videoId, surface: id, createdCard, addedAt });
+  const merged = mergeAddedWords(
+    [aw("w1", "A", false, "2026-09-10T00:00:00.000Z"), aw("w2", "A", true, "2026-09-05T00:00:00.000Z"), aw("w3", "A", false, "")],
+    [
+      aw("w1", "A", true, "2026-09-01T00:00:00.000Z"),
+      aw("w1", "B", false, "2026-09-02T00:00:00.000Z"),
+      aw("w2", "A", false, "2026-09-20T00:00:00.000Z"),
+      aw("w3", "A", false, "2026-09-03T00:00:00.000Z"),
+    ]
+  );
+  eq(
+    merged.map((w) => `${w.id}@${w.videoId}${w.createdCard ? "*" : ""} ${w.addedAt.slice(0, 10)}`),
+    ["w1@A* 2026-09-01", "w2@A* 2026-09-05", "w3@A 2026-09-03", "w1@B 2026-09-02"],
+    "addedWords: (id, videoId) の和集合・addedAt は古い方（空は無視）・createdCard は OR"
+  );
+  const extra = { ...aw("w9", "A", false, "2026-09-01T00:00:00.000Z"), lineHash: "h1" } as AddedWord;
+  eq((mergeAddedWords([extra], [aw("w9", "A", true, "2026-09-02T00:00:00.000Z")])[0] as AddedWord & { lineHash?: string }).lineHash, "h1", "addedWords: 端末側の未知の項目は残す");
+
+  const LM: MusicExport = {
+    songs: { vidA: { offsetMs: 100, translations: { k1: tr("端末", false) } } },
+    addedWords: [aw("w1", "vidA", true, "2026-09-10T00:00:00.000Z")],
+    userWords: [{ id: "user:a", pt: "a", ja: "端末", pos: "名詞" }],
+  };
+  const RM: MusicExport = {
+    songs: { vidA: { offsetMs: 300, translations: { k1: tr("ファイル", true), k2: tr("ファイル2", false) } }, vidB: { offsetMs: 50, translations: {} } },
+    addedWords: [aw("w2", "vidB", true, "2026-09-11T00:00:00.000Z")],
+    userWords: [{ id: "user:a", pt: "a", ja: "ファイル", pos: "名詞" }, { id: "user:b", pt: "b", ja: "び", pos: "名詞" }],
+  };
+  const mm = mergeMusic(LM, RM);
+  eq(mm.songs.vidA, { offsetMs: 100, translations: { k1: tr("ファイル", true), k2: tr("ファイル2", false) } }, "songs: offsetMs は端末側、和訳は行ごとに統合");
+  eq(mm.songs.vidB, RM.songs.vidB, "songs: 端末に無い曲はファイル側");
+  eq(mm.addedWords.map((w) => w.id), ["w1", "w2"], "addedWords を統合");
+  eq(mm.userWords.map((u) => `${u.id}:${u.ja}`), ["user:a:端末", "user:b:び"], "userWords: 和集合（同じ ID は端末側）");
+  ok(mergeMusic(LM, null) === LM, "ファイルに曲のデータが無い（v1）→ 端末側のまま");
 }
 
 // ---------------------------------------------------------------------------
@@ -386,10 +714,14 @@ console.log("=== exportAll / importAll（ストア） ===");
     userWords: [],
   });
   P().addCard("words:0020");
-  useSettings.getState().set({ rate: 0.8, dailyNewLimit: 9, voiceURI: "voz-do-aparelho" });
+  useSettings.getState().set({ rate: 0.8, dailyNewLimit: 9, voiceURI: "voz-do-aparelho", capoeiraShare: 0.5, dailyReviewLimit: 200 });
+  P().logActivity("dictation", 1, 40);
+  const hist = P().history;
+  eq(hist[todayStr()], { reviews: 2, newWords: 2, again: 1, act: { dictation: { n: 1, sec: 40 } } }, "前提: 今日の学習ログがある");
 
   const json = exportAll();
   const out = JSON.parse(json) as Record<string, unknown>;
+  eq(out.history, hist, "書き出しに学習ログ（history）を含める");
   ok(!json.includes(MARK), "書き出しに歌詞キャッシュ・歌詞の文字列が入らない");
   for (const k of ["syncedLyrics", "plainLyrics", "instrumental", "fetchedAt", "bp-lyrics-cache-v1", "lyricsCache"]) {
     ok(!json.includes(`"${k}"`), `書き出しに歌詞キャッシュの項目 ${k} が無い`);
@@ -400,39 +732,172 @@ console.log("=== exportAll / importAll（ストア） ===");
   eq(out.pinnedNew, ["words:0300"], "pinnedNew");
   const s = out.settings as Record<string, unknown>;
   eq([s.rate, s.dailyNewLimit, "voiceURI" in s], [0.8, 9, false], "settings（voiceURI を除く）");
+  eq([s.capoeiraShare, s.dailyReviewLimit], [0.5, 200], "settings に capoeiraShare・dailyReviewLimit を書き出す");
   eq((out.music as { songs: unknown }).songs, { vidA: { offsetMs: 120, translations: { abc123: { text: "訳の例", edited: true } } } }, "music.songs");
 
   // 置き換えで戻る。voiceURI は端末側のまま
   P().resetAll();
   M().clearAddedWords();
   useMusic.setState({ songs: {} });
-  useSettings.getState().set({ rate: 1.2, dailyNewLimit: 20, voiceURI: "outra-voz" });
-  const r = importAll(json);
+  useSettings.getState().set({ rate: 1.2, dailyNewLimit: 20, voiceURI: "outra-voz", capoeiraShare: 0, dailyReviewLimit: 50 });
+  const r = importAll(json, "replace");
   ok(r.ok, "importAll 書き出したもの → ok");
   eq(Object.keys(P().cards).sort(), ["words:0010", "words:0011", "words:0020"], "cards を復元");
   eq([P().totalReviews, P().pinnedNew], [2, ["words:0300"]], "totalReviews・pinnedNew を復元");
+  eq(P().history, hist, "学習ログ（history）を復元");
   eq(M().addedWords.map((w) => w.id), ["words:0020"], "曲の単語を復元");
   eq(M().songs.vidA?.offsetMs, 120, "曲の同期を復元");
   const st = useSettings.getState();
   eq([st.rate, st.dailyNewLimit, st.voiceURI], [0.8, 9, "outra-voz"], "設定を復元（voiceURI は端末側のまま）");
+  eq([st.capoeiraShare, st.dailyReviewLimit], [0.5, 200], "capoeiraShare・dailyReviewLimit を復元");
 
   // 読めないものは何も変えない
   const before = JSON.stringify(P().cards);
-  const bad = importAll("{ broken");
+  const bad = importAll("{ broken", "replace");
   ok(!bad.ok, "importAll 壊れた JSON → ok:false");
   eq(JSON.stringify(P().cards), before, "失敗したときは進捗を変えない");
 
   // v1（music 無し）: 曲のデータは端末側のまま、追加済みの語のカードを作り直す（reconcile）
   const v1 = JSON.stringify({ version: 1, cards: { "words:0030": card() }, streak: 1, bestStreak: 1, lastStudyDate: "2026-09-24", totalReviews: 1 });
-  ok(importAll(v1).ok, "importAll v1 → ok");
+  ok(importAll(v1, "replace").ok, "importAll v1 → ok");
   eq(Object.keys(P().cards).sort(), ["words:0020", "words:0030"], "v1: cards を置き換え、曲の単語のカードを作り直す");
   eq(M().addedWords.map((w) => w.id), ["words:0020"], "v1: 曲の単語は端末側のまま");
   eq(P().cards["words:0020"]?.last, null, "v1: 作り直したカードは未評価");
   eq(useSettings.getState().rate, 0.8, "v1: 設定は変えない");
+  eq(P().history, {}, "v1（history 無し）で置き換え → history は {}");
 
   P().resetAll();
   M().clearAddedWords();
   useMusic.setState({ songs: {} });
+}
+
+console.log("=== importAll 統合（ストア） ===");
+{
+  const { exportAll, importAll } = await import("../src/store/backup");
+  const { useProgress } = await import("../src/store/useProgress");
+  const { useMusic } = await import("../src/store/useMusic");
+  const { useSettings } = await import("../src/store/useSettings");
+  const P = () => useProgress.getState();
+  const M = () => useMusic.getState();
+  const TD = todayStr();
+  const tr = (text: string, edited: boolean) => ({ text, edited });
+  const hday = (reviews: number, newWords: number, again: number, act = {}) => ({ reviews, newWords, again, act });
+
+  // この端末（スマホ）の状態
+  P().resetAll();
+  useProgress.setState({
+    cards: {
+      "words:0001": card({ last: TD, reps: 3, due: addDays(TD, 6) }),
+      "words:0002": card({ last: addDays(TD, -5), reps: 2 }),
+    },
+    streak: 2,
+    bestStreak: 5,
+    lastStudyDate: TD,
+    totalReviews: 40,
+    customPassages: [],
+    pinnedNew: ["words:0050", "words:0003"],
+    history: { [TD]: hday(3, 1, 0, { music: { n: 0, sec: 60 } }) },
+  });
+  useMusic.setState({
+    songs: { vidA: { offsetMs: 100, translations: { k1: tr("端末の訳", true) } } },
+    addedWords: [{ id: "words:0001", videoId: "vidA", surface: "x", createdCard: false, addedAt: "2026-09-10T00:00:00.000Z" }],
+    userWords: [],
+  });
+  useSettings.getState().set({ rate: 0.9, dailyNewLimit: 11 });
+  const dailyBefore = JSON.stringify(P().daily);
+
+  // 別の端末（PC）で作ったバックアップ
+  const remote = {
+    version: 3,
+    app: { version: "0.1.0", build: "abc1234" },
+    exportedAt: "2026-09-23T10:00:00.000Z",
+    cards: {
+      "words:0001": card({ last: addDays(TD, -1), reps: 9 }),
+      "words:0002": card({ last: addDays(TD, -1), reps: 3, intervalDays: 8 }),
+      "words:0003": card({ last: addDays(TD, -2) }),
+    },
+    streak: 4,
+    bestStreak: 4,
+    lastStudyDate: addDays(TD, -1),
+    totalReviews: 55,
+    customPassages: [{ id: "custom_9", title: "PC の教材", level: "short", source: "custom", chunks: [] }],
+    pinnedNew: ["words:0060"],
+    history: { [TD]: hday(1, 2, 1), [addDays(TD, -1)]: hday(8, 0, 2, { quiz: { n: 10, sec: 0 } }) },
+    music: {
+      songs: { vidA: { offsetMs: 999, translations: { k1: tr("PC の訳", true), k2: tr("機械翻訳", false) } } },
+      addedWords: [{ id: "words:0004", videoId: "vidB", surface: "y", createdCard: true, addedAt: "2026-09-12T00:00:00.000Z" }],
+      userWords: [{ id: "user:x", pt: "x", ja: "エックス", pos: "名詞" }],
+    },
+    settings: { rate: 1.2, dailyNewLimit: 30 },
+  };
+  const r = importAll(JSON.stringify(remote), "merge");
+  ok(r.ok, "importAll 統合 → ok");
+  eq(r.ok && r.diff, { added: 2, updated: 1, removed: 0 }, "統合: 新しく入った語 2（0003 と曲の単語 0004）・変わった語 1（0002）");
+  eq(P().cards["words:0001"].last, TD, "cards: 端末の方が新しい語は端末側");
+  eq([P().cards["words:0002"].last, P().cards["words:0002"].intervalDays], [addDays(TD, -1), 8], "cards: ファイルの方が新しい語はファイル側");
+  ok(!!P().cards["words:0003"], "cards: ファイルにだけある語を足す");
+  eq(P().cards["words:0004"]?.last, null, "曲の単語（ファイル側）のカードを作り直す（reconcile）");
+  eq([P().streak, P().bestStreak, P().lastStudyDate], [5, 5, TD], "連続記録: 端末の2日とファイルの4日をつないで 5日");
+  eq(P().totalReviews, 55, "totalReviews は大きい方");
+  eq(P().pinnedNew, ["words:0050", "words:0060"], "pinnedNew: 和集合。ファイル側で評価済みの語（0003）は外す");
+  eq(P().customPassages.map((p) => p.id), ["custom_9"], "customPassages: 和集合");
+  eq(
+    P().history,
+    { [TD]: hday(3, 2, 1, { music: { n: 0, sec: 60 } }), [addDays(TD, -1)]: hday(8, 0, 2, { quiz: { n: 10, sec: 0 } }) },
+    "history: 日ごと・項目ごとに大きい方"
+  );
+  eq(JSON.stringify(P().daily), dailyBefore, "daily（今日のカウンタ）は端末側のまま");
+  eq(M().songs.vidA, { offsetMs: 100, translations: { k1: tr("端末の訳", true), k2: tr("機械翻訳", false) } }, "曲: offsetMs は端末側、和訳は両方の行を合わせる");
+  eq(M().addedWords.map((w) => `${w.id}@${w.videoId}`), ["words:0001@vidA", "words:0004@vidB"], "曲の単語: 和集合");
+  eq(M().userWords.map((u) => u.id), ["user:x"], "userWords: 和集合");
+  const st = useSettings.getState();
+  eq([st.rate, st.dailyNewLimit], [0.9, 11], "統合では設定を変えない（端末側のまま）");
+
+  // 同じファイルをもう一度統合しても変わらない
+  const snapshot = () => JSON.stringify([P().cards, P().history, P().streak, P().bestStreak, P().lastStudyDate, P().totalReviews, P().pinnedNew, P().customPassages, M().songs, M().addedWords, M().userWords]);
+  const s1 = snapshot();
+  const r2 = importAll(JSON.stringify(remote), "merge");
+  eq(r2.ok && r2.diff, { added: 0, updated: 0, removed: 0 }, "同じファイルをもう一度統合 → 変化なし");
+  eq(snapshot(), s1, "同じファイルをもう一度統合 → 状態も同じ");
+  // 自分のバックアップを統合しても変わらない
+  const r3 = importAll(exportAll(), "merge");
+  eq(r3.ok && r3.diff, { added: 0, updated: 0, removed: 0 }, "自分のバックアップを統合 → 変化なし");
+  eq(snapshot(), s1, "自分のバックアップを統合 → 状態も同じ");
+
+  // v1（music・history 無し）の統合: 曲のデータと学習ログは端末側を残す
+  const v1 = { version: 1, cards: { "words:0005": card({ last: addDays(TD, -3) }) }, streak: 1, bestStreak: 1, lastStudyDate: addDays(TD, -3), totalReviews: 1 };
+  const r4 = importAll(JSON.stringify(v1), "merge");
+  eq(r4.ok && r4.diff, { added: 1, updated: 0, removed: 0 }, "v1 を統合 → 語を足す");
+  eq(Object.keys(P().cards).sort(), ["words:0001", "words:0002", "words:0003", "words:0004", "words:0005"], "v1 を統合 → 端末の語は消えない");
+  eq(JSON.stringify([M().songs, M().addedWords, M().userWords]), JSON.stringify(JSON.parse(s1).slice(8)), "v1 を統合 → 曲のデータは端末側のまま");
+  eq(P().history, JSON.parse(s1)[1], "v1 を統合 → 学習ログは端末側のまま");
+  eq([P().streak, P().lastStudyDate, P().totalReviews], [5, TD, 55], "v1 を統合 → 連続記録・評価回数は大きい方");
+
+  // 置き換えを選んだとき: 端末だけの記録は消え、設定はファイルの内容になる
+  const r5 = importAll(JSON.stringify(remote), "replace");
+  ok(r5.ok, "importAll 置き換え → ok");
+  eq(Object.keys(P().cards).sort(), ["words:0001", "words:0002", "words:0003", "words:0004"], "置き換え: ファイルの語＋曲の単語のカード");
+  eq(P().cards["words:0001"].last, addDays(TD, -1), "置き換え: 端末の方が新しくてもファイル側");
+  eq(P().history, remote.history, "置き換え: 学習ログもファイル側");
+  eq([useSettings.getState().rate, useSettings.getState().dailyNewLimit], [1.2, 30], "置き換え: 設定もファイルの内容");
+  eq(M().songs.vidA?.offsetMs, 999, "置き換え: 曲のデータもファイル側");
+
+  // ごく古いファイル（和訳のキーが行の本文）: 統合の前にハッシュにそろえ、手で直した端末の訳を残す
+  const KEY_TEXT = "Linha inventada para o teste";
+  useMusic.setState({ songs: { vidZ: { offsetMs: 0, translations: { [lineHash(KEY_TEXT)]: tr("端末で直した訳", true) } } } });
+  const oldFile = { ...remote, music: { songs: { vidZ: { offsetMs: 5, translations: { [KEY_TEXT]: tr("古い機械翻訳", false) } } }, addedWords: [], userWords: [] } };
+  ok(importAll(JSON.stringify(oldFile), "merge").ok, "importAll 統合 古い形式の和訳キー → ok");
+  eq(M().songs.vidZ, { offsetMs: 0, translations: { [lineHash(KEY_TEXT)]: tr("端末で直した訳", true) } }, "古い形式のキーはハッシュにそろえてから統合（手で直した端末の訳を残す）");
+  ok(!JSON.stringify(M().songs).includes(KEY_TEXT), "行の本文をキーとして残さない");
+
+  // 読めないファイルは、統合でも何も変えない
+  const before = snapshot();
+  ok(!importAll("{ broken", "merge").ok, "importAll 統合 壊れた JSON → ok:false");
+  eq(snapshot(), before, "統合に失敗したときは何も変えない");
+
+  P().resetAll();
+  M().clearAddedWords();
+  useMusic.setState({ songs: {}, userWords: [] });
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

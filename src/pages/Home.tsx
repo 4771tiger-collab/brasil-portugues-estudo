@@ -1,11 +1,13 @@
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
-import { ALL_WORDS, STATS, reviewPool } from "../data/loadWords";
+import { ALL_WORDS, STATS } from "../data/loadWords";
 import { currentStreak, studiedToday, todayCounters, useProgress } from "../store/useProgress";
+import { activitySeconds } from "../store/history";
 import { useSettings } from "../store/useSettings";
-import { useAddedIds, useUserWordMap } from "../store/useMusic";
-import { countAddedNew, countReview, masteryBreakdown } from "../srs/queue";
+import { useAddedIds } from "../store/useMusic";
+import { masteryBreakdown } from "../srs/queue";
 import { useToday } from "../hooks/useToday";
+import { useTodayPlan } from "../hooks/useTodayPlan";
 import UpdateBanner from "../components/UpdateBanner";
 import InstallCard from "../components/InstallCard";
 import BackupNudge from "../components/BackupNudge";
@@ -26,23 +28,25 @@ export default function Home() {
   const bestStreak = useProgress((s) => s.bestStreak);
   const streak = useProgress((s) => currentStreak(s, today));
   const doneToday = useProgress((s) => studiedToday(s, today));
-  const dailyNewLimit = useSettings((s) => s.dailyNewLimit);
+  // 今日の練習（音楽以外）と音楽の時間（学習ログ history。単語の目標とは別に数える）
+  const dayLog = useProgress((s) => s.history?.[today]);
+  const { practice: practiceSec, music: musicSec } = activitySeconds(dayLog);
   const dailyGoal = useSettings((s) => s.dailyGoal);
-  const musicNewLimit = useSettings((s) => s.musicNewLimit);
+  const dailyReviewLimit = useSettings((s) => s.dailyReviewLimit);
   const addedIds = useAddedIds();
-  const userMap = useUserWordMap();
 
-  // 復習数は曲から追加した語も含める（習熟度は単語帳のカリキュラム進捗なので ALL_WORDS のまま）
-  const pool = useMemo(() => reviewPool(addedIds, userMap), [addedIds, userMap]);
-  const due = useMemo(() => countReview(pool, cards, today), [pool, cards, today]);
-  const addedNew = useMemo(() => countAddedNew(pool, cards, today), [pool, cards, today]);
+  // 今日の学習の中身（実際に始めるセッションと同じ計算。復習は曲から追加した語も含め、1日の上限まで）。
+  // 習熟度は単語帳のカリキュラム進捗なので ALL_WORDS のまま
+  const plan = useTodayPlan();
+  const due = plan.review.length;
+  const newCount = plan.fresh.length;
+  const musicNew = plan.added.length;
+  const backlog = plan.reason === "backlog";
   const mastery = useMemo(() => masteryBreakdown(ALL_WORDS, cards), [cards]);
-  const newRemaining = Math.max(0, dailyNewLimit - daily.newIntroduced);
-  const musicNew = Math.min(addedNew, Math.max(0, musicNewLimit - (daily.musicIntroduced ?? 0)));
   const musicLearned = addedIds.filter((id) => cards[id]?.last).length;
   const goalRatio = dailyGoal ? Math.min(1, daily.studied / dailyGoal) : 0;
   // 今日の分があれば単語帳の一覧を経ずに「今日の学習」へ直行する
-  const hasToday = due + newRemaining + musicNew > 0;
+  const hasToday = plan.all.length > 0;
 
   return (
     <div className="animate-fade-in space-y-5">
@@ -63,7 +67,7 @@ export default function Home() {
             </div>
             <div className="mb-0.5 text-white/70">＋</div>
             <div>
-              <div className="text-4xl font-extrabold leading-none">{newRemaining}</div>
+              <div className="text-4xl font-extrabold leading-none">{newCount}</div>
               <div className="mt-1 text-xs opacity-90">新しい語</div>
             </div>
             {musicNew > 0 && (
@@ -76,6 +80,12 @@ export default function Home() {
               </>
             )}
           </div>
+          {/* 期限の来た復習が1日の上限を超えている日は、延滞の大きい順に上限まで出し、新しい語は止める */}
+          {backlog && (
+            <p className="mt-3 rounded-lg bg-white/15 px-3 py-2 text-xs/relaxed">
+              復習が溜まっています（期限の来た語 {plan.dueTotal}語）。今日は延滞の大きい語から1日の上限（{dailyReviewLimit}枚）まで復習し、新しい語はお休みします。
+            </p>
+          )}
           <Link
             to={hasToday ? "/flashcards/today" : "/flashcards"}
             className="mt-4 inline-flex w-full items-center justify-center rounded-xl bg-white py-3 font-bold text-brand-green shadow-sm transition active:scale-95"
@@ -84,14 +94,21 @@ export default function Home() {
           </Link>
         </div>
         <div className="grid grid-cols-2 gap-3 p-4">
+          {/* 今日の目標: 単語（評価の回数 / 目標）と、練習・音楽の時間 */}
           <div>
             <div className="mb-1 flex justify-between text-xs text-slate-500">
-              <span>今日の目標</span>
+              <span>単語</span>
               <span>
                 {daily.studied}/{dailyGoal}
               </span>
             </div>
             <Bar value={goalRatio} className="bg-brand-yellow" />
+            <div className="mt-2 text-xs text-slate-500">
+              練習 <span className="font-bold text-brand-ink">{Math.floor(practiceSec / 60)}分</span>
+              <span className="mx-1 text-slate-300">・</span>
+              <span aria-hidden="true">🎵</span>
+              <span className="sr-only">音楽</span> <span className="font-bold text-brand-ink">{Math.floor(musicSec / 60)}分</span>
+            </div>
           </div>
           <div>
             <div className="mb-1 flex justify-between text-xs text-slate-500">

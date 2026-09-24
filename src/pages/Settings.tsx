@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSettings } from "../store/useSettings";
-import { applyBackup, describeBackup, parseBackup, resetAllProgress, saveBackupFile } from "../store/backup";
+import { applyBackup, describeBackup, parseBackup, resetAllProgress, saveBackupFile, type ImportMode } from "../store/backup";
 import { useMeta } from "../store/useMeta";
 import { formatBytes, requestPersist, storageStatus, type StorageStatus } from "../services/platform";
 import { diffDays, todayStr } from "../srs/scheduler";
@@ -22,6 +22,38 @@ function Row({ label, hint, children }: { label: string; hint?: string; children
 }
 
 const isBrVoice = (v: VoiceInfo) => /^pt[-_]br/i.test(v.lang);
+
+/** 1日の復習の上限の選択肢（枚） */
+const REVIEW_LIMITS = [50, 100, 150, 200, 300];
+/** カポエイラ語の割合の選択肢 */
+const CAPOEIRA_SHARES = [0, 0.25, 0.33, 0.5];
+
+/** 選択肢に今の値が無ければ足す（バックアップや将来版で入った値も select に出す） */
+function withCurrent(options: number[], current: number): number[] {
+  return options.includes(current) ? options : [...options, current].sort((a, b) => a - b);
+}
+
+function shareLabel(v: number): string {
+  if (v <= 0) return "混ぜない";
+  if (v === 0.25) return "4語に1語";
+  if (v === 0.33) return "3語に1語";
+  if (v === 0.5) return "2語に1語";
+  return `${Math.round(v * 100)}%`;
+}
+
+/** インポートの方法（統合が既定。置き換えはこの端末だけの記録が消える） */
+const IMPORT_MODES: { v: ImportMode; label: string; hint: string }[] = [
+  {
+    v: "merge",
+    label: "統合（推奨）",
+    hint: "この端末の記録とバックアップの記録を合わせます。同じ語は新しく学習した方を残し、設定はこの端末のままです。PC とスマホの記録をまとめるときにも使えます。",
+  },
+  {
+    v: "replace",
+    label: "置き換え",
+    hint: "この端末の進捗・曲のデータ・設定を、バックアップの内容で置き換えます。この端末だけにある記録は消えます。",
+  },
+];
 
 /** 今使われる音声と、その注意（pt-BR 以外・ネットワーク音声） */
 function VoiceStatus({ supported, current }: { supported: boolean; current: VoiceInfo | null }) {
@@ -205,6 +237,8 @@ export default function Settings() {
   const fileRef = useRef<HTMLInputElement>(null);
   const [saving, setSaving] = useState(false);
   const [paste, setPaste] = useState("");
+  // インポートの方法。開くたびに安全な「統合」に戻す（置き換えは消える記録があるため）
+  const [importMode, setImportMode] = useState<ImportMode>("merge");
 
   // 音声一覧は後から届く・増える（Android は遅い。音声データを入れて戻ってきたときも読み直す）
   const [voicesLoaded, setVoicesLoaded] = useState(false);
@@ -256,25 +290,34 @@ export default function Settings() {
     }
   }
 
-  /** バックアップのテキストを読み、確認のうえ今のデータを置き換える。置き換えたら true */
+  /** バックアップのテキストを読み、確認のうえ選んだ方法（統合／置き換え）で取り込む。取り込んだら true */
   function importText(text: string): boolean {
     const r = parseBackup(text);
     if (!r.ok) {
       flash(r.error, 4000);
       return false;
     }
+    const merge = importMode === "merge";
+    const hasSettings = !!r.data.settings && Object.keys(r.data.settings).length > 0;
     const lines = [
-      "このバックアップで今の進捗を置き換えます。よろしいですか？",
+      merge
+        ? "このバックアップを今の進捗に統合します。よろしいですか？"
+        : "このバックアップで今の進捗を置き換えます。よろしいですか？",
+      merge
+        ? "（両方の記録を残し、同じ語は新しく学習した方を採用します。設定はこの端末のままです）"
+        : `（この端末だけにある記録は消えます${hasSettings ? "。設定もバックアップの内容になります" : ""}）`,
       "",
       describeBackup(r.data),
       ...r.warnings.map((w) => `⚠ ${w}`),
     ];
     if (!confirm(lines.join("\n"))) return false;
-    if (!applyBackup(r.data)) {
+    const diff = applyBackup(r.data, importMode);
+    if (!diff) {
       flash("学習データを取り込めませんでした", 4000);
       return false;
     }
-    flash(r.warnings.length ? `復元しました。${r.warnings.join(" ")}` : "進捗を復元しました", r.warnings.length ? 6000 : 2500);
+    const done = merge ? `統合しました（新しく入った語 ${diff.added}・学習状況が変わった語 ${diff.updated}）` : "進捗を復元しました";
+    flash(r.warnings.length ? `${done}。${r.warnings.join(" ")}` : done, r.warnings.length ? 6000 : merge ? 4000 : 2500);
     return true;
   }
 
@@ -319,6 +362,32 @@ export default function Settings() {
             onChange={(e) => s.set({ dailyNewLimit: Math.max(0, Number(e.target.value)) })}
             className="w-20 rounded-lg border border-slate-200 px-2 py-1.5 text-right"
           />
+        </Row>
+        <Row label="1日の復習の上限" hint="超える日は延滞の大きい語から出し、新しい語はお休み">
+          <select
+            value={s.dailyReviewLimit}
+            onChange={(e) => s.set({ dailyReviewLimit: Number(e.target.value) })}
+            className="rounded-lg border border-slate-200 px-2 py-1.5"
+          >
+            {withCurrent(REVIEW_LIMITS, s.dailyReviewLimit).map((n) => (
+              <option key={n} value={n}>
+                {n}枚
+              </option>
+            ))}
+          </select>
+        </Row>
+        <Row label="カポエイラ語の割合" hint="今日の学習の新しい語に混ぜるカポエイラ用語">
+          <select
+            value={s.capoeiraShare}
+            onChange={(e) => s.set({ capoeiraShare: Number(e.target.value) })}
+            className="rounded-lg border border-slate-200 px-2 py-1.5"
+          >
+            {withCurrent(CAPOEIRA_SHARES, s.capoeiraShare).map((v) => (
+              <option key={v} value={v}>
+                {shareLabel(v)}
+              </option>
+            ))}
+          </select>
         </Row>
         <Row label="1日の目標枚数" hint="ホームの進捗バーの目標">
           <input
@@ -424,10 +493,33 @@ export default function Settings() {
         <h2 className="px-1 text-sm font-bold text-slate-500">データとバックアップ</h2>
         <DataProtection onMessage={flash} />
         <p className="px-1 text-xs text-slate-400">
-          進捗・曲の和訳・曲から追加した単語・設定を保存します（歌詞そのものと音声の選択は含みません）。スマホでは共有メニューから
+          進捗（日ごとの学習ログを含む）・曲の和訳・曲から追加した単語・設定を保存します（歌詞そのものと音声の選択は含みません）。スマホでは共有メニューから
           Google ドライブやメールに保存できます（ファイルは .txt ですが、そのままインポートできます）。PC ではファイル（.json）をダウンロードします。
         </p>
         <LastBackup />
+        {/* インポートの方法（ファイルと貼り付けの両方に効く） */}
+        <div className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-500">
+          <div className="mb-1.5 font-medium text-slate-600">インポートの方法</div>
+          <div role="radiogroup" aria-label="インポートの方法" className="flex gap-0.5 rounded-lg bg-slate-200/70 p-0.5">
+            {IMPORT_MODES.map((m) => (
+              <button
+                key={m.v}
+                type="button"
+                role="radio"
+                aria-checked={importMode === m.v}
+                onClick={() => setImportMode(m.v)}
+                className={`min-h-11 flex-1 rounded-md px-2 text-sm ${
+                  importMode === m.v ? "bg-white font-bold text-brand-ink shadow-sm" : "text-slate-500"
+                }`}
+              >
+                {m.label}
+              </button>
+            ))}
+          </div>
+          <p className={`mt-1.5 ${importMode === "replace" ? "text-amber-700" : ""}`}>
+            {IMPORT_MODES.find((m) => m.v === importMode)?.hint}
+          </p>
+        </div>
         <div className="flex gap-2">
           <button type="button" onClick={() => void doExport()} disabled={saving} className="btn-ghost min-h-11 flex-1">
             {saving ? "準備中…" : "⬇ バックアップを保存"}
@@ -464,7 +556,7 @@ export default function Settings() {
             disabled={!paste.trim()}
             className="btn-ghost mb-2 mt-1 min-h-11 w-full text-sm"
           >
-            貼り付けた内容で復元
+            貼り付けた内容で{importMode === "merge" ? "統合" : "置き換え"}
           </button>
         </details>
         <button

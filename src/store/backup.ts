@@ -3,18 +3,28 @@
 // ============================================================================
 // バックアップ（エクスポート/インポート/リセット）
 // 形式（v1〜v3・未知の version の読み分け）は backupFormat.ts（純関数）。
-// v3 = v2（進捗の最上位フィールド＋ music）に app・settings を足したもの。旧版のアプリでも読める。
+// v3 = v2（進捗の最上位フィールド＋ music）に app・settings（B2-06 で history）を足したもの。旧版のアプリでも読める。
+// 取り込みは「統合」（merge.ts の純関数。別の端末の記録と合わせる）と「置き換え」を選べる。
 // 歌詞キャッシュ(lyricsCache)は含めない（再取得できるため・著作物のため）。
 // ============================================================================
 
 import { todayStr } from "../srs/scheduler";
-import { composeBackup, parseBackup, type AppInfo, type BackupData, type ParseResult } from "./backupFormat";
+import {
+  composeBackup,
+  parseBackup,
+  type AppInfo,
+  type BackupData,
+  type ParseResult,
+  type ProgressPart,
+} from "./backupFormat";
+import { cardDiff, mergeMusic, mergeProgress, type CardDiff, type ImportMode } from "./merge";
 import { useMeta } from "./useMeta";
-import { useMusic } from "./useMusic";
+import { hashTranslationKeys, useMusic } from "./useMusic";
 import { useProgress } from "./useProgress";
 import { useSettings } from "./useSettings";
 
 export { parseBackup, describeBackup, type BackupData, type ParseResult } from "./backupFormat";
+export type { CardDiff, ImportMode } from "./merge";
 
 /** このアプリの版（vite の define。scripts/ から tsx で読むときは未定義なので "dev"） */
 function appInfo(): AppInfo {
@@ -46,27 +56,62 @@ export function reconcile(): void {
   }
 }
 
-/**
- * 読み取り済みのバックアップで端末のデータを置き換える（replace）。
- * - 進捗: 置き換え（今日のカウンタ daily は端末側のまま）
- * - 曲のデータ: ファイルにあれば置き換え、無ければ（v1）端末側のまま
- * - 設定: ファイルにあれば上書き（voiceURI は端末側のまま）
- * 最後に reconcile() で、曲から追加した語のカードを作り直す。
- */
-export function applyBackup(data: BackupData): boolean {
-  if (!useProgress.getState().importJSON(JSON.stringify(data.progress))) return false;
-  if (data.music) useMusic.getState().importData(data.music);
-  if (data.settings && Object.keys(data.settings).length) useSettings.getState().set(data.settings);
-  reconcile();
-  return true;
+/** 端末の進捗を、バックアップの進捗と同じ形で取り出す（統合の入力） */
+function localProgress(): ProgressPart {
+  const s = useProgress.getState();
+  return {
+    cards: s.cards,
+    streak: s.streak,
+    bestStreak: s.bestStreak,
+    lastStudyDate: s.lastStudyDate,
+    totalReviews: s.totalReviews,
+    customPassages: s.customPassages,
+    pinnedNew: s.pinnedNew,
+    history: s.history ?? {},
+  };
 }
 
-/** テキストを読んで置き換える（確認なし）。失敗時は理由を返す */
-export function importAll(json: string): ParseResult {
-  const r = parseBackup(json);
+/**
+ * 読み取り済みのバックアップを端末に取り込む。取り込んだ前後のカードの変化を返す（失敗は null）。
+ * - replace（置き換え）
+ *   - 進捗: 置き換え（今日のカウンタ daily は端末側のまま）
+ *   - 曲のデータ: ファイルにあれば置き換え、無ければ（v1）端末側のまま
+ *   - 設定: ファイルにあれば上書き（voiceURI は端末側のまま）
+ * - merge（統合。規則は merge.ts）
+ *   - 進捗と曲のデータ: 端末とファイルの両方の記録を残して合わせる
+ *   - 設定・daily: 端末側のまま（端末ごとの好みを変えない）
+ * 最後に reconcile() で、曲から追加した語のカードを作り直す。
+ */
+export function applyBackup(data: BackupData, mode: ImportMode = "replace"): CardDiff | null {
+  const before = useProgress.getState().cards;
+  const progress = mode === "merge" ? mergeProgress(localProgress(), data.progress, todayStr()) : data.progress;
+  if (!useProgress.getState().importJSON(JSON.stringify(progress))) return null;
+  if (data.music) {
+    // 統合は行のハッシュをキーにして比べる（ごく古いファイルは行の本文がキーなので先にハッシュにそろえる）
+    const music =
+      mode === "merge"
+        ? mergeMusic(useMusic.getState().exportData(), { ...data.music, songs: hashTranslationKeys(data.music.songs) })
+        : data.music;
+    useMusic.getState().importData(music);
+  }
+  if (mode === "replace" && data.settings && Object.keys(data.settings).length) {
+    useSettings.getState().set(data.settings);
+  }
+  reconcile();
+  return cardDiff(before, useProgress.getState().cards);
+}
+
+export type ImportResult =
+  | { ok: true; data: BackupData; warnings: string[]; diff: CardDiff }
+  | { ok: false; error: string };
+
+/** テキストを読んで取り込む（確認なし）。mode は "merge"（統合）か "replace"（置き換え）。失敗時は理由を返す */
+export function importAll(json: string, mode: ImportMode): ImportResult {
+  const r: ParseResult = parseBackup(json);
   if (!r.ok) return r;
-  if (!applyBackup(r.data)) return { ok: false, error: "学習データを取り込めませんでした" };
-  return r;
+  const diff = applyBackup(r.data, mode);
+  if (!diff) return { ok: false, error: "学習データを取り込めませんでした" };
+  return { ...r, diff };
 }
 
 /** 学習進捗のリセット。曲から追加した語の一覧も消す（和訳・同期設定は教材なので残す） */
