@@ -1,0 +1,160 @@
+{
+  "_comment": "不規則動詞のスロット上書き表。null/省略は規則形。大過去・接続法過去/未来は完了過去3複から自動派生、接続法現在は現在1単(-o)から自動派生。fut は未来/過去未来の語幹。like は接頭辞派生の元動詞。",
+  "ser": {
+    "pres": ["sou", "és", "é", "somos", "sois", "são"],
+    "pret": ["fui", "foste", "foi", "fomos", "fostes", "foram"],
+    "impf": ["era", "eras", "era", "éramos", "éreis", "eram"],
+    "sbjPres": ["seja", "sejas", "seja", "sejamos", "sejais", "sejam"],
+    "imp": [null, "sê", null, null, "sede", null],
+    "ger": "sendo",
+    "pp": "sido"
+  },
+  "estar": {
+    "pres": ["estou", "estás", "está", "estamos", "estais", "estão"],
+    "pret": ["estive", "estiveste", "esteve", "estivemos", "estivestes", "estiveram"],
+    "sbjPres": ["esteja", "estejas", "esteja", "estejamos", "estejais", "estejam"],
+    "imp": [null, "está", null, null, "estai", null]
+  },
+  "ter": {
+    "pres": ["tenho", "tens", "tem", "temos", "tendes", "têm"],
+    "pret": ["tive", "tiveste", "teve", "tivemos", "tivestes", "tiveram"],
+    "impf": ["tinha", "tinhas", "tinha", "tínhamos", "tínheis", "tinham"],
+    "imp": [null, "tem", null, null, "tende", null]
+  },
+  "haver": {
+    "pres": ["hei", "hás", "há", "havemos", "haveis", "hão"],
+    "pret": ["houve", "houveste", "houve", "houvemos", "houvestes", "houveram"],
+    "sbjPres": ["haja", "hajas", "haja", "hajamos", "hajais", "hajam"]
+  },
+  "ir": {
+    "pres": ["vou", "vais", "vai", "vamos", "ides", "vão"],
+    "pret": ["fui", "foste", "foi", "fomos", "fostes", "foram"],
+    "impf": ["ia", "ias", "ia", "íamos", "íeis", "iam"],
+    "sbjPres": ["vá", "vás", "vá", "vamos", "vades", "vão"],
+    "imp": [null, "vai", null, "vamos", "ide", null]
+  },
+  "vir": {
+    "pres": ["venho", "vens", "vem", "vimos", "vindes", "vêm"],
+    "pret": ["vim", "vieste", "veio", "viemos", "viestes", "vieram"],
+    "impf": ["vinha", "vinhas", "vinha", "vínhamos", "vínheis", "vinham"],
+    "imp": [null, "vem", null, null, "vinde", null],
+    "ger": "vindo",
+    "pp": "vindo"
+  },
+  "fazer": {
+    "pres": ["faço", null, "faz", null, null, null],
+    "pret": ["fiz", "fizeste", "fez", "fizemos", "fizestes", "fizeram"],
+    "fut": "far",
+    "imp": [null, "faz", null, null, null, null],
+    "pp": "feito"
+  },
+  "dizer": {
+    "pres": ["digo", null, "diz", null, null, null],
+    "pret": ["disse", "disseste", "disse", "dissemos", "dissestes", "disseram"],
+    "fut": "dir",
+    "imp": [null, "diz", null, null, null, null],
+    "pp": "dito"
+  },
+  "trazer": {
+    "pres": ["trago", null, "traz", null, null, null],
+    "pret": ["trouxe", "trouxeste", "trouxe", "trouxemos", "trouxestes", "trouxeram"],
+    "fut": "trar",
+    "imp": [null, "traz", null, null, null, null]
+  },
+  "poder": {
+    "pres": ["posso", null, null, null, null, null],
+    "pret": ["pude", "pudeste", "pôde", "pudemos", "pudestes", "puderam"]
+  },
+  "querer": {
+    "pres": [null, null, "quer", null, null, null],
+    "pret": ["quis", "quiseste", "quis", "quisemos", "quisestes", "quiseram"],
+    "sbjPres": ["queira", "queiras", "queira", "queiramos", "queirais", "queiram"]
+  },
+  "saber": {
+    "pres": ["sei", null, null, null, null, null],
+    "pret": ["soube", "soubeste", "soube", "soubemos", "soubestes", "souberam"],
+    "sbjPres": ["saiba", "saibas", "saiba", "saibamos", "saibais", "saibam"]
+  },
+  "caber": {
+    "pres": ["caibo", null, null, null, null, null],
+    "pret": ["coube", "coubeste", "coube", "coubemos", "coubestes", "couberam"]
+  },
+  "ver": {
+    "pres": ["vejo", "vês", "vê", "vemos", "vedes", "veem"],
+    "pret": ["vi", "viste", "viu", "vimos", "vistes", "viram"],
+    "imp": [null, "vê", null, null, "vede", null],
+    "pp": "visto"
+  },
+  "ler": {
+    "pres": ["leio", "lês", "lê", "lemos", "ledes", "leem"],
+    "imp": [null, "lê", null, null, "lede", null]
+  },
+  "crer": {
+    "pres": ["creio", "crês", "crê", "cremos", "credes", "creem"],
+    "imp": [null, "crê", null, null, "crede", null]
+  },
+  "dar": {
+    "pres": ["dou", "dás", "dá", "damos", "dais", "dão"],
+    "pret": ["dei", "deste", "deu", "demos", "destes", "deram"],
+    "sbjPres": ["dê", "dês", "dê", "demos", "deis", "deem"],
+    "imp": [null, "dá", null, null, "dai", null]
+  },
+  "pôr": {
+    "cls": "er",
+    "pres": ["ponho", "pões", "põe", "pomos", "pondes", "põem"],
+    "pret": ["pus", "puseste", "pôs", "pusemos", "pusestes", "puseram"],
+    "impf": ["punha", "punhas", "punha", "púnhamos", "púnheis", "punham"],
+    "fut": "por",
+    "imp": [null, "põe", null, null, "ponde", null],
+    "infPers": ["pôr", "pores", "pôr", "pormos", "pordes", "porem"],
+    "ger": "pondo",
+    "pp": "posto"
+  },
+  "rir": {
+    "pres": ["rio", "ris", "ri", "rimos", "rides", "riem"],
+    "sbjPres": ["ria", "rias", "ria", "riamos", "riais", "riam"],
+    "imp": [null, "ri", null, null, "ride", null]
+  },
+  "ouvir": { "pres": ["ouço", null, null, null, null, null] },
+  "pedir": { "pres": ["peço", null, null, null, null, null] },
+  "medir": { "pres": ["meço", null, null, null, null, null] },
+  "perder": { "pres": ["perco", null, null, null, null, null] },
+  "valer": { "pres": ["valho", null, null, null, null, null] },
+  "construir": {
+    "pres": [null, "constróis", "constrói", null, null, "constroem"],
+    "imp": [null, "constrói", null, null, null, null]
+  },
+  "destruir": {
+    "pres": [null, "destróis", "destrói", null, null, "destroem"],
+    "imp": [null, "destrói", null, null, null, null]
+  },
+  "sorrir": { "like": "rir" },
+  "despedir": { "like": "pedir" },
+  "impedir": { "like": "pedir" },
+  "expedir": { "like": "pedir" },
+  "manter": { "like": "ter" },
+  "conter": { "like": "ter" },
+  "obter": { "like": "ter" },
+  "deter": { "like": "ter" },
+  "reter": { "like": "ter" },
+  "entreter": { "like": "ter" },
+  "compor": { "like": "pôr" },
+  "propor": { "like": "pôr" },
+  "supor": { "like": "pôr" },
+  "dispor": { "like": "pôr" },
+  "expor": { "like": "pôr" },
+  "impor": { "like": "pôr" },
+  "repor": { "like": "pôr" },
+  "depor": { "like": "pôr" },
+  "opor": { "like": "pôr" },
+  "prever": { "like": "ver" },
+  "rever": { "like": "ver" },
+  "reler": { "like": "ler" },
+  "desfazer": { "like": "fazer" },
+  "refazer": { "like": "fazer" },
+  "satisfazer": { "like": "fazer" },
+  "contradizer": { "like": "dizer" },
+  "convir": { "like": "vir" },
+  "intervir": { "like": "vir" },
+  "provir": { "like": "vir" }
+}

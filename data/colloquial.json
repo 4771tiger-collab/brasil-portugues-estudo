@@ -1,0 +1,1003 @@
+{
+ "_comment": "縮約形・口語形の分解表。parts は辞書で引く元の語。ambiguous=true は同綴りの別語もありうる形（辞書の完全一致を優先表示）。",
+ "do": {
+  "parts": [
+   "de",
+   "o"
+  ],
+  "note": "de + o の縮約"
+ },
+ "da": {
+  "parts": [
+   "de",
+   "a"
+  ],
+  "note": "de + a の縮約"
+ },
+ "dos": {
+  "parts": [
+   "de",
+   "os"
+  ],
+  "note": "de + os の縮約"
+ },
+ "das": {
+  "parts": [
+   "de",
+   "as"
+  ],
+  "note": "de + as の縮約"
+ },
+ "dum": {
+  "parts": [
+   "de",
+   "um"
+  ],
+  "note": "de + um の縮約"
+ },
+ "duma": {
+  "parts": [
+   "de",
+   "uma"
+  ],
+  "note": "de + uma の縮約"
+ },
+ "duns": {
+  "parts": [
+   "de",
+   "uns"
+  ],
+  "note": "de + uns の縮約"
+ },
+ "dumas": {
+  "parts": [
+   "de",
+   "umas"
+  ],
+  "note": "de + umas の縮約"
+ },
+ "dele": {
+  "parts": [
+   "de",
+   "ele"
+  ],
+  "note": "de + ele の縮約"
+ },
+ "dela": {
+  "parts": [
+   "de",
+   "ela"
+  ],
+  "note": "de + ela の縮約"
+ },
+ "deles": {
+  "parts": [
+   "de",
+   "eles"
+  ],
+  "note": "de + eles の縮約"
+ },
+ "delas": {
+  "parts": [
+   "de",
+   "elas"
+  ],
+  "note": "de + elas の縮約"
+ },
+ "deste": {
+  "parts": [
+   "de",
+   "este"
+  ],
+  "note": "de + este の縮約",
+  "ambiguous": true
+ },
+ "desta": {
+  "parts": [
+   "de",
+   "esta"
+  ],
+  "note": "de + esta の縮約"
+ },
+ "destes": {
+  "parts": [
+   "de",
+   "estes"
+  ],
+  "note": "de + estes の縮約"
+ },
+ "destas": {
+  "parts": [
+   "de",
+   "estas"
+  ],
+  "note": "de + estas の縮約"
+ },
+ "disto": {
+  "parts": [
+   "de",
+   "isto"
+  ],
+  "note": "de + isto の縮約"
+ },
+ "desse": {
+  "parts": [
+   "de",
+   "esse"
+  ],
+  "note": "de + esse の縮約"
+ },
+ "dessa": {
+  "parts": [
+   "de",
+   "essa"
+  ],
+  "note": "de + essa の縮約"
+ },
+ "desses": {
+  "parts": [
+   "de",
+   "esses"
+  ],
+  "note": "de + esses の縮約"
+ },
+ "dessas": {
+  "parts": [
+   "de",
+   "essas"
+  ],
+  "note": "de + essas の縮約"
+ },
+ "disso": {
+  "parts": [
+   "de",
+   "isso"
+  ],
+  "note": "de + isso の縮約"
+ },
+ "daquele": {
+  "parts": [
+   "de",
+   "aquele"
+  ],
+  "note": "de + aquele の縮約"
+ },
+ "daquela": {
+  "parts": [
+   "de",
+   "aquela"
+  ],
+  "note": "de + aquela の縮約"
+ },
+ "daqueles": {
+  "parts": [
+   "de",
+   "aqueles"
+  ],
+  "note": "de + aqueles の縮約"
+ },
+ "daquelas": {
+  "parts": [
+   "de",
+   "aquelas"
+  ],
+  "note": "de + aquelas の縮約"
+ },
+ "daquilo": {
+  "parts": [
+   "de",
+   "aquilo"
+  ],
+  "note": "de + aquilo の縮約"
+ },
+ "daqui": {
+  "parts": [
+   "de",
+   "aqui"
+  ],
+  "note": "de + aqui の縮約"
+ },
+ "daí": {
+  "parts": [
+   "de",
+   "aí"
+  ],
+  "note": "de + aí の縮約"
+ },
+ "dali": {
+  "parts": [
+   "de",
+   "ali"
+  ],
+  "note": "de + ali の縮約"
+ },
+ "donde": {
+  "parts": [
+   "de",
+   "onde"
+  ],
+  "note": "de + onde の縮約"
+ },
+ "doutro": {
+  "parts": [
+   "de",
+   "outro"
+  ],
+  "note": "de + outro の縮約"
+ },
+ "doutra": {
+  "parts": [
+   "de",
+   "outra"
+  ],
+  "note": "de + outra の縮約"
+ },
+ "no": {
+  "parts": [
+   "em",
+   "o"
+  ],
+  "note": "em + o の縮約（動詞の後の接語代名詞の場合もある）",
+  "ambiguous": true
+ },
+ "na": {
+  "parts": [
+   "em",
+   "a"
+  ],
+  "note": "em + a の縮約（動詞の後の接語代名詞の場合もある）",
+  "ambiguous": true
+ },
+ "nos": {
+  "parts": [
+   "em",
+   "os"
+  ],
+  "note": "em + os の縮約（目的格代名詞「私たちを/に」の場合もある）",
+  "ambiguous": true
+ },
+ "nas": {
+  "parts": [
+   "em",
+   "as"
+  ],
+  "note": "em + as の縮約（動詞の後の接語代名詞の場合もある）",
+  "ambiguous": true
+ },
+ "num": {
+  "parts": [
+   "em",
+   "um"
+  ],
+  "note": "em + um の縮約（口語で não の意味の場合もある）",
+  "ambiguous": true
+ },
+ "numa": {
+  "parts": [
+   "em",
+   "uma"
+  ],
+  "note": "em + uma の縮約"
+ },
+ "nuns": {
+  "parts": [
+   "em",
+   "uns"
+  ],
+  "note": "em + uns の縮約"
+ },
+ "numas": {
+  "parts": [
+   "em",
+   "umas"
+  ],
+  "note": "em + umas の縮約"
+ },
+ "nele": {
+  "parts": [
+   "em",
+   "ele"
+  ],
+  "note": "em + ele の縮約"
+ },
+ "nela": {
+  "parts": [
+   "em",
+   "ela"
+  ],
+  "note": "em + ela の縮約"
+ },
+ "neles": {
+  "parts": [
+   "em",
+   "eles"
+  ],
+  "note": "em + eles の縮約"
+ },
+ "nelas": {
+  "parts": [
+   "em",
+   "elas"
+  ],
+  "note": "em + elas の縮約"
+ },
+ "neste": {
+  "parts": [
+   "em",
+   "este"
+  ],
+  "note": "em + este の縮約"
+ },
+ "nesta": {
+  "parts": [
+   "em",
+   "esta"
+  ],
+  "note": "em + esta の縮約"
+ },
+ "nestes": {
+  "parts": [
+   "em",
+   "estes"
+  ],
+  "note": "em + estes の縮約"
+ },
+ "nestas": {
+  "parts": [
+   "em",
+   "estas"
+  ],
+  "note": "em + estas の縮約"
+ },
+ "nisto": {
+  "parts": [
+   "em",
+   "isto"
+  ],
+  "note": "em + isto の縮約"
+ },
+ "nesse": {
+  "parts": [
+   "em",
+   "esse"
+  ],
+  "note": "em + esse の縮約"
+ },
+ "nessa": {
+  "parts": [
+   "em",
+   "essa"
+  ],
+  "note": "em + essa の縮約"
+ },
+ "nesses": {
+  "parts": [
+   "em",
+   "esses"
+  ],
+  "note": "em + esses の縮約"
+ },
+ "nessas": {
+  "parts": [
+   "em",
+   "essas"
+  ],
+  "note": "em + essas の縮約"
+ },
+ "nisso": {
+  "parts": [
+   "em",
+   "isso"
+  ],
+  "note": "em + isso の縮約"
+ },
+ "naquele": {
+  "parts": [
+   "em",
+   "aquele"
+  ],
+  "note": "em + aquele の縮約"
+ },
+ "naquela": {
+  "parts": [
+   "em",
+   "aquela"
+  ],
+  "note": "em + aquela の縮約"
+ },
+ "naqueles": {
+  "parts": [
+   "em",
+   "aqueles"
+  ],
+  "note": "em + aqueles の縮約"
+ },
+ "naquelas": {
+  "parts": [
+   "em",
+   "aquelas"
+  ],
+  "note": "em + aquelas の縮約"
+ },
+ "naquilo": {
+  "parts": [
+   "em",
+   "aquilo"
+  ],
+  "note": "em + aquilo の縮約"
+ },
+ "noutro": {
+  "parts": [
+   "em",
+   "outro"
+  ],
+  "note": "em + outro の縮約"
+ },
+ "noutra": {
+  "parts": [
+   "em",
+   "outra"
+  ],
+  "note": "em + outra の縮約"
+ },
+ "ao": {
+  "parts": [
+   "a",
+   "o"
+  ],
+  "note": "a + o の縮約"
+ },
+ "aos": {
+  "parts": [
+   "a",
+   "os"
+  ],
+  "note": "a + os の縮約"
+ },
+ "à": {
+  "parts": [
+   "a",
+   "a"
+  ],
+  "note": "a + a の縮約"
+ },
+ "às": {
+  "parts": [
+   "a",
+   "as"
+  ],
+  "note": "a + as の縮約"
+ },
+ "àquele": {
+  "parts": [
+   "a",
+   "aquele"
+  ],
+  "note": "a + aquele の縮約"
+ },
+ "àquela": {
+  "parts": [
+   "a",
+   "aquela"
+  ],
+  "note": "a + aquela の縮約"
+ },
+ "àqueles": {
+  "parts": [
+   "a",
+   "aqueles"
+  ],
+  "note": "a + aqueles の縮約"
+ },
+ "àquelas": {
+  "parts": [
+   "a",
+   "aquelas"
+  ],
+  "note": "a + aquelas の縮約"
+ },
+ "àquilo": {
+  "parts": [
+   "a",
+   "aquilo"
+  ],
+  "note": "a + aquilo の縮約"
+ },
+ "aonde": {
+  "parts": [
+   "a",
+   "onde"
+  ],
+  "note": "a + onde の縮約"
+ },
+ "pelo": {
+  "parts": [
+   "por",
+   "o"
+  ],
+  "note": "por + o の縮約"
+ },
+ "pela": {
+  "parts": [
+   "por",
+   "a"
+  ],
+  "note": "por + a の縮約"
+ },
+ "pelos": {
+  "parts": [
+   "por",
+   "os"
+  ],
+  "note": "por + os の縮約"
+ },
+ "pelas": {
+  "parts": [
+   "por",
+   "as"
+  ],
+  "note": "por + as の縮約"
+ },
+ "pra": {
+  "parts": [
+   "para"
+  ],
+  "note": "口語: para の短縮（para + a の場合もある）"
+ },
+ "pro": {
+  "parts": [
+   "para",
+   "o"
+  ],
+  "note": "口語: para + o の縮約"
+ },
+ "pras": {
+  "parts": [
+   "para",
+   "as"
+  ],
+  "note": "口語: para + as の縮約"
+ },
+ "pros": {
+  "parts": [
+   "para",
+   "os"
+  ],
+  "note": "口語: para + os の縮約"
+ },
+ "prum": {
+  "parts": [
+   "para",
+   "um"
+  ],
+  "note": "口語: para + um の縮約"
+ },
+ "pruma": {
+  "parts": [
+   "para",
+   "uma"
+  ],
+  "note": "口語: para + uma の縮約"
+ },
+ "pruns": {
+  "parts": [
+   "para",
+   "uns"
+  ],
+  "note": "口語: para + uns の縮約"
+ },
+ "prumas": {
+  "parts": [
+   "para",
+   "umas"
+  ],
+  "note": "口語: para + umas の縮約"
+ },
+ "praquele": {
+  "parts": [
+   "para",
+   "aquele"
+  ],
+  "note": "口語: para + aquele の縮約"
+ },
+ "praquela": {
+  "parts": [
+   "para",
+   "aquela"
+  ],
+  "note": "口語: para + aquela の縮約"
+ },
+ "praqui": {
+  "parts": [
+   "para",
+   "aqui"
+  ],
+  "note": "口語: para + aqui の縮約"
+ },
+ "prali": {
+  "parts": [
+   "para",
+   "ali"
+  ],
+  "note": "口語: para + ali の縮約"
+ },
+ "praí": {
+  "parts": [
+   "para",
+   "aí"
+  ],
+  "note": "口語: para + aí の縮約"
+ },
+ "procê": {
+  "parts": [
+   "para",
+   "você"
+  ],
+  "note": "口語: para + você の縮約"
+ },
+ "procês": {
+  "parts": [
+   "para",
+   "vocês"
+  ],
+  "note": "口語: para + vocês の縮約"
+ },
+ "tô": {
+  "parts": [
+   "estou"
+  ],
+  "note": "口語: estou の短縮"
+ },
+ "to": {
+  "parts": [
+   "estou"
+  ],
+  "note": "口語: estou の短縮（表記ゆれ）"
+ },
+ "tá": {
+  "parts": [
+   "está"
+  ],
+  "note": "口語: está の短縮"
+ },
+ "ta": {
+  "parts": [
+   "está"
+  ],
+  "note": "口語: está の短縮（表記ゆれ）"
+ },
+ "tás": {
+  "parts": [
+   "estás"
+  ],
+  "note": "口語: estás の短縮"
+ },
+ "tamo": {
+  "parts": [
+   "estamos"
+  ],
+  "note": "口語: estamos の短縮"
+ },
+ "tamos": {
+  "parts": [
+   "estamos"
+  ],
+  "note": "口語: estamos の短縮"
+ },
+ "tão": {
+  "parts": [
+   "estão"
+  ],
+  "note": "口語: estão の短縮",
+  "ambiguous": true
+ },
+ "tava": {
+  "parts": [
+   "estava"
+  ],
+  "note": "口語: estava の短縮"
+ },
+ "tavas": {
+  "parts": [
+   "estavas"
+  ],
+  "note": "口語: estavas の短縮"
+ },
+ "tavam": {
+  "parts": [
+   "estavam"
+  ],
+  "note": "口語: estavam の短縮"
+ },
+ "távamos": {
+  "parts": [
+   "estávamos"
+  ],
+  "note": "口語: estávamos の短縮"
+ },
+ "tiver": {
+  "parts": [
+   "estiver"
+  ],
+  "note": "口語: estiver の短縮（ter の接続法未来の場合もある）",
+  "ambiguous": true
+ },
+ "teja": {
+  "parts": [
+   "esteja"
+  ],
+  "note": "口語: esteja の短縮"
+ },
+ "cê": {
+  "parts": [
+   "você"
+  ],
+  "note": "口語: você の短縮"
+ },
+ "cês": {
+  "parts": [
+   "vocês"
+  ],
+  "note": "口語: vocês の短縮"
+ },
+ "ocê": {
+  "parts": [
+   "você"
+  ],
+  "note": "口語: você の短縮"
+ },
+ "ocês": {
+  "parts": [
+   "vocês"
+  ],
+  "note": "口語: vocês の短縮"
+ },
+ "vc": {
+  "parts": [
+   "você"
+  ],
+  "note": "略記: você"
+ },
+ "vcs": {
+  "parts": [
+   "vocês"
+  ],
+  "note": "略記: vocês"
+ },
+ "vamo": {
+  "parts": [
+   "vamos"
+  ],
+  "note": "口語: vamos の短縮"
+ },
+ "bora": {
+  "parts": [
+   "embora"
+  ],
+  "note": "口語: 「さあ行こう」（vamos embora の短縮）"
+ },
+ "simbora": {
+  "parts": [
+   "embora"
+  ],
+  "note": "口語: 「さあ行こう」（vamos embora）"
+ },
+ "vambora": {
+  "parts": [
+   "embora"
+  ],
+  "note": "口語: 「さあ行こう」（vamos embora）"
+ },
+ "cadê": {
+  "parts": [
+   "onde"
+  ],
+  "note": "口語: 「〜はどこ？」（que é de の縮約）"
+ },
+ "né": {
+  "parts": [
+   "não"
+  ],
+  "note": "口語: 「〜でしょ？ね」（não é の縮約）"
+ },
+ "pô": {
+  "parts": [],
+  "note": "間投詞: もう・ちぇっ・おいおい（くだけた言い方）",
+  "interjection": true
+ },
+ "memo": {
+  "parts": [
+   "mesmo"
+  ],
+  "note": "口語: mesmo のくだけた発音"
+ },
+ "mermo": {
+  "parts": [
+   "mesmo"
+  ],
+  "note": "口語: mesmo のくだけた発音"
+ },
+ "nóis": {
+  "parts": [
+   "nós"
+  ],
+  "note": "口語: nós のくだけた発音"
+ },
+ "véio": {
+  "parts": [
+   "velho"
+  ],
+  "note": "口語: velho のくだけた発音（おい、相棒）"
+ },
+ "véia": {
+  "parts": [
+   "velha"
+  ],
+  "note": "口語: velha のくだけた発音"
+ },
+ "mió": {
+  "parts": [
+   "melhor"
+  ],
+  "note": "口語: melhor のくだけた発音"
+ },
+ "vô": {
+  "parts": [
+   "vou"
+  ],
+  "note": "口語: vou のくだけた表記",
+  "ambiguous": true
+ },
+ "sô": {
+  "parts": [
+   "senhor"
+  ],
+  "note": "口語: senhor のくだけた発音（ミナス方言）"
+ },
+ "inté": {
+  "parts": [
+   "até"
+  ],
+  "note": "口語: até のくだけた発音"
+ },
+ "óia": {
+  "parts": [
+   "olha"
+  ],
+  "note": "口語: olha のくだけた発音（ほら、見て）"
+ },
+ "pq": {
+  "parts": [
+   "porque"
+  ],
+  "note": "略記: porque / por que"
+ },
+ "tb": {
+  "parts": [
+   "também"
+  ],
+  "note": "略記: também"
+ },
+ "tbm": {
+  "parts": [
+   "também"
+  ],
+  "note": "略記: também"
+ },
+ "q": {
+  "parts": [
+   "que"
+  ],
+  "note": "略記: que"
+ },
+ "ai": {
+  "parts": [],
+  "note": "間投詞: ああ・あっ（痛み・嘆き・ため息）",
+  "interjection": true
+ },
+ "ô": {
+  "parts": [],
+  "note": "間投詞: おお・ねえ（呼びかけ）",
+  "interjection": true
+ },
+ "ó": {
+  "parts": [],
+  "note": "間投詞: ほら・ねえ（呼びかけ）",
+  "interjection": true
+ },
+ "êta": {
+  "parts": [],
+  "note": "間投詞: うわあ・すごい",
+  "interjection": true
+ },
+ "eita": {
+  "parts": [],
+  "note": "間投詞: うわっ・すごい",
+  "interjection": true
+ },
+ "oxe": {
+  "parts": [],
+  "note": "間投詞: えっ・なんだって（北東部）",
+  "interjection": true
+ },
+ "oxente": {
+  "parts": [],
+  "note": "間投詞: えっ・なんだって（北東部）",
+  "interjection": true
+ },
+ "vixe": {
+  "parts": [],
+  "note": "間投詞: うわっ・しまった",
+  "interjection": true
+ },
+ "uai": {
+  "parts": [],
+  "note": "間投詞: あれ・なんで（ミナス方言）",
+  "interjection": true
+ },
+ "ah": {
+  "parts": [],
+  "note": "間投詞: ああ",
+  "interjection": true
+ },
+ "oh": {
+  "parts": [],
+  "note": "間投詞: おお",
+  "interjection": true
+ },
+ "uh": {
+  "parts": [],
+  "note": "間投詞: うー",
+  "interjection": true
+ },
+ "ei": {
+  "parts": [],
+  "note": "間投詞: おい・ねえ",
+  "interjection": true
+ },
+ "opa": {
+  "parts": [],
+  "note": "間投詞: おっと・やあ",
+  "interjection": true
+ },
+ "oba": {
+  "parts": [],
+  "note": "間投詞: やった",
+  "interjection": true
+ },
+ "psiu": {
+  "parts": [],
+  "note": "間投詞: しーっ・ちょっと",
+  "interjection": true
+ },
+ "la": {
+  "parts": [],
+  "note": "間投詞: ラ（ハミング）",
+  "interjection": true
+ },
+ "lá-lá-lá": {
+  "parts": [],
+  "note": "間投詞: ラララ（ハミング）",
+  "interjection": true
+ },
+ "oh-oh": {
+  "parts": [],
+  "note": "間投詞: おおお",
+  "interjection": true
+ },
+ "uô": {
+  "parts": [],
+  "note": "間投詞: ウォー",
+  "interjection": true
+ },
+ "iê": {
+  "parts": [],
+  "note": "間投詞: イエー",
+  "interjection": true
+ },
+ "ê": {
+  "parts": [],
+  "note": "間投詞: エー（掛け声）",
+  "interjection": true
+ }
+}

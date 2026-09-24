@@ -1,0 +1,102 @@
+{
+  "olá": { "examples": [{ "pt": "Olá! Tudo bem?", "ja": "こんにちは！元気ですか？" }] },
+  "bom dia": { "examples": [{ "pt": "Bom dia! Como vai você?", "ja": "おはよう！調子はどうですか？" }] },
+  "boa noite": { "examples": [{ "pt": "Boa noite, durma bem.", "ja": "おやすみなさい、よく眠ってね。" }] },
+  "obrigado/obrigada": {
+    "examples": [{ "pt": "Muito obrigado pela ajuda!", "ja": "手伝ってくれて本当にありがとう！" }],
+    "collocations": ["obrigado por tudo (色々ありがとう)"]
+  },
+  "por favor": { "examples": [{ "pt": "Um café, por favor.", "ja": "コーヒーを一つお願いします。" }] },
+  "desculpe": { "examples": [{ "pt": "Desculpe o atraso.", "ja": "遅れてすみません。" }] },
+  "tudo bem?": { "examples": [{ "pt": "Oi! Tudo bem com você?", "ja": "やあ！元気にしてる？" }] },
+
+  "eu": { "examples": [{ "pt": "Eu sou do Japão.", "ja": "私は日本出身です。" }] },
+  "você": { "examples": [{ "pt": "De onde você é?", "ja": "あなたはどこ出身ですか？" }] },
+  "o que": { "examples": [{ "pt": "O que é isso?", "ja": "それは何ですか？" }] },
+  "onde": { "examples": [{ "pt": "Onde fica o banheiro?", "ja": "トイレはどこですか？" }] },
+  "quando": { "examples": [{ "pt": "Quando você chega?", "ja": "いつ着きますか？" }] },
+  "quanto": { "examples": [{ "pt": "Quanto custa?", "ja": "いくらですか？" }] },
+
+  "ser": {
+    "examples": [{ "pt": "Eu sou estudante.", "ja": "私は学生です。" }],
+    "collocations": ["ser de (〜出身である)"]
+  },
+  "estar": {
+    "examples": [{ "pt": "Estou muito feliz hoje.", "ja": "今日はとても幸せです。" }],
+    "collocations": ["estar com fome (お腹が空いている)", "estar com pressa (急いでいる)"]
+  },
+  "ter": {
+    "examples": [{ "pt": "Eu tenho dois irmãos.", "ja": "私は兄弟が二人います。" }],
+    "collocations": ["ter que (〜しなければならない)"]
+  },
+  "fazer": {
+    "examples": [{ "pt": "O que você está fazendo?", "ja": "何をしているの？" }],
+    "collocations": ["fazer compras (買い物をする)"]
+  },
+  "ir": {
+    "examples": [{ "pt": "Eu vou ao mercado.", "ja": "市場に行きます。" }],
+    "collocations": ["ir embora (立ち去る)"]
+  },
+  "vir": { "examples": [{ "pt": "Você vem comigo?", "ja": "私と一緒に来る？" }] },
+  "poder": { "examples": [{ "pt": "Você pode me ajudar?", "ja": "手伝ってもらえますか？" }] },
+  "querer": { "examples": [{ "pt": "Eu quero aprender português.", "ja": "ポルトガル語を学びたいです。" }] },
+  "dizer": { "examples": [{ "pt": "O que você quer dizer?", "ja": "どういう意味ですか？" }] },
+  "saber": { "examples": [{ "pt": "Eu não sei o caminho.", "ja": "道がわかりません。" }] },
+  "ver": { "examples": [{ "pt": "Vou ver um filme hoje.", "ja": "今日は映画を見ます。" }] },
+  "falar": { "examples": [{ "pt": "Você fala inglês?", "ja": "英語を話しますか？" }] },
+  "gostar": {
+    "examples": [{ "pt": "Eu gosto de música brasileira.", "ja": "ブラジル音楽が好きです。" }],
+    "collocations": ["gostar de (〜が好き)"]
+  },
+  "comer": { "examples": [{ "pt": "Vamos comer alguma coisa?", "ja": "何か食べに行こうか？" }] },
+  "beber": { "examples": [{ "pt": "Quer beber água?", "ja": "水を飲みたい？" }] },
+  "comprar": { "examples": [{ "pt": "Quero comprar um presente.", "ja": "プレゼントを買いたいです。" }] },
+  "trabalhar": { "examples": [{ "pt": "Eu trabalho em São Paulo.", "ja": "サンパウロで働いています。" }] },
+  "estudar": { "examples": [{ "pt": "Estudo português todos os dias.", "ja": "毎日ポルトガル語を勉強します。" }] },
+  "dormir": { "examples": [{ "pt": "Preciso dormir cedo hoje.", "ja": "今日は早く寝る必要があります。" }] },
+  "aprender": { "examples": [{ "pt": "Estou aprendendo a tocar berimbau.", "ja": "ビリンバウの弾き方を学んでいます。" }] },
+  "entender": { "examples": [{ "pt": "Você entende português?", "ja": "ポルトガル語がわかりますか？" }] },
+
+  "casa": {
+    "examples": [{ "pt": "Eu vou para casa agora.", "ja": "今から家に帰ります。" }],
+    "collocations": ["em casa (家で)", "casa de praia (海辺の別荘)"]
+  },
+  "água": {
+    "examples": [{ "pt": "Eu quero um copo de água.", "ja": "水を一杯ほしいです。" }],
+    "collocations": ["água com gás (炭酸水)", "água sem gás (無炭酸水)"]
+  },
+  "comida": { "examples": [{ "pt": "A comida brasileira é deliciosa.", "ja": "ブラジル料理はとても美味しい。" }] },
+  "café": { "examples": [{ "pt": "Vamos tomar um café?", "ja": "コーヒーを飲みに行こう？" }] },
+  "família": { "examples": [{ "pt": "Minha família é grande.", "ja": "私の家族は大家族です。" }] },
+  "dinheiro": { "examples": [{ "pt": "Não tenho dinheiro agora.", "ja": "今お金がありません。" }] },
+  "amigo/amiga": { "examples": [{ "pt": "Ele é meu melhor amigo.", "ja": "彼は私の親友です。" }] },
+  "livro": { "examples": [{ "pt": "Estou lendo um livro interessante.", "ja": "面白い本を読んでいます。" }] },
+  "carro": { "examples": [{ "pt": "Eu tenho um carro novo.", "ja": "新しい車を持っています。" }] },
+  "cidade": { "examples": [{ "pt": "São Paulo é uma cidade enorme.", "ja": "サンパウロは巨大な都市です。" }] },
+  "praia": { "examples": [{ "pt": "Vamos à praia no domingo?", "ja": "日曜日にビーチに行こうか？" }] },
+  "música": { "examples": [{ "pt": "Eu amo música popular brasileira.", "ja": "ブラジルのポピュラー音楽が大好きです。" }] },
+  "tempo": {
+    "examples": [{ "pt": "Não tenho tempo hoje.", "ja": "今日は時間がありません。" }],
+    "collocations": ["o tempo todo (ずっと・常に)"]
+  },
+
+  "bom": { "examples": [{ "pt": "Este restaurante é muito bom.", "ja": "このレストランはとても良いです。" }] },
+  "grande": { "examples": [{ "pt": "O Brasil é um país muito grande.", "ja": "ブラジルはとても大きな国です。" }] },
+  "pequeno": { "examples": [{ "pt": "Moro em um apartamento pequeno.", "ja": "小さなアパートに住んでいます。" }] },
+  "bonito": { "examples": [{ "pt": "Que lugar bonito!", "ja": "なんて美しい場所！" }] },
+  "feliz": { "examples": [{ "pt": "Estou feliz em te ver.", "ja": "あなたに会えて嬉しいです。" }] },
+  "quente": { "examples": [{ "pt": "Hoje está muito quente.", "ja": "今日はとても暑いです。" }] },
+
+  "hoje": { "examples": [{ "pt": "Hoje está calor.", "ja": "今日は暑いです。" }] },
+  "amanhã": { "examples": [{ "pt": "Até amanhã!", "ja": "また明日！" }] },
+  "agora": { "examples": [{ "pt": "Vamos agora?", "ja": "今行く？" }] },
+  "sempre": { "examples": [{ "pt": "Eu sempre acordo cedo.", "ja": "私はいつも早く起きます。" }] },
+  "muito": { "examples": [{ "pt": "Muito obrigado, você é muito gentil.", "ja": "どうもありがとう、とても親切ですね。" }] },
+
+  "ginga": {
+    "examples": [{ "pt": "A ginga é a base da capoeira.", "ja": "ジンガはカポエイラの基本です。" }],
+    "collocations": ["gingar (ジンガする)"]
+  },
+  "berimbau": { "examples": [{ "pt": "O berimbau comanda a roda.", "ja": "ビリンバウがホーダ（円陣）を司ります。" }] },
+  "roda": { "examples": [{ "pt": "Vamos formar a roda de capoeira.", "ja": "カポエイラのホーダ（円陣）を作りましょう。" }] }
+}

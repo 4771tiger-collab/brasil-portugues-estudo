@@ -1,0 +1,17 @@
+{
+  "_comment": "発音の例外辞書。キー=小文字のポルトガル語, 値={kana, ipa}。自動生成が不自然な語をここで上書き。",
+  "você": { "kana": "ヴォセ", "ipa": "voˈse" },
+  "vocês": { "kana": "ヴォセス", "ipa": "voˈses" },
+  "muito": { "kana": "ムイント", "ipa": "ˈmũjtu" },
+  "muita": { "kana": "ムインタ", "ipa": "ˈmũjtɐ" },
+  "mãe": { "kana": "マイン", "ipa": "ˈmɐ̃j" },
+  "pão": { "kana": "パウン", "ipa": "ˈpɐ̃w" },
+  "não": { "kana": "ナウン", "ipa": "ˈnɐ̃w" },
+  "bem": { "kana": "ベイン", "ipa": "ˈbẽj" },
+  "também": { "kana": "タンベイン", "ipa": "tɐ̃ˈbẽj" },
+  "cem": { "kana": "セイン", "ipa": "ˈsẽj" },
+  "tem": { "kana": "テイン", "ipa": "ˈtẽj" },
+  "quem": { "kana": "ケイン", "ipa": "ˈkẽj" },
+  "obrigado": { "kana": "オブリガード", "ipa": "obɾiˈɡadu" },
+  "obrigada": { "kana": "オブリガーダ", "ipa": "obɾiˈɡadɐ" }
+}

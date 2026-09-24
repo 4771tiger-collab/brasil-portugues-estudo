@@ -1,0 +1,11 @@
+node_modules
+dist
+dist-ssr
+*.local
+.DS_Store
+data/_pronunciation-preview.json
+dev-dist
+# ルート直下の単語JSONは data/ と同一内容の元ファイル
+/words.json
+/capoeira-words.json
+.claude/settings.local.json

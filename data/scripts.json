@@ -1,0 +1,32 @@
+[
+  {
+    "id": "scr_apresentacao",
+    "title": "自己紹介 (Apresentação pessoal)",
+    "description": "初対面で使える自己紹介。",
+    "lines": [
+      { "pt": "Oi, tudo bem?", "ja": "やあ、元気ですか？" },
+      { "pt": "Meu nome é Tiago.", "ja": "私の名前はチアゴです。" },
+      { "pt": "Eu sou do Japão,", "ja": "私は日本出身ですが、" },
+      { "pt": "mas estou morando no Brasil.", "ja": "今はブラジルに住んでいます。" },
+      { "pt": "Eu estudo português", "ja": "私はポルトガル語を勉強しています" },
+      { "pt": "porque eu amo a cultura brasileira.", "ja": "ブラジルの文化が大好きだからです。" },
+      { "pt": "Muito prazer!", "ja": "はじめまして！" }
+    ]
+  },
+  {
+    "id": "scr_natureza",
+    "title": "ブラジルの自然 (A natureza do Brasil)",
+    "description": "少し長めの読み応えのあるスクリプト。",
+    "lines": [
+      { "pt": "O Brasil é um país", "ja": "ブラジルは国です" },
+      { "pt": "de natureza incrível.", "ja": "驚くべき自然を持つ。" },
+      { "pt": "Na Amazônia,", "ja": "アマゾンには、" },
+      { "pt": "vivem milhões de espécies", "ja": "何百万もの種が生息しています" },
+      { "pt": "de plantas e animais.", "ja": "植物や動物の。" },
+      { "pt": "As praias do Nordeste", "ja": "北東部のビーチには" },
+      { "pt": "têm águas quentes", "ja": "暖かい海と" },
+      { "pt": "e areia branca.", "ja": "白い砂浜があります。" },
+      { "pt": "É um lugar maravilhoso!", "ja": "素晴らしい場所です！" }
+    ]
+  }
+]

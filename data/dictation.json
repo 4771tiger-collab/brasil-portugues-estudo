@@ -1,0 +1,68 @@
+[
+  {
+    "id": "dct_s1",
+    "level": "short",
+    "text": "Eu quero água, por favor.",
+    "ja": "水をください。",
+    "keyVocab": [
+      { "pt": "querer", "ja": "欲しい" },
+      { "pt": "água", "ja": "水" },
+      { "pt": "por favor", "ja": "お願いします" }
+    ]
+  },
+  {
+    "id": "dct_s2",
+    "level": "short",
+    "text": "Onde fica o banheiro?",
+    "ja": "トイレはどこですか？",
+    "keyVocab": [
+      { "pt": "onde", "ja": "どこ" },
+      { "pt": "ficar", "ja": "位置する・ある" },
+      { "pt": "banheiro", "ja": "トイレ" }
+    ]
+  },
+  {
+    "id": "dct_m1",
+    "level": "medium",
+    "text": "Eu moro em São Paulo e trabalho em um escritório.",
+    "ja": "私はサンパウロに住み、オフィスで働いています。",
+    "keyVocab": [
+      { "pt": "morar", "ja": "住む" },
+      { "pt": "trabalhar", "ja": "働く" },
+      { "pt": "escritório", "ja": "オフィス" }
+    ]
+  },
+  {
+    "id": "dct_m2",
+    "level": "medium",
+    "text": "Todos os dias eu estudo português de manhã.",
+    "ja": "毎日、私は朝にポルトガル語を勉強します。",
+    "keyVocab": [
+      { "pt": "todos os dias", "ja": "毎日" },
+      { "pt": "estudar", "ja": "勉強する" },
+      { "pt": "de manhã", "ja": "朝に" }
+    ]
+  },
+  {
+    "id": "dct_l1",
+    "level": "long",
+    "isDialogue": true,
+    "text": "— Oi, tudo bem? — Tudo ótimo! E você? — Estou bem, obrigado. Vamos tomar um café?",
+    "ja": "「やあ、元気？」「絶好調！君は？」「元気だよ、ありがとう。コーヒーでも飲みに行こうか？」",
+    "keyVocab": [
+      { "pt": "tudo ótimo", "ja": "絶好調" },
+      { "pt": "tomar um café", "ja": "コーヒーを飲む" }
+    ]
+  },
+  {
+    "id": "dct_l2",
+    "level": "long",
+    "text": "No fim de semana, eu gosto de ir à praia com a minha família. Nós nadamos no mar e comemos peixe fresco.",
+    "ja": "週末、私は家族とビーチに行くのが好きです。私たちは海で泳ぎ、新鮮な魚を食べます。",
+    "keyVocab": [
+      { "pt": "fim de semana", "ja": "週末" },
+      { "pt": "nadar", "ja": "泳ぐ" },
+      { "pt": "peixe fresco", "ja": "新鮮な魚" }
+    ]
+  }
+]

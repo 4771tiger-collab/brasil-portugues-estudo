@@ -1,0 +1,75 @@
+[
+  {
+    "id": "psg_meu_dia",
+    "title": "私の一日 (Meu dia a dia)",
+    "level": "short",
+    "source": "original",
+    "chunks": [
+      { "pt": "De manhã,", "ja": "朝に、" },
+      { "pt": "eu acordo cedo", "ja": "私は早く起きて" },
+      { "pt": "e tomo um café.", "ja": "コーヒーを飲みます。" },
+      { "pt": "Depois,", "ja": "その後、" },
+      { "pt": "eu vou trabalhar", "ja": "働きに行きます" },
+      { "pt": "de ônibus.", "ja": "バスで。" },
+      { "pt": "À noite,", "ja": "夜には、" },
+      { "pt": "eu gosto de", "ja": "私は好きです" },
+      { "pt": "treinar capoeira.", "ja": "カポエイラを練習するのが。" }
+    ]
+  },
+  {
+    "id": "psg_brasil",
+    "title": "ブラジルについて (Sobre o Brasil)",
+    "level": "medium",
+    "source": "original",
+    "chunks": [
+      { "pt": "O Brasil", "ja": "ブラジルは" },
+      { "pt": "é o maior país", "ja": "最も大きな国です" },
+      { "pt": "da América do Sul.", "ja": "南アメリカで。" },
+      { "pt": "A natureza é exuberante,", "ja": "自然は豊かで、" },
+      { "pt": "com a floresta amazônica", "ja": "アマゾンの森林や" },
+      { "pt": "e praias lindas.", "ja": "美しいビーチがあります。" },
+      { "pt": "O povo brasileiro", "ja": "ブラジルの人々は" },
+      { "pt": "é conhecido", "ja": "知られています" },
+      { "pt": "pela alegria", "ja": "その陽気さと" },
+      { "pt": "e pela hospitalidade.", "ja": "もてなしの心で。" }
+    ]
+  },
+  {
+    "id": "psg_roda",
+    "title": "カポエイラのホーダ (A roda de capoeira)",
+    "level": "medium",
+    "source": "original",
+    "chunks": [
+      { "pt": "Na roda de capoeira,", "ja": "カポエイラのホーダ（円陣）では、" },
+      { "pt": "os capoeiristas", "ja": "カポエイリスタたちが" },
+      { "pt": "cantam e tocam", "ja": "歌い、演奏します" },
+      { "pt": "instrumentos como o berimbau.", "ja": "ビリンバウなどの楽器を。" },
+      { "pt": "Dois jogadores", "ja": "二人の演者が" },
+      { "pt": "entram no centro", "ja": "中心に入り" },
+      { "pt": "e jogam", "ja": "ジョーゴ（駆け引き）をします" },
+      { "pt": "com ginga e malícia.", "ja": "ジンガと狡知を使って。" }
+    ]
+  },
+  {
+    "id": "psg_praia",
+    "title": "ビーチでの一日 (Um dia na praia)",
+    "level": "long",
+    "source": "original",
+    "chunks": [
+      { "pt": "No sábado de manhã,", "ja": "土曜日の朝、" },
+      { "pt": "eu e meus amigos", "ja": "私と友達は" },
+      { "pt": "decidimos ir à praia.", "ja": "ビーチに行くことにしました。" },
+      { "pt": "Pegamos o ônibus", "ja": "バスに乗って" },
+      { "pt": "e chegamos cedo.", "ja": "早く着きました。" },
+      { "pt": "O sol estava forte", "ja": "日差しは強く" },
+      { "pt": "e o mar estava calmo.", "ja": "海は穏やかでした。" },
+      { "pt": "Nós nadamos,", "ja": "私たちは泳ぎ、" },
+      { "pt": "jogamos futebol na areia", "ja": "砂浜でサッカーをして" },
+      { "pt": "e comemos peixe fresco.", "ja": "新鮮な魚を食べました。" },
+      { "pt": "À tarde,", "ja": "午後には、" },
+      { "pt": "tocamos um pouco de capoeira", "ja": "少しカポエイラをしました" },
+      { "pt": "perto do mar.", "ja": "海の近くで。" },
+      { "pt": "Foi um dia perfeito!", "ja": "完璧な一日でした！" }
+    ]
+  }
+]

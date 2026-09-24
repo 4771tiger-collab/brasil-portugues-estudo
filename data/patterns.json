@@ -1,0 +1,111 @@
+[
+  {
+    "id": "pat_quero",
+    "category": "欲求を伝える",
+    "frame": "Eu quero {X}.",
+    "ja": "私は{X}（が）欲しい／〜したいです。",
+    "note": "querer + 名詞/動詞原形。最も使う表現の一つ。",
+    "slots": {
+      "X": [
+        { "pt": "água", "ja": "水" },
+        { "pt": "um café", "ja": "コーヒーを一杯" },
+        { "pt": "comer", "ja": "食べる" },
+        { "pt": "dormir", "ja": "寝る" },
+        { "pt": "aprender português", "ja": "ポルトガル語を学ぶ" },
+        { "pt": "ir à praia", "ja": "ビーチに行く" }
+      ]
+    }
+  },
+  {
+    "id": "pat_onde",
+    "category": "場所をたずねる",
+    "frame": "Onde fica {X}?",
+    "ja": "{X}はどこにありますか？",
+    "note": "ficar は「位置する」。道や施設をたずねる定番。",
+    "slots": {
+      "X": [
+        { "pt": "o banheiro", "ja": "トイレ" },
+        { "pt": "a estação", "ja": "駅" },
+        { "pt": "o hotel", "ja": "ホテル" },
+        { "pt": "a praia", "ja": "ビーチ" },
+        { "pt": "o restaurante", "ja": "レストラン" }
+      ]
+    }
+  },
+  {
+    "id": "pat_gosto",
+    "category": "好みを伝える",
+    "frame": "Eu gosto de {X}.",
+    "ja": "私は{X}が好きです。",
+    "note": "gostar の後は必ず前置詞 de。",
+    "slots": {
+      "X": [
+        { "pt": "música", "ja": "音楽" },
+        { "pt": "café", "ja": "コーヒー" },
+        { "pt": "viajar", "ja": "旅行すること" },
+        { "pt": "capoeira", "ja": "カポエイラ" },
+        { "pt": "futebol", "ja": "サッカー" }
+      ]
+    }
+  },
+  {
+    "id": "pat_pode",
+    "category": "丁寧に依頼する",
+    "frame": "Você pode {X}, por favor?",
+    "ja": "{X}してもらえますか？",
+    "note": "poder + 動詞原形で丁寧な依頼。",
+    "slots": {
+      "X": [
+        { "pt": "me ajudar", "ja": "手伝う" },
+        { "pt": "repetir", "ja": "もう一度言う" },
+        { "pt": "falar devagar", "ja": "ゆっくり話す" },
+        { "pt": "esperar um pouco", "ja": "少し待つ" }
+      ]
+    }
+  },
+  {
+    "id": "pat_vou",
+    "category": "予定を伝える",
+    "frame": "Eu vou {X} amanhã.",
+    "ja": "私は明日{X}します。",
+    "note": "ir + 動詞原形で近い未来。英語の be going to に相当。",
+    "slots": {
+      "X": [
+        { "pt": "trabalhar", "ja": "働く" },
+        { "pt": "viajar", "ja": "旅行する" },
+        { "pt": "estudar", "ja": "勉強する" },
+        { "pt": "treinar capoeira", "ja": "カポエイラを練習する" }
+      ]
+    }
+  },
+  {
+    "id": "pat_preciso",
+    "category": "必要を伝える",
+    "frame": "Eu preciso de {X}.",
+    "ja": "私は{X}が必要です。",
+    "note": "precisar de + 名詞。",
+    "slots": {
+      "X": [
+        { "pt": "ajuda", "ja": "助け" },
+        { "pt": "tempo", "ja": "時間" },
+        { "pt": "dinheiro", "ja": "お金" },
+        { "pt": "descansar", "ja": "休むこと" }
+      ]
+    }
+  },
+  {
+    "id": "pat_esta",
+    "category": "状態を述べる",
+    "frame": "Hoje está {X}.",
+    "ja": "今日は{X}です。",
+    "note": "estar + 形容詞で一時的な状態・天気。",
+    "slots": {
+      "X": [
+        { "pt": "quente", "ja": "暑い" },
+        { "pt": "frio", "ja": "寒い" },
+        { "pt": "bom", "ja": "良い天気" },
+        { "pt": "nublado", "ja": "曇り" }
+      ]
+    }
+  }
+]
