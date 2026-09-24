@@ -14,14 +14,16 @@
     "deploy": "node scripts/deploy.mjs",
     "icons": "node scripts/make-icons.mjs",
     "enrich": "tsx scripts/enrich.ts",
-    "check": "npm run typecheck && npm run check:srs && npm run check:pron && npm run check:backup && npm run check:lemma && npm run check:dict",
+    "check": "npm run typecheck && npm run check:srs && npm run check:pron && npm run check:backup && npm run check:grade && npm run check:content && npm run check:lemma && npm run check:dict",
     "check:lemma": "tsx scripts/check-lemmatize.ts",
     "check:dict": "tsx scripts/check-dict.ts",
     "music:pin": "tsx scripts/pin-lyrics.ts",
     "music:coverage": "tsx scripts/lyrics-coverage.ts",
     "check:srs": "tsx scripts/check-srs.ts",
     "check:pron": "tsx scripts/check-pron.ts",
-    "check:backup": "tsx scripts/check-backup.ts"
+    "check:backup": "tsx scripts/check-backup.ts",
+    "check:grade": "tsx scripts/check-grade.ts",
+    "check:content": "tsx scripts/check-content.ts"
   },
   "dependencies": {
     "react": "^18.3.1",
