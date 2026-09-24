@@ -5,26 +5,20 @@
 //   1) OneDrive 同期外の一時フォルダ(TMP)へビルド（ここは安定して成功する）
 //   2) TMP→dist の複製は「別の子プロセス」で行い、万一クラッシュしても本体は
 //      落とさない（成果物は TMP に残るので実害なし）。
-import { spawnSync } from "node:child_process";
-import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { resolve } from "node:path";
+import { sh, tmpOut, typecheck, viteBuild } from "./lib/build-lib.mjs";
 
-const isWin = process.platform === "win32";
-const sh = (cmd, args, opts = {}) => spawnSync(cmd, args, { stdio: "inherit", shell: isWin, ...opts }).status ?? 1;
-
-const TMP = join(tmpdir(), "bp-build-dist");
+const TMP = tmpOut("bp-build-dist");
 const DIST = resolve("dist");
 
 // 1) 型チェック
-console.log("[build] 型チェック中...");
-if (sh("npx", ["tsc", "--noEmit"]) !== 0) {
+if (!typecheck()) {
   console.error("[build] 型エラーがあります。");
   process.exit(1);
 }
 
 // 2) OneDrive 同期外へビルド
-console.log(`[build] vite build → ${TMP}`);
-if (sh("npx", ["vite", "build", "--outDir", TMP, "--emptyOutDir"]) !== 0) {
+if (!viteBuild(TMP)) {
   console.error("[build] vite build に失敗しました。");
   process.exit(1);
 }

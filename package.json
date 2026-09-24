@@ -7,13 +7,18 @@
   "scripts": {
     "dev": "vite",
     "build": "node scripts/build.mjs",
-    "build:once": "tsc --noEmit && vite build",
+    "build:once": "npm run typecheck && vite build",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.node.json",
     "preview": "vite preview",
     "enrich": "tsx scripts/enrich.ts",
+    "check": "npm run typecheck && npm run check:srs && npm run check:pron && npm run check:backup && npm run check:lemma && npm run check:dict",
     "check:lemma": "tsx scripts/check-lemmatize.ts",
     "check:dict": "tsx scripts/check-dict.ts",
     "music:pin": "tsx scripts/pin-lyrics.ts",
-    "music:coverage": "tsx scripts/lyrics-coverage.ts"
+    "music:coverage": "tsx scripts/lyrics-coverage.ts",
+    "check:srs": "tsx scripts/check-srs.ts",
+    "check:pron": "tsx scripts/check-pron.ts",
+    "check:backup": "tsx scripts/check-backup.ts"
   },
   "dependencies": {
     "react": "^18.3.1",
@@ -22,6 +27,7 @@
     "zustand": "^4.5.5"
   },
   "devDependencies": {
+    "@types/node": "^24.13.6",
     "@types/react": "^18.3.5",
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.3.1",

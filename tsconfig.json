@@ -15,7 +15,9 @@
     "strict": true,
     "noUnusedLocals": false,
     "noUnusedParameters": false,
-    "noFallthroughCasesInSwitch": true
+    "noFallthroughCasesInSwitch": true,
+    // ブラウザ用コードに Node の型を持ち込まない（親フォルダの @types/node の自動読込も遮断）
+    "types": []
   },
-  "include": ["src", "scripts", "vite.config.ts"]
+  "include": ["src"]
 }

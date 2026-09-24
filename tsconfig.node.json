@@ -1,0 +1,8 @@
+{
+  // scripts/ と vite.config.ts 用（Node 実行）。src の型も参照する。
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "types": ["node"]
+  },
+  "include": ["scripts", "vite.config.ts", "pwa-assets.config.ts"]
+}
