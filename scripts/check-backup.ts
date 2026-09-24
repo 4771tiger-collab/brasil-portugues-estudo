@@ -545,6 +545,35 @@ console.log("=== pickSettings ===");
     "replayAfterLookup: true / false を読む"
   );
   eq([pickSettings({ replayAfterLookup: "true" }), pickSettings({ replayAfterLookup: 1 })], [{}, {}], "replayAfterLookup: 文字列・数は落とす");
+  // T2-1: 和→葡の産出カードの設定
+  eq(
+    [pickSettings({ productionEnabled: true }), pickSettings({ productionEnabled: false })],
+    [{ productionEnabled: true }, { productionEnabled: false }],
+    "productionEnabled: true / false を読む"
+  );
+  eq([pickSettings({ productionEnabled: "false" }), pickSettings({ productionEnabled: 0 })], [{}, {}], "productionEnabled: 文字列・数は落とす");
+  eq(
+    [0, 3, 5, 10].map((n) => pickSettings({ dailyProductionNewLimit: n }).dailyProductionNewLimit),
+    [0, 3, 5, 10],
+    "dailyProductionNewLimit: 0 / 3 / 5 / 10 を読む（0 = 始めない）"
+  );
+  eq(
+    [pickSettings({ dailyProductionNewLimit: 4 }), pickSettings({ dailyProductionNewLimit: "5" }), pickSettings({ dailyProductionNewLimit: -1 })],
+    [{}, {}, {}],
+    "dailyProductionNewLimit: 選択肢に無い数・文字列は落とす"
+  );
+  eq(
+    [pickSettings({ productionAnswerMode: "self" }), pickSettings({ productionAnswerMode: "type" }), pickSettings({ productionAnswerMode: "voice" })],
+    [{ productionAnswerMode: "self" }, { productionAnswerMode: "type" }, {}],
+    "productionAnswerMode: self / type だけ読む"
+  );
+  // T2-8: 音声認識の同意は端末ごと（バックアップに入れない・取り込まない）
+  eq(
+    [pickSettings({ speechInputEnabled: true }), pickSettings({ speechInputEnabled: false })],
+    [{}, {}],
+    "speechInputEnabled: 読まない（音声を Google に送る同意は端末ごと）"
+  );
+  eq(pickSettings({ rate: 0.9, speechInputEnabled: true }), { rate: 0.9 }, "speechInputEnabled だけ落とし、ほかの設定は読む");
 }
 
 console.log("=== composeBackup（v3 の書き出し） ===");
@@ -680,6 +709,72 @@ console.log("=== merge: cards（last → reps → intervalDays → 端末側） 
     "cardDiff: 追加・学習状況の変化・削除を数える"
   );
   eq(cardDiff({ a: card() }, { a: { ...card(), level: "young" as const } }), { added: 0, updated: 0, removed: 0 }, "cardDiff: level（表示用）だけの違いは数えない");
+}
+
+console.log("=== 産出カード（T2-1）: 読み込み・統合・差分 ===");
+{
+  const PROD = {
+    ...PROGRESS,
+    version: 3,
+    cards: {
+      "words:0001": card(),
+      "words:0001@p": card({ intervalDays: 7, reps: 2, last: "2026-09-23" }),
+      "capoeira:0040": card({ intervalDays: 21, level: "mature" }),
+      "dict:0012@p": card({ last: null, reps: 0 }),
+    },
+    settings: { productionEnabled: false, dailyProductionNewLimit: 10, productionAnswerMode: "type" },
+  };
+  const d = data(parseBackup(JSON.stringify(PROD)), "産出カードのあるファイル");
+  eq(d && Object.keys(d.progress.cards), Object.keys(PROD.cards), "parseBackup: 産出カード（@p のキー）も普通のカードとして読む");
+  eq(d?.progress.cards["words:0001@p"], PROD.cards["words:0001@p"], "parseBackup: 産出カードの中身をそのまま");
+  eq(
+    d?.settings && [d.settings.productionEnabled, d.settings.dailyProductionNewLimit, d.settings.productionAnswerMode],
+    [false, 10, "type"],
+    "parseBackup: 産出カードの設定を読む"
+  );
+  ok(!!d && describeBackup(d).includes("学習した単語 2語") && describeBackup(d).includes("産出カード 1枚"), "describeBackup: 産出カードは語数に入れず、評価済みの枚数を別に出す");
+  const plain = data(parseBackup(JSON.stringify({ ...PROGRESS, version: 3 })), "産出カードの無いファイル");
+  ok(!!plain && !describeBackup(plain).includes("産出カード"), "describeBackup: 産出カードが無ければ出さない");
+  const old = data(parseBackup(JSON.stringify({ ...PROGRESS, version: 3, settings: { rate: 0.9 } })), "産出カードの設定の無い古い v3");
+  ok(!!old?.settings && !("productionEnabled" in old.settings) && !("dailyProductionNewLimit" in old.settings) && !("productionAnswerMode" in old.settings), "古いファイル: 産出カードの設定は無い（端末側のまま）");
+
+  // 統合: 産出カードもキーごとに新しい方。片方にだけある産出カードも残す
+  const L: Record<string, SrsCard> = {
+    "words:0001": card({ last: "2026-09-24", reps: 3 }),
+    "words:0001@p": card({ last: "2026-09-20", reps: 1 }),
+    "words:0002@p": card({ last: "2026-09-22", reps: 2 }),
+  };
+  const R: Record<string, SrsCard> = {
+    "words:0001": card({ last: "2026-09-20", reps: 5 }),
+    "words:0001@p": card({ last: "2026-09-23", reps: 2 }),
+    "words:0003@p": card({ last: "2026-09-21", reps: 1 }),
+  };
+  const m = mergeCards(L, R);
+  eq(
+    Object.fromEntries(Object.entries(m).map(([k, c]) => [k, c === L[k] ? "L" : c === R[k] ? "R" : "?"])),
+    { "words:0001": "L", "words:0001@p": "R", "words:0002@p": "L", "words:0003@p": "R" },
+    "mergeCards: 理解カードと産出カードは別々に新しい方（片方だけの産出カードも残す）"
+  );
+  const mp = mergeProgress(
+    { ...PROGRESS, cards: L, pinnedNew: ["words:0002"], history: {} } as ProgressPart,
+    { ...PROGRESS, cards: R, pinnedNew: [], history: {} } as ProgressPart,
+    "2026-09-24"
+  );
+  eq([Object.keys(mp.cards).length, mp.pinnedNew], [4, ["words:0002"]], "mergeProgress: 産出カードがあっても理解カードの pinnedNew（未学習の語）は残す");
+
+  // 差分は語ごと（理解カードと産出カードは同じ語）
+  eq(
+    cardDiff({ a: card() }, { a: card(), "a@p": card({ last: "2026-09-24" }), b: card(), "b@p": card() }),
+    { added: 1, updated: 1, removed: 0 },
+    "cardDiff: 産出カードだけ増えた語は updated、理解・産出が一緒に入った語は added 1語"
+  );
+  eq(
+    cardDiff({ a: card(), "a@p": card(), b: card(), "b@p": card() }, { a: card(), b: card() }),
+    { added: 0, updated: 2, removed: 0 },
+    "cardDiff: 産出カードだけ無くなった語は updated（語は残る）"
+  );
+  eq(cardDiff({ "a@p": card() }, {}), { added: 0, updated: 0, removed: 1 }, "cardDiff: 語のカードがすべて無くなれば removed");
+  eq(cardDiff({ a: card(), "a@p": card() }, { a: card(), "a@p": card() }), { added: 0, updated: 0, removed: 0 }, "cardDiff: 同じなら 0");
 }
 
 console.log("=== merge: 連続記録（streak を数え直す）・学習ログ ===");
@@ -1283,6 +1378,89 @@ console.log("=== importAll 統合（ストア） ===");
   M().clearAddedWords();
   useMusic.setState({ songs: {}, userWords: [] });
   D().reset();
+}
+
+console.log("=== 産出カード（T2-1）: 書き出し・取り込み（ストア） ===");
+{
+  const { exportAll, importAll } = await import("../src/store/backup");
+  const { useProgress } = await import("../src/store/useProgress");
+  const { useMusic } = await import("../src/store/useMusic");
+  const { useSettings } = await import("../src/store/useSettings");
+  const P = () => useProgress.getState();
+  const TD = todayStr();
+  P().resetAll();
+  useMusic.setState({ songs: {}, addedWords: [], userWords: [] });
+  const known = card({ intervalDays: 10, reps: 3, level: "young", last: addDays(TD, -2), due: addDays(TD, 8) });
+  useProgress.setState({ cards: { "words:0040": known } });
+  P().rate("words:0040@p", "good");
+  const prodCard = P().cards["words:0040@p"];
+  ok(!!prodCard && prodCard.last === TD, "前提: 産出カードを評価した");
+  useSettings.getState().set({ productionEnabled: false, dailyProductionNewLimit: 3, productionAnswerMode: "type" });
+  const json = exportAll();
+  const out = JSON.parse(json) as { cards: Record<string, unknown>; settings: Record<string, unknown> };
+  eq(Object.keys(out.cards).sort(), ["words:0040", "words:0040@p"], "書き出しに産出カードを含める");
+  eq(
+    [out.settings.productionEnabled, out.settings.dailyProductionNewLimit, out.settings.productionAnswerMode],
+    [false, 3, "type"],
+    "settings に産出カードの設定を書き出す"
+  );
+
+  // 置き換え: 産出カードと設定が戻る
+  P().resetAll();
+  useSettings.getState().set({ productionEnabled: true, dailyProductionNewLimit: 5, productionAnswerMode: "self" });
+  const r = importAll(json, "replace");
+  eq(r.ok && r.diff, { added: 1, updated: 0, removed: 0 }, "置き換え: 理解・産出の2枚で1語");
+  eq(P().cards["words:0040@p"], prodCard, "置き換え: 産出カードを復元");
+  const st = useSettings.getState();
+  eq([st.productionEnabled, st.dailyProductionNewLimit, st.productionAnswerMode], [false, 3, "type"], "置き換え: 産出カードの設定を復元");
+
+  // 統合: 端末だけの産出カードを消さない・設定は端末側のまま
+  const local = card({ intervalDays: 4, reps: 2, last: TD, due: addDays(TD, 4) });
+  useProgress.setState({ cards: { ...P().cards, "words:0050": known, "words:0050@p": local } });
+  useSettings.getState().set({ productionEnabled: true, dailyProductionNewLimit: 10, productionAnswerMode: "self" });
+  const r2 = importAll(json, "merge");
+  eq(r2.ok && r2.diff, { added: 0, updated: 0, removed: 0 }, "統合: 同じ内容 → 変化なし");
+  eq([P().cards["words:0050@p"], P().cards["words:0040@p"]], [local, prodCard], "統合: 端末だけの産出カードも残す");
+  const st2 = useSettings.getState();
+  eq([st2.productionEnabled, st2.dailyProductionNewLimit, st2.productionAnswerMode], [true, 10, "self"], "統合: 産出カードの設定は端末側のまま");
+
+  // 産出カードの設定の無い古いファイル（置き換え）: 設定は端末側のまま
+  const oldFile = { ...JSON.parse(json), settings: { rate: 1.1 } };
+  ok(importAll(JSON.stringify(oldFile), "replace").ok, "古い設定のファイルを置き換えで取り込む");
+  const st3 = useSettings.getState();
+  eq([st3.productionEnabled, st3.dailyProductionNewLimit, st3.productionAnswerMode, st3.rate], [true, 10, "self", 1.1], "古いファイル: 産出カードの設定は端末側のまま");
+
+  P().resetAll();
+  useSettings.getState().set({ productionEnabled: true, dailyProductionNewLimit: 5, productionAnswerMode: "self" });
+}
+
+console.log("=== 音声認識の設定（T2-8）: 書き出し・取り込みで端末の外に出さない ===");
+{
+  const { exportAll, importAll } = await import("../src/store/backup");
+  const { useProgress } = await import("../src/store/useProgress");
+  const { useSettings } = await import("../src/store/useSettings");
+  const S = () => useSettings.getState();
+  useProgress.getState().resetAll();
+  S().set({ speechInputEnabled: true, rate: 0.9 });
+  const json = exportAll();
+  const out = JSON.parse(json) as { settings: Record<string, unknown> };
+  ok(!("speechInputEnabled" in out.settings), "書き出しに speechInputEnabled を入れない");
+  eq(out.settings.rate, 0.9, "ほかの設定は書き出す");
+  ok(!/speechInput/.test(json), "書き出しに音声認識の項目が無い");
+
+  // 置き換え: ファイルに speechInputEnabled があっても（手で書き足しても）端末側のまま
+  const forged = { ...JSON.parse(json), settings: { ...out.settings, rate: 1.1, speechInputEnabled: true } };
+  S().set({ speechInputEnabled: false, rate: 1 });
+  ok(importAll(JSON.stringify(forged), "replace").ok, "speechInputEnabled 入りのファイルを置き換えで取り込む");
+  eq([S().speechInputEnabled, S().rate], [false, 1.1], "置き換え: 音声認識はオフのまま（ほかの設定は復元）");
+  S().set({ speechInputEnabled: true });
+  ok(importAll(JSON.stringify({ ...forged, settings: { rate: 1.2, speechInputEnabled: false } }), "replace").ok, "置き換え（オフのファイル）");
+  eq([S().speechInputEnabled, S().rate], [true, 1.2], "置き換え: 端末でオンにした音声認識はオンのまま");
+  ok(importAll(JSON.stringify(forged), "merge").ok, "統合で取り込む");
+  eq(S().speechInputEnabled, true, "統合: 端末側のまま");
+
+  useProgress.getState().resetAll();
+  S().set({ speechInputEnabled: false, rate: 1 });
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

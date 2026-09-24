@@ -107,5 +107,396 @@
         { "pt": "nublado", "ja": "曇り" }
       ]
     }
+  },
+  {
+    "id": "pat_sei",
+    "category": "能力を伝える",
+    "frame": "Eu sei {X}.",
+    "ja": "私は{X}ことができます。",
+    "note": "saber + 動詞原形は「（習って身につけて）〜できる」。体調や許可の「できる」には poder を使う。",
+    "slots": {
+      "X": [
+        { "pt": "nadar", "ja": "泳ぐ", "jaFull": "私は泳げます。" },
+        { "pt": "dirigir", "ja": "車を運転する", "jaFull": "私は車の運転ができます。" },
+        { "pt": "cozinhar", "ja": "料理する", "jaFull": "私は料理ができます。" },
+        { "pt": "falar inglês", "ja": "英語を話す", "jaFull": "私は英語が話せます。" },
+        { "pt": "tocar violão", "ja": "ギターを弾く", "jaFull": "私はギターが弾けます。" },
+        { "pt": "dançar samba", "ja": "サンバを踊る", "jaFull": "私はサンバが踊れます。" }
+      ]
+    }
+  },
+  {
+    "id": "pat_posso",
+    "category": "許可を求める",
+    "frame": "Posso {X}?",
+    "ja": "{X}してもいいですか？",
+    "note": "poder + 動詞原形の疑問文で許可を求める。主語の eu は省略するのがふつう。",
+    "slots": {
+      "X": [
+        { "pt": "entrar", "ja": "入る", "jaFull": "入ってもいいですか？" },
+        { "pt": "sentar aqui", "ja": "ここに座る", "jaFull": "ここに座ってもいいですか？" },
+        { "pt": "abrir a janela", "ja": "窓を開ける", "jaFull": "窓を開けてもいいですか？" },
+        { "pt": "tirar uma foto", "ja": "写真を撮る", "jaFull": "写真を撮ってもいいですか？" },
+        { "pt": "usar o banheiro", "ja": "トイレを使う", "jaFull": "トイレをお借りしてもいいですか？" },
+        { "pt": "pagar com cartão", "ja": "カードで払う", "jaFull": "カードで払ってもいいですか？" }
+      ]
+    }
+  },
+  {
+    "id": "pat_tenho_que",
+    "category": "義務を伝える",
+    "frame": "Eu tenho que {X}.",
+    "ja": "私は{X}なければなりません。",
+    "note": "ter que + 動詞原形で「〜しなければならない」。会話では ter de より ter que がよく使われる。",
+    "slots": {
+      "X": [
+        { "pt": "acordar cedo", "ja": "早く起きる", "jaFull": "私は早く起きなければなりません。" },
+        { "pt": "ir embora", "ja": "帰る", "jaFull": "私はもう帰らなければなりません。" },
+        { "pt": "estudar para a prova", "ja": "試験勉強をする", "jaFull": "私は試験勉強をしなければなりません。" },
+        { "pt": "pagar o aluguel", "ja": "家賃を払う", "jaFull": "私は家賃を払わなければなりません。" },
+        { "pt": "ligar para a minha mãe", "ja": "母に電話する", "jaFull": "私は母に電話しなければなりません。" },
+        { "pt": "fazer compras", "ja": "買い物をする", "jaFull": "私は買い物をしなければなりません。" }
+      ]
+    }
+  },
+  {
+    "id": "pat_estou",
+    "category": "今していることを伝える",
+    "frame": "Estou {X}.",
+    "ja": "今、{X}ているところです。",
+    "note": "estar + 現在分詞（-ando / -endo / -indo）で「〜しているところ」。estar a + 動詞原形（estou a trabalhar）はポルトガルの言い方で、ブラジルではふつう使わない。",
+    "slots": {
+      "X": [
+        { "pt": "trabalhando", "ja": "働く", "jaFull": "今、仕事中です。" },
+        { "pt": "estudando português", "ja": "ポルトガル語を勉強する", "jaFull": "今、ポルトガル語を勉強しています。" },
+        { "pt": "cozinhando", "ja": "料理する", "jaFull": "今、料理をしています。" },
+        { "pt": "lendo um livro", "ja": "本を読む", "jaFull": "今、本を読んでいます。" },
+        { "pt": "chegando", "ja": "着く", "jaFull": "もうすぐ着きます。" },
+        { "pt": "brincando", "ja": "冗談を言う", "jaFull": "冗談ですよ。" }
+      ]
+    }
+  },
+  {
+    "id": "pat_ja",
+    "category": "経験・完了を伝える",
+    "frame": "Eu já {X}.",
+    "ja": "私はもう{X}ました。",
+    "note": "já + 完了過去で「もう〜した」「〜したことがある」。動詞は過去形（comi, fui, vi など）にする。",
+    "slots": {
+      "X": [
+        { "pt": "comi", "ja": "食べる", "jaFull": "私はもう食べました。" },
+        { "pt": "fui ao Brasil", "ja": "ブラジルに行く", "jaFull": "私はブラジルに行ったことがあります。" },
+        { "pt": "vi esse filme", "ja": "その映画を見る", "jaFull": "私はその映画をもう見ました。" },
+        { "pt": "provei açaí", "ja": "アサイーを食べてみる", "jaFull": "私はアサイーを食べたことがあります。" },
+        { "pt": "terminei o trabalho", "ja": "仕事を終える", "jaFull": "私はもう仕事を終えました。" },
+        { "pt": "assisti a uma roda de capoeira", "ja": "カポエイラのホーダを見る", "jaFull": "私はカポエイラのホーダを見たことがあります。" }
+      ]
+    }
+  },
+  {
+    "id": "pat_nunca",
+    "category": "未経験を伝える",
+    "frame": "Eu nunca {X}.",
+    "ja": "私は一度も{X}ことがありません。",
+    "note": "nunca + 完了過去で「一度も〜したことがない」。nunca を動詞の前に置けば não は要らない。",
+    "slots": {
+      "X": [
+        { "pt": "fui a Salvador", "ja": "サルヴァドールに行く", "jaFull": "私はサルヴァドールに一度も行ったことがありません。" },
+        { "pt": "andei de avião", "ja": "飛行機に乗る", "jaFull": "私は一度も飛行機に乗ったことがありません。" },
+        { "pt": "vi neve", "ja": "雪を見る", "jaFull": "私は一度も雪を見たことがありません。" },
+        { "pt": "comi churrasco", "ja": "シュラスコを食べる", "jaFull": "私は一度もシュラスコを食べたことがありません。" },
+        { "pt": "aprendi a nadar", "ja": "泳ぎを習う", "jaFull": "私は泳ぎを習ったことが一度もありません。" },
+        { "pt": "joguei futebol", "ja": "サッカーをする", "jaFull": "私は一度もサッカーをしたことがありません。" }
+      ]
+    }
+  },
+  {
+    "id": "pat_acho",
+    "category": "意見を言う",
+    "frame": "Acho que {X}.",
+    "ja": "私は{X}と思います。",
+    "note": "achar que + 文で「〜と思う」。Acho que sim.（そう思う）／Acho que não.（そうは思わない）も定番。",
+    "slots": {
+      "X": [
+        { "pt": "vai chover amanhã", "ja": "明日は雨が降る", "jaFull": "明日は雨が降ると思います。" },
+        { "pt": "ele tem razão", "ja": "彼が正しい", "jaFull": "彼の言うとおりだと思います。" },
+        { "pt": "está muito caro", "ja": "高すぎる", "jaFull": "高すぎると思います。" },
+        { "pt": "é uma boa ideia", "ja": "いい考えだ", "jaFull": "いい考えだと思います。" },
+        { "pt": "sim", "ja": "そうだ", "jaFull": "そう思います。" },
+        { "pt": "não", "ja": "そうではない", "jaFull": "そうは思いません。" }
+      ]
+    }
+  },
+  {
+    "id": "pat_vamos",
+    "category": "提案する",
+    "frame": "Vamos {X}?",
+    "ja": "{X}ましょうか？",
+    "note": "vamos + 動詞原形で「〜しよう」。vamos + a + 場所（ao cinema）で「〜へ行こう」。Vamos embora? は「そろそろ帰ろう（ここを出よう）か」。",
+    "slots": {
+      "X": [
+        { "pt": "tomar um café", "ja": "コーヒーを飲む", "jaFull": "コーヒーを飲みましょうか？" },
+        { "pt": "comer alguma coisa", "ja": "何か食べる", "jaFull": "何か食べましょうか？" },
+        { "pt": "pegar um táxi", "ja": "タクシーに乗る", "jaFull": "タクシーに乗りましょうか？" },
+        { "pt": "sair hoje à noite", "ja": "今夜出かける", "jaFull": "今夜、出かけましょうか？" },
+        { "pt": "ao cinema", "ja": "映画館へ行く", "jaFull": "映画館に行きましょうか？" },
+        { "pt": "embora", "ja": "帰る", "jaFull": "そろそろ帰りましょうか？" }
+      ]
+    }
+  },
+  {
+    "id": "pat_costumo",
+    "category": "習慣を伝える",
+    "frame": "Eu costumo {X}.",
+    "ja": "私はふだん{X}ます。",
+    "note": "costumar + 動詞原形で「ふだん（いつも）〜する」。習慣を言うのに便利。",
+    "slots": {
+      "X": [
+        { "pt": "acordar às seis", "ja": "6時に起きる", "jaFull": "私はふだん6時に起きます。" },
+        { "pt": "tomar café da manhã em casa", "ja": "家で朝ごはんを食べる", "jaFull": "私はふだん家で朝ごはんを食べます。" },
+        { "pt": "ir ao trabalho de ônibus", "ja": "バスで仕事に行く", "jaFull": "私はふだんバスで通勤しています。" },
+        { "pt": "correr no parque", "ja": "公園で走る", "jaFull": "私はふだん公園で走っています。" },
+        { "pt": "dormir tarde", "ja": "遅く寝る", "jaFull": "私はたいてい寝るのが遅いです。" },
+        { "pt": "treinar capoeira à noite", "ja": "夜にカポエイラを練習する", "jaFull": "私はふだん夜にカポエイラを練習します。" }
+      ]
+    }
+  },
+  {
+    "id": "pat_gostaria",
+    "category": "丁寧に希望を伝える",
+    "frame": "Eu gostaria de {X}.",
+    "ja": "{X}たいのですが。",
+    "note": "gostaria de + 動詞原形で「〜したいのですが」、+ 名詞で「〜が欲しいのですが」。quero より丁寧で、お店や初対面の相手に使える。",
+    "slots": {
+      "X": [
+        { "pt": "fazer uma reserva", "ja": "予約する", "jaFull": "予約をしたいのですが。" },
+        { "pt": "ver o cardápio", "ja": "メニューを見る", "jaFull": "メニューを見せていただきたいのですが。" },
+        { "pt": "conhecer o Rio de Janeiro", "ja": "リオデジャネイロを訪れる", "jaFull": "リオデジャネイロに行ってみたいです。" },
+        { "pt": "falar com o gerente", "ja": "責任者と話す", "jaFull": "責任者の方とお話ししたいのですが。" },
+        { "pt": "agradecer a todos", "ja": "皆さんに感謝する", "jaFull": "皆さんにお礼を申し上げたいです。" },
+        { "pt": "uma água sem gás", "ja": "炭酸なしの水", "jaFull": "炭酸なしの水をいただきたいのですが。" }
+      ]
+    }
+  },
+  {
+    "id": "pat_quer",
+    "category": "誘う・勧める",
+    "frame": "Você quer {X}?",
+    "ja": "{X}ませんか？",
+    "note": "Você quer + 動詞原形／名詞？で「〜しませんか？」「〜はいかが？」と誘ったり勧めたりする。",
+    "slots": {
+      "X": [
+        { "pt": "ir comigo", "ja": "私と一緒に行く", "jaFull": "私と一緒に行きませんか？" },
+        { "pt": "jantar lá em casa", "ja": "うちで夕食を食べる", "jaFull": "うちで晩ごはんを食べませんか？" },
+        { "pt": "um pedaço de bolo", "ja": "ケーキを一切れ", "jaFull": "ケーキを一切れいかがですか？" },
+        { "pt": "dançar", "ja": "踊る", "jaFull": "踊りませんか？" },
+        { "pt": "ver um filme", "ja": "映画を見る", "jaFull": "映画を見ませんか？" },
+        { "pt": "uma carona", "ja": "車に乗せてもらう", "jaFull": "車で送りましょうか？" }
+      ]
+    }
+  },
+  {
+    "id": "pat_nao_gosto",
+    "category": "苦手なものを伝える",
+    "frame": "Eu não gosto de {X}.",
+    "ja": "私は{X}が好きではありません。",
+    "note": "否定は動詞の前に não を置くだけ。gostar de の de は否定文でも省略しない。",
+    "slots": {
+      "X": [
+        { "pt": "acordar cedo", "ja": "早起き", "jaFull": "早起きは好きではありません。" },
+        { "pt": "calor", "ja": "暑さ", "jaFull": "暑いのは好きではありません。" },
+        { "pt": "esperar", "ja": "待つこと", "jaFull": "待つのは好きではありません。" },
+        { "pt": "trânsito", "ja": "渋滞", "jaFull": "渋滞は好きではありません。" },
+        { "pt": "filme de terror", "ja": "ホラー映画", "jaFull": "ホラー映画は好きではありません。" },
+        { "pt": "cebola", "ja": "玉ねぎ", "jaFull": "玉ねぎは好きではありません。" }
+      ]
+    }
+  },
+  {
+    "id": "pat_quanto",
+    "category": "値段をたずねる",
+    "frame": "Quanto custa {X}?",
+    "ja": "{X}の値段はいくらですか？",
+    "note": "Quanto custa + 単数の名詞？。複数のときは Quanto custam ...? になる。",
+    "slots": {
+      "X": [
+        { "pt": "esta camiseta", "ja": "このTシャツ", "jaFull": "このTシャツはいくらですか？" },
+        { "pt": "a passagem", "ja": "運賃", "jaFull": "運賃はいくらですか？" },
+        { "pt": "um quilo de banana", "ja": "バナナ1キロ", "jaFull": "バナナは1キロいくらですか？" },
+        { "pt": "o ingresso", "ja": "入場券", "jaFull": "入場券はいくらですか？" },
+        { "pt": "esse berimbau", "ja": "そのビリンバウ", "jaFull": "そのビリンバウはいくらですか？" },
+        { "pt": "uma diária", "ja": "1泊", "jaFull": "1泊いくらですか？" }
+      ]
+    }
+  },
+  {
+    "id": "pat_tem_perto",
+    "category": "近くにあるかたずねる",
+    "frame": "Tem {X} aqui perto?",
+    "ja": "この近くに{X}はありますか？",
+    "note": "会話では「〜がある」に haver ではなく ter を使う（Tem ...?）。aqui perto は「この近く」。",
+    "slots": {
+      "X": [
+        { "pt": "uma farmácia", "ja": "薬局", "jaFull": "この辺りに薬局はありますか？" },
+        { "pt": "um caixa eletrônico", "ja": "ATM", "jaFull": "この辺りにATMはありますか？" },
+        { "pt": "um supermercado", "ja": "スーパー", "jaFull": "この辺りにスーパーはありますか？" },
+        { "pt": "um ponto de ônibus", "ja": "バス停", "jaFull": "この辺りにバス停はありますか？" },
+        { "pt": "uma padaria", "ja": "パン屋", "jaFull": "この辺りにパン屋はありますか？" },
+        { "pt": "uma academia de capoeira", "ja": "カポエイラ教室", "jaFull": "この辺りにカポエイラの教室はありますか？" }
+      ]
+    }
+  },
+  {
+    "id": "pat_que_horas",
+    "category": "時刻をたずねる",
+    "frame": "A que horas {X}?",
+    "ja": "何時に{X}ますか？",
+    "note": "A que horas + 動詞 + 主語？。名詞の主語は動詞の後ろに置くことが多い（A que horas abre o banco?）が、代名詞の主語は前に置く（A que horas você chega?）。",
+    "slots": {
+      "X": [
+        { "pt": "abre o banco", "ja": "銀行が開く", "jaFull": "銀行は何時に開きますか？" },
+        { "pt": "fecha a loja", "ja": "店が閉まる", "jaFull": "お店は何時に閉まりますか？" },
+        { "pt": "sai o ônibus", "ja": "バスが出る", "jaFull": "バスは何時に出ますか？" },
+        { "pt": "começa o jogo", "ja": "試合が始まる", "jaFull": "試合は何時に始まりますか？" },
+        { "pt": "termina a aula", "ja": "授業が終わる", "jaFull": "授業は何時に終わりますか？" },
+        { "pt": "você chega", "ja": "あなたが着く", "jaFull": "あなたは何時に着きますか？" }
+      ]
+    }
+  },
+  {
+    "id": "pat_sou",
+    "category": "出身・所属を言う",
+    "frame": "Eu sou {X}.",
+    "ja": "私は{X}です。",
+    "note": "ser + 出身（de + 地名）・国籍・立場。国名の多くは冠詞が付き（do Japão, do Brasil。ただし de Portugal）、都市名の多くは付かない（de Tóquio。ただし do Rio de Janeiro）。国籍は性で変わる（japonês / japonesa）。",
+    "slots": {
+      "X": [
+        { "pt": "do Japão", "ja": "日本から", "jaFull": "私は日本出身です。" },
+        { "pt": "de Tóquio", "ja": "東京から", "jaFull": "私は東京出身です。" },
+        { "pt": "japonês", "ja": "日本人（男性）", "jaFull": "私は日本人です。（男性）" },
+        { "pt": "japonesa", "ja": "日本人（女性）", "jaFull": "私は日本人です。（女性）" },
+        { "pt": "estudante de português", "ja": "ポルトガル語の学習者", "jaFull": "私はポルトガル語を学んでいる学生です。" },
+        { "pt": "capoeirista", "ja": "カポエイラをする人", "jaFull": "私はカポエイリスタ（カポエイラをする人）です。" }
+      ]
+    }
+  },
+  {
+    "id": "pat_fazendo",
+    "category": "天気・気温を言う",
+    "frame": "Está fazendo {X}.",
+    "ja": "（天気が）{X}の状態です。",
+    "note": "fazer で天気・気温を表す（fazer calor / frio / sol）。進行形 está fazendo で「今〜だ」。会話では Tá fazendo... とも言う。",
+    "slots": {
+      "X": [
+        { "pt": "calor", "ja": "暑さ", "jaFull": "暑いです。" },
+        { "pt": "muito frio", "ja": "ひどい寒さ", "jaFull": "とても寒いです。" },
+        { "pt": "sol", "ja": "日差し", "jaFull": "晴れています。" },
+        { "pt": "um dia lindo", "ja": "すばらしい天気", "jaFull": "とてもいい天気です。" },
+        { "pt": "trinta graus", "ja": "30度", "jaFull": "気温が30度あります。" },
+        { "pt": "um friozinho", "ja": "少しの寒さ", "jaFull": "ちょっと肌寒いです。" }
+      ]
+    }
+  },
+  {
+    "id": "pat_feliz",
+    "category": "理由を言う",
+    "frame": "Estou feliz porque {X}.",
+    "ja": "{X}ので、うれしいです。",
+    "note": "porque + 文で理由を言う。feliz（うれしい）は男女で形が変わらない。「なぜ？」とたずねるときは por que（2語）。",
+    "slots": {
+      "X": [
+        { "pt": "você veio", "ja": "あなたが来た", "jaFull": "来てくれて、うれしいです。" },
+        { "pt": "amanhã é feriado", "ja": "明日は祝日だ", "jaFull": "明日は祝日なので、うれしいです。" },
+        { "pt": "passei na prova", "ja": "試験に合格した", "jaFull": "試験に受かって、うれしいです。" },
+        { "pt": "meu time ganhou", "ja": "私のチームが勝った", "jaFull": "応援しているチームが勝って、うれしいです。" },
+        { "pt": "consegui entender o filme", "ja": "映画を理解できた", "jaFull": "映画が理解できて、うれしいです。" },
+        { "pt": "vou viajar para o Brasil", "ja": "ブラジルに旅行する", "jaFull": "ブラジルに旅行に行くので、うれしいです。" }
+      ]
+    }
+  },
+  {
+    "id": "pat_mais",
+    "category": "比べる",
+    "frame": "Este é mais {X} do que aquele.",
+    "ja": "これはあれより{X}です。",
+    "note": "mais + 形容詞 + do que で「〜より…だ」。bom → melhor、grande → maior、pequeno → menor は不規則。este / aquele は男性名詞を指す（女性名詞なら esta / aquela と形容詞も女性形）。",
+    "slots": {
+      "X": [
+        { "pt": "barato", "ja": "安い", "jaFull": "こちらのほうがあちらより安いです。" },
+        { "pt": "caro", "ja": "高い", "jaFull": "こちらのほうがあちらより高いです。" },
+        { "pt": "confortável", "ja": "快適だ", "jaFull": "こちらのほうがあちらより快適です。" },
+        { "pt": "bonito", "ja": "きれいだ", "jaFull": "こちらのほうがあちらよりきれいです。" },
+        { "pt": "pesado", "ja": "重い", "jaFull": "こちらのほうがあちらより重いです。" },
+        { "pt": "gostoso", "ja": "おいしい", "jaFull": "こちらのほうがあちらよりおいしいです。" }
+      ]
+    }
+  },
+  {
+    "id": "pat_que",
+    "category": "感情を表す",
+    "frame": "Que {X}!",
+    "ja": "なんて{X}！",
+    "note": "Que + 形容詞／名詞！で気持ちを表す。Que legal!（いいね）、Que pena!（残念）は会話で頻出。",
+    "slots": {
+      "X": [
+        { "pt": "legal", "ja": "いい", "jaFull": "いいですね！" },
+        { "pt": "bom", "ja": "よい", "jaFull": "よかったですね！" },
+        { "pt": "pena", "ja": "残念", "jaFull": "残念ですね！" },
+        { "pt": "calor", "ja": "暑さ", "jaFull": "なんて暑いんでしょう！" },
+        { "pt": "lindo", "ja": "きれい", "jaFull": "なんてきれいなんでしょう！" },
+        { "pt": "susto", "ja": "驚き", "jaFull": "ああ、びっくりしました！" }
+      ]
+    }
+  },
+  {
+    "id": "pat_poderia",
+    "category": "もっと丁寧に依頼する",
+    "frame": "Você poderia {X}?",
+    "ja": "{X}ていただけますか？",
+    "note": "poderia は poder の過去未来形。Você pode...? より丁寧で、知らない人へのお願いに向く。",
+    "slots": {
+      "X": [
+        { "pt": "me dizer que horas são", "ja": "今の時刻を教える", "jaFull": "今何時か教えていただけますか？" },
+        { "pt": "me mostrar o caminho", "ja": "道を教える", "jaFull": "道を教えていただけますか？" },
+        { "pt": "tirar uma foto da gente", "ja": "私たちの写真を撮る", "jaFull": "私たちの写真を撮っていただけますか？" },
+        { "pt": "fechar a porta", "ja": "ドアを閉める", "jaFull": "ドアを閉めていただけますか？" },
+        { "pt": "escrever isso para mim", "ja": "これを書く", "jaFull": "これを書いていただけますか？" },
+        { "pt": "falar mais alto", "ja": "もっと大きな声で話す", "jaFull": "もう少し大きな声で話していただけますか？" }
+      ]
+    }
+  },
+  {
+    "id": "pat_capo_jogar",
+    "category": "カポエイラ：誘う",
+    "frame": "Vamos jogar {X}!",
+    "ja": "{X}ジョーゴをやりましょう！",
+    "note": "カポエイラは「戦う」ではなく jogar（遊ぶ・プレーする）と言い、ホーダでの一局を jogo（ジョーゴ）と呼ぶ。",
+    "slots": {
+      "X": [
+        { "pt": "capoeira", "ja": "カポエイラ", "jaFull": "カポエイラをしましょう！" },
+        { "pt": "Angola", "ja": "アンゴラで", "jaFull": "アンゴラのジョーゴをしましょう！" },
+        { "pt": "Regional", "ja": "ヘジョナウで", "jaFull": "ヘジョナウのジョーゴをしましょう！" },
+        { "pt": "devagar", "ja": "ゆっくり", "jaFull": "ゆっくりジョーゴをしましょう！" },
+        { "pt": "na roda", "ja": "ホーダで", "jaFull": "ホーダでジョーゴをしましょう！" },
+        { "pt": "juntos", "ja": "一緒に", "jaFull": "一緒にジョーゴをしましょう！" }
+      ]
+    }
+  },
+  {
+    "id": "pat_capo_mestre",
+    "category": "カポエイラ：指示を伝える",
+    "frame": "O mestre pediu para a gente {X}.",
+    "ja": "メストリは私たちに{X}ように言いました。",
+    "note": "pedir para + 人 + 動詞原形で「（人に）〜するように頼む（言う）」。a gente は「私たち」の口語で、後ろの動詞は原形のまま。pediu は pedir の完了過去。",
+    "slots": {
+      "X": [
+        { "pt": "tocar o berimbau", "ja": "ビリンバウを弾く", "jaFull": "メストリが私たちにビリンバウを弾くようにと言いました。" },
+        { "pt": "bater palmas", "ja": "手拍子をする", "jaFull": "メストリが私たちに手拍子をするようにと言いました。" },
+        { "pt": "cantar mais alto", "ja": "もっと大きな声で歌う", "jaFull": "メストリが私たちにもっと大きな声で歌うようにと言いました。" },
+        { "pt": "treinar a ginga", "ja": "ジンガを練習する", "jaFull": "メストリが私たちにジンガを練習するようにと言いました。" },
+        { "pt": "formar a roda", "ja": "ホーダを作る", "jaFull": "メストリが私たちにホーダを作るようにと言いました。" },
+        { "pt": "esperar no pé do berimbau", "ja": "ビリンバウの前で待つ", "jaFull": "メストリが私たちにビリンバウの前で待つようにと言いました。" }
+      ]
+    }
   }
 ]

@@ -19,12 +19,38 @@ import {
   normalizeAnswer,
   ratingForGrade,
   ratingForOverride,
+  SPEECH_VARIANTS_MAX,
+  numberWords,
+  scoreSpeechSentence,
+  scoreSpeechWord,
+  speechPercent,
+  speechVariants,
   type Alignment,
   type DiffSeg,
   type Grade,
   type GradeOptions,
   wordSpans,
 } from "../src/services/grade";
+import {
+  LISTEN_TIMEOUT_MS,
+  SENTENCE_LEAD_MS,
+  SENTENCE_MS_PER_WORD,
+  START_GRACE_MS,
+  STOP_GRACE_MS,
+  SpeechInputError,
+  classifySpeechError,
+  createWebSpeechInput,
+  sentenceListenTimeoutMs,
+  speechErrorMessage,
+  speechInput,
+  type RecErrorEvent,
+  type RecEvent,
+  type RecognizerCtor,
+  type RecognizerLike,
+  type SpeechErrorKind,
+} from "../src/services/speechInput";
+import { patternItems } from "../src/services/patternDrill";
+import { passageToScript } from "../src/services/sentenceGroups";
 import {
   SENTENCE_SPLIT_RE,
   alignCounts,
@@ -70,7 +96,7 @@ import {
   type Rand,
 } from "../src/services/conjugationDrill";
 import { TABLE_PERSONS, TABLE_TENSES, conjugationForm, type TablePerson, type TableTense } from "../src/services/verbTable";
-import { DICTATIONS } from "../src/data/content";
+import { DICTATIONS, PASSAGES, PATTERNS, SCRIPTS } from "../src/data/content";
 import type { Word } from "../src/data/types";
 
 let fail = 0;
@@ -693,6 +719,192 @@ console.log("=== 実データ（ディクテーション） ===");
 }
 
 // ---------------------------------------------------------------------------
+console.log("=== 音声認識の採点: accentInsensitive ===");
+{
+  const AI: GradeOptions = { ...O, accentInsensitive: true };
+  eq(g("voce", "você", AI), "exact", "アクセントだけの違いは exact");
+  eq(g("avó", "avô", AI), "exact", "最小対もアクセントだけなら exact（認識結果の綴りは学習者のものではない）");
+  eq(g("e", "é", AI), "exact", "e → é も exact");
+  eq(g("voçe", "você", AI), "exact", "セディーユの違いも exact");
+  eq(g("obrigdo", "obrigado", AI), "typo", "つづり違いは typo のまま");
+  eq(g("cada", "casa", AI), "wrong", "別の実在語は wrong のまま（isKnownForm）");
+  eq(g("gato", "casa", AI), "wrong", "違う語は wrong");
+  eq(gradeWord("voce", "você", AI).note, undefined, "exact に note は無い");
+  eq(g("voce", "você"), "accent", "既定（accentInsensitive なし）は今までどおり accent");
+  eq(g("avó", "avô"), "wrong", "既定は今までどおり最小対を wrong");
+  const a = alignTokens("Eu gosto de cafe", "eu gosto de café", { accentInsensitive: true });
+  eq([a.correct, a.partial, a.total], [4, 0, 4], "alignTokens: アクセント違いも correct");
+  eq(a.tokens[3].exp, "café", "alignTokens: exp は正解の表記のまま");
+}
+
+console.log("=== 音声認識の採点: 数の読み方 ===");
+eq(numberWords(0), ["zero"], "0");
+eq(numberWords(1), ["um", "uma"], "1 は男性形・女性形");
+eq(numberWords(2), ["dois", "duas"], "2 は男性形・女性形");
+eq(numberWords(3), ["três"], "3");
+eq(numberWords(14), ["catorze", "quatorze"], "14 は2つの綴り");
+eq(numberWords(16), ["dezesseis"], "16（ブラジルの綴り）");
+eq(numberWords(20), ["vinte"], "20");
+eq(numberWords(21), ["vinte e um", "vinte e uma"], "21");
+eq(numberWords(22), ["vinte e dois", "vinte e duas"], "22");
+eq(numberWords(30), ["trinta"], "30");
+eq(numberWords(57), ["cinquenta e sete"], "57");
+eq(numberWords(99), ["noventa e nove"], "99");
+eq(numberWords(100), ["cem"], "100");
+eq(numberWords(1000), ["mil"], "1000");
+eq(numberWords(101), ["cento e um", "cento e uma"], "101");
+eq(numberWords(200), ["duzentos", "duzentas"], "200 は男性形・女性形");
+ok(numberWords(504).includes("quinhentos e quatro"), "504 → quinhentos e quatro");
+eq(numberWords(504)[0], "quinhentos e quatro", "504: 先頭は男性形");
+eq(numberWords(1001)[0], "mil e um", "1001 → mil e um");
+eq(numberWords(1100), ["mil e cem"], "1100 → mil e cem");
+eq(numberWords(1250), ["mil duzentos e cinquenta", "mil duzentas e cinquenta"], "1250 → mil duzentos e cinquenta");
+eq(numberWords(2024)[0], "dois mil e vinte e quatro", "2024 → dois mil e vinte e quatro");
+eq(numberWords(2000), ["dois mil", "duas mil"], "2000");
+ok(numberWords(222222).length <= 8 && new Set(numberWords(222222)).size === numberWords(222222).length, "読み方は8通りまで・重複なし");
+eq([numberWords(1_000_000), numberWords(-1), numberWords(1.5), numberWords(NaN)], [[], [], [], []], "対応しない数は []");
+{
+  let bad = 0;
+  for (let n = 0; n <= 2100; n++) {
+    const ws = numberWords(n);
+    if (!ws.length || ws.some((w) => !/^[\p{L} ]+$/u.test(w)) || new Set(ws).size !== ws.length) bad++;
+  }
+  eq(bad, 0, "0〜2100 はすべて読める（文字と空白だけ・重複なし）");
+}
+
+console.log("=== 音声認識の採点: speechVariants ===");
+eq(speechVariants("2 cafés"), ["dois cafés", "duas cafés"], "2 → dois/duas");
+eq(speechVariants("Eu tenho 27 anos."), ["Eu tenho vinte e sete anos."], "2桁");
+eq(speechVariants("às 3"), ["às três"], "3");
+eq(speechVariants("1.000 reais"), ["mil reais"], "3桁区切りの点");
+eq(speechVariants("２"), ["dois", "duas"], "全角数字");
+eq(speechVariants("2cafés"), ["dois cafés", "duas cafés"], "数字と語がくっついていても分ける");
+eq(speechVariants("1234567"), ["1234567"], "読めない数は数字のまま");
+eq(speechVariants("10%"), ["dez por cento"], "% → por cento");
+eq(speechVariants("R$ 60"), ["sessenta reais"], "R$ → reais");
+eq(speechVariants("R$ 1"), ["um real"], "R$ 1 → um real");
+eq(speechVariants("R$ 2,50")[0], "dois reais e cinquenta centavos", "センタボ");
+eq(speechVariants("R$ 1.000,00"), ["mil reais"], "3桁区切り・センタボ 00");
+eq(speechVariants("no 5º andar"), ["no quinto andar"], "º → 序数（男性形）");
+eq(speechVariants("a 1ª vez"), ["a primeira vez"], "ª → 序数（女性形）");
+eq(speechVariants("o 12º"), ["o doze"], "序数の表に無い数は記号だけ外す");
+eq(speechVariants("38°"), ["trinta e oito graus"], "° → graus");
+eq(speechVariants("5°")[0], "cinco graus", "° は graus を先に");
+ok(speechVariants("5°").includes("quinto"), "1〜10 の ° は序数の形も");
+eq(speechVariants("１０％"), ["dez por cento"], "全角の数字と ％");
+eq(speechVariants("sem  número"), ["sem  número"], "数字が無ければそのまま");
+eq(speechVariants(""), [""], "空");
+eq(speechVariants("1 2"), ["um dois", "um duas", "uma dois", "uma duas"], "組み合わせ（先頭ほど男性形）");
+eq(speechVariants("1 1 1 1").length, SPEECH_VARIANTS_MAX, "組み合わせは上限まで");
+eq(speechVariants("1 2 1", 2), ["um dois um", "um dois uma"], "上限を渡せる");
+
+console.log("=== 音声認識の採点: scoreSpeechWord ===");
+{
+  const sw = (t: string[], e: string | string[], o: GradeOptions = O) => {
+    const s = scoreSpeechWord(t, e, o);
+    return [s.grade, s.heard, s.suggestedRating];
+  };
+  eq(sw(["você"], "você"), ["exact", "você", "good"], "そのまま → exact・good");
+  eq(sw(["Você."], "você"), ["exact", "Você.", "good"], "大文字・句読点は無視（heard は元の表記）");
+  eq(sw(["voce"], "você"), ["exact", "voce", "good"], "アクセントの違いは正解");
+  eq(sw(["avó"], "avô"), ["exact", "avó", "good"], "最小対もアクセントだけなら正解（isKnownForm があっても）");
+  eq(sw(["2"], "dois"), ["exact", "2", "good"], "数字 → dois");
+  eq(sw(["2"], "duas"), ["exact", "2", "good"], "数字 → duas");
+  eq(sw(["27"], "vinte e sete"), ["exact", "27", "good"], "2桁の数字");
+  eq(sw(["A casa"], "casa"), ["exact", "A casa", "good"], "先頭の冠詞を外しても比べる");
+  eq(sw(["uma casa"], "casa"), ["exact", "uma casa", "good"], "不定冠詞も");
+  eq(sw(["obrigdo"], "Obrigado/Obrigada"), ["typo", "obrigdo", "hard"], "つづりが近い → typo・hard");
+  eq(sw(["caza"], "casa", {}), ["typo", "caza", "hard"], "4文字の1文字違い → typo");
+  eq(sw(["cada"], "casa"), ["wrong", "cada", "again"], "別の実在語に聞こえたら wrong（isKnownForm。入力式と同じ）");
+  eq(sw(["casa", "cara"], "cara", {}), ["exact", "cara", "good"], "認識の候補のうち合うものを使う");
+  eq(sw(["pão", "mão"], "café"), ["wrong", "pão", "again"], "どれも合わなければ先頭の候補で見せる");
+  eq(sw(["xyzxyzxyz", "cafeteria"], "café"), ["wrong", "xyzxyzxyz", "again"], "wrong のときは近さによらず先頭の候補（いちばん確からしい聞き取り）");
+  eq(sw([], "você"), ["wrong", "", "again"], "候補なし → wrong");
+  eq(sw(["  ", ""], "você"), ["wrong", "", "again"], "空の候補だけ → wrong");
+  eq(sw(["mes"], ["lua", "mês"]), ["exact", "mes", "good"], "同じ意味の別見出し（quizAnswers と同じ集合）も正解");
+  const s1 = scoreSpeechWord(["obrigdo", "obrigado"], "Obrigado/Obrigada", O);
+  eq([s1.grade, s1.heard, s1.result.expected], ["exact", "obrigado", "Obrigado"], "exact の候補を typo の候補より優先");
+  const s2 = scoreSpeechWord(["voce"], ["vocês", "você"], O);
+  eq([s2.grade, s2.result.expected], ["exact", "você"], "正解の候補から合うもの");
+  const s3 = scoreSpeechWord(["Mestre Vermelho 27"], "Mestre Vermelho 27(vinte e sete)", O);
+  eq([s3.grade, s3.result.expected], ["exact", "Mestre Vermelho 27"], "数字入りの見出し: expected は元の表記（数字）のまま");
+  eq(scoreSpeechWord(["mestre vermelho vinte e sete"], "Mestre Vermelho 27(vinte e sete)", O).grade, "exact", "読み方で言っても正解");
+  const s4 = scoreSpeechWord(["obrgdo"], "obrigado", O);
+  ok(s4.grade === "typo" && s4.result.diff.some((d) => d.kind !== "same"), "typo は差分つき（裏面に出す）");
+  eq(sw(["200"], "duzentos"), ["exact", "200", "good"], "3桁の数字 → duzentos");
+  eq(sw(["1ª"], "primeira"), ["exact", "1ª", "good"], "序数の記号");
+  const s5 = scoreSpeechWord(["cachorro"], "gato", O);
+  eq([s5.grade, s5.result.expected, s5.result.diff.length > 0], ["wrong", "gato", true], "wrong も expected と差分がある");
+}
+
+console.log("=== 音声認識の採点: scoreSpeechSentence ===");
+{
+  const ss = (t: string[], e: string | string[]) => scoreSpeechSentence(t, e);
+  const s = ss(["eu gosto de cafe"], "Eu gosto de café.");
+  eq([s.kind, s.percent, s.alignment.correct, s.alignment.total, s.heard], ["sentence", 100, 4, 4, "eu gosto de cafe"], "アクセントの違いは正解（100%）");
+  eq(s.alignment.tokens.map((t) => t.exp), ["Eu", "gosto", "de", "café"], "exp は正解の表記");
+  eq(ss(["eu gosto café"], "Eu gosto de café.").percent, 75, "1語抜け → 75%");
+  eq(ss(["eu gosto muito de café"], "eu gosto de café").percent, 80, "余分な1語 → 4/5 = 80%");
+  eq(ss(["eu gosta de café"], "eu gosto de café").percent, 88, "惜しい語は0.5（3.5/4 = 87.5 → 88）");
+  eq(ss(["Eu quero 2 cafés"], "Eu quero dois cafés.").percent, 100, "数字 → dois");
+  eq(ss(["eu quero 2 cervejas"], "Eu quero duas cervejas.").percent, 100, "数字 → duas");
+  eq(ss(["tenho 27 anos"], "Tenho vinte e sete anos.").percent, 100, "2桁の数字");
+  eq(ss(["Eu tenho vinte e sete anos"], "Eu tenho 27 anos.").percent, 100, "正解の側の数字も読み方にする");
+  const b = ss(["onde fica banheiro", "onde fica o banheiro"], "Onde fica o banheiro?");
+  eq([b.percent, b.heard], [100, "onde fica o banheiro"], "候補のうち点の高いもの");
+  eq(ss(["onde fica o banheiro", "Onde fica o banheiro"], "Onde fica o banheiro?").heard, "onde fica o banheiro", "同点なら先の候補");
+  // 認識エンジンが数字・記号で書いても、本文どおりに言えていれば 100%（data/scripts.json の文）
+  eq(ss(["Aqui está a taxa de serviço de 10% é opcional"], "Aqui está. A taxa de serviço de dez por cento é opcional.").percent, 100, "10% → dez por cento");
+  eq(ss(["Até o meio-dia o seu quarto é o 504, no 5º andar"], "Até o meio-dia. O seu quarto é o quinhentos e quatro, no quinto andar.").percent, 100, "504・5º");
+  eq(ss(["R$ 60. No Pix tem 10% de desconto"], "Sessenta reais. No Pix, tem dez por cento de desconto.").percent, 100, "R$ 60・10%");
+  eq(ss(["deu 38°"], "Deu trinta e oito graus.").percent, 100, "38° → trinta e oito graus");
+  const e = ss([], "Oi, tudo bem?");
+  eq([e.percent, e.heard, e.alignment.tokens.every((t) => t.grade === "missing")], [0, "", true], "候補なし → 0%・全部 missing");
+  eq(ss(["oi"], "").percent, 0, "正解が空 → 0%");
+  eq(ss(["tudo bem"], ["Oi, tudo bem?", "Tudo bem?"]).percent, 100, "正解が複数なら合う方");
+  eq(speechPercent({ tokens: [], correct: 0, partial: 0, total: 0 }), 0, "speechPercent: 語が無ければ 0");
+  const c = ss(["eu gosto de chá"], "Eu gosto de café.");
+  eq(
+    answerView(c.alignment).map((t) => [t.text, t.kind, t.got ?? null]),
+    [["Eu", "exact", null], ["gosto", "exact", null], ["de", "exact", null], ["café", "wrong", "chá"]],
+    "表示（answerView）: 違って聞こえた語には聞こえた形"
+  );
+}
+
+console.log("=== 音声認識の採点（実データ） ===");
+{
+  // 全語: 見出しの各表記を言えば（アクセントを落としても・大文字と句点つきでも）exact
+  let bad = 0;
+  for (const w of ALL_WORDS) {
+    const answers = quizAnswers(w, true);
+    for (const a of expandAlternatives(w.pt)) {
+      if (!normalizeAnswer(a)) continue;
+      for (const t of [a, fold(a), `${a.toUpperCase()}.`]) {
+        if (scoreSpeechWord([t], answers, { isKnownForm }).grade !== "exact") bad++;
+      }
+    }
+  }
+  eq(bad, 0, `全 ${ALL_WORDS.length} 語: 見出しどおり・アクセントなし・大文字で言えば exact`);
+}
+{
+  // シャドーイング（スクリプト・読み物）とパターンプラクティスの全文: 本文どおりなら 100%、何も無ければ 0%
+  const sentences = [
+    ...SCRIPTS.flatMap((s) => s.lines.map((l) => l.pt)),
+    ...PASSAGES.flatMap((p) => passageToScript(p).lines.map((l) => l.pt)),
+    ...patternItems(PATTERNS).map((it) => it.pt),
+  ].filter((t) => wordSpans(t).length > 0);
+  let bad = 0;
+  for (const t of sentences) {
+    for (const v of [t, fold(t), t.toUpperCase()]) {
+      if (scoreSpeechSentence([v], t).percent !== 100) bad++;
+    }
+    if (scoreSpeechSentence([], t).percent !== 0) bad++;
+  }
+  ok(sentences.length > 50, `文がある（${sentences.length}文）`);
+  eq(bad, 0, `全 ${sentences.length} 文: 本文どおり・アクセントなし・大文字で言えば 100%、何も無ければ 0%`);
+}
+
+// ---------------------------------------------------------------------------
 console.log("=== 活用ドリル（conjugationDrill.ts） ===");
 {
   /** 種つきの乱数（mulberry32） */
@@ -869,6 +1081,278 @@ console.log("=== 活用ドリル（conjugationDrill.ts） ===");
     "weakKeys: 2回以上出して間違えた形を、正答率の低い順（同じなら回数の多い順）"
   );
   ok(Object.keys(irregularTable()).length === irregularVerbs().length, "不規則動詞の一覧は表と同じ数");
+}
+
+// ---------------------------------------------------------------------------
+// 音声認識（speechInput.ts）を偽の認識エンジンで動かす。どの終わり方でも認識エンジンを止めること
+console.log("=== speechInput（偽の認識エンジン） ===");
+{
+  type Alt = [string, number?];
+  class FakeRec implements RecognizerLike {
+    static all: FakeRec[] = [];
+    static startError: unknown = null;
+    lang = "";
+    interimResults = false;
+    maxAlternatives = 1;
+    continuous = true;
+    onresult: ((e: RecEvent) => void) | null = null;
+    onerror: ((e: RecErrorEvent) => void) | null = null;
+    onend: (() => void) | null = null;
+    onaudiostart: (() => void) | null = null;
+    started = false;
+    stops = 0;
+    aborts = 0;
+    constructor() {
+      FakeRec.all.push(this);
+    }
+    start() {
+      if (FakeRec.startError) throw FakeRec.startError;
+      this.started = true;
+    }
+    stop() {
+      this.stops++;
+    }
+    abort() {
+      this.aborts++;
+    }
+    /** 結果を送る（結果ごとに候補の一覧と、確定したか） */
+    say(...results: { alts: Alt[]; final: boolean }[]) {
+      const list = results.map((r) => Object.assign(r.alts.map(([t, c]) => ({ transcript: t, confidence: c ?? 0 })), { isFinal: r.final }));
+      this.onresult?.({ resultIndex: 0, results: list });
+    }
+    fail(code: string) {
+      this.onerror?.({ error: code });
+    }
+    end() {
+      this.onend?.();
+    }
+    /** マイクの音を取り始めた（権限の確認の後） */
+    audioStart() {
+      this.onaudiostart?.();
+    }
+  }
+  const last = () => FakeRec.all[FakeRec.all.length - 1];
+  const log: string[] = [];
+  let online = true;
+  const mk = (ctor: RecognizerCtor | null = FakeRec) =>
+    createWebSpeechInput({ getCtor: () => ctor, isOnline: () => online, cancelAudio: () => log.push("cancelAudio") });
+  const kindOf = async (p: Promise<unknown>): Promise<string> => {
+    try {
+      await p;
+      return "resolved";
+    } catch (e) {
+      return e instanceof SpeechInputError ? e.kind : "other";
+    }
+  };
+  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+  // 非対応
+  const none = mk(null);
+  ok(!none.isSupported(), "認識エンジンが無ければ isSupported=false");
+  eq(await kindOf(none.listen()), "unsupported", "非対応 → unsupported");
+  ok(!speechInput.isSupported(), "既定の speechInput: Node（window なし）では非対応");
+  eq(await kindOf(speechInput.listen()), "unsupported", "既定の speechInput: 非対応 → unsupported");
+
+  // オフライン: 認識エンジンを作らず、読み上げも止めない
+  online = false;
+  const before = FakeRec.all.length;
+  eq(await kindOf(mk().listen()), "offline", "オフライン → offline（聞く前に）");
+  eq([FakeRec.all.length, log.length], [before, 0], "オフライン: 認識エンジンを作らない・読み上げも止めない");
+  online = true;
+
+  // ふつうの流れ
+  const P = mk();
+  ok(P.isSupported() && !P.isListening(), "対応・聞いていない");
+  const interims: string[] = [];
+  const p1 = P.listen({ onInterim: (t) => interims.push(t) });
+  const r1 = last();
+  ok(r1.started, "start は listen の中で同期に呼ぶ（タップの処理の中）");
+  eq([r1.lang, r1.interimResults, r1.maxAlternatives, r1.continuous], ["pt-BR", true, 5, false], "pt-BR・途中経過あり・候補5・1回だけ");
+  eq(log, ["cancelAudio"], "聞く前に読み上げを止める（読み上げの声を拾わない）");
+  ok(P.isListening(), "聞き取り中");
+  r1.say({ alts: [["eu  gos"]], final: false });
+  r1.say({ alts: [["Eu gosto", 0.9], ["eu gosto"], [" "], ["Eu gosto"]], final: true });
+  eq(await p1, { transcripts: ["Eu gosto", "eu gosto"], confidence: 0.9 }, "確定: 候補（空・重複を除く）と確からしさ");
+  eq(interims, ["eu gos"], "途中経過（空白を整える）");
+  ok(r1.aborts >= 1 && !P.isListening(), "結果の後も認識エンジンを止める（マイクを閉じる）");
+  ok(r1.onresult === null && r1.onerror === null && r1.onend === null, "終わったらハンドラを外す（後から来た知らせは無視）");
+  const p1b = P.listen({ lang: "ja-JP", maxAlternatives: 2 });
+  eq([last().lang, last().maxAlternatives], ["ja-JP", 2], "lang・maxAlternatives を渡せる");
+  last().say({ alts: [["oi", 0]], final: true });
+  eq(await p1b, { transcripts: ["oi"] }, "確からしさが 0 なら入れない");
+
+  // 失敗の種類
+  const codes: [string, SpeechErrorKind][] = [
+    ["not-allowed", "not-allowed"],
+    ["service-not-allowed", "not-allowed"],
+    ["audio-capture", "audio-capture"],
+    ["network", "network"],
+    ["language-not-supported", "language"],
+    ["bad-grammar", "unknown"],
+    ["no-speech", "no-speech"],
+    ["aborted", "aborted"],
+  ];
+  for (const [code, kind] of codes) {
+    const p = P.listen();
+    const r = last();
+    r.fail(code);
+    eq(await kindOf(p), kind, `error ${code} → ${kind}`);
+    ok(r.aborts >= 1 && !P.isListening(), `error ${code}: 認識エンジンを止める`);
+  }
+  {
+    const p = P.listen();
+    online = false;
+    last().fail("network");
+    eq(await kindOf(p), "offline", "聞いている間にオフライン → network ではなく offline");
+    online = true;
+  }
+  {
+    const p = P.listen();
+    const r = last();
+    r.say({ alts: [["obrigado"]], final: false });
+    r.fail("no-speech");
+    eq(await p, { transcripts: ["obrigado"] }, "途中まで聞き取れていれば no-speech でもその分を結果に");
+  }
+
+  // 確定しないまま終わった
+  {
+    const p = P.listen();
+    const r = last();
+    r.say({ alts: [["tudo bem"]], final: false });
+    r.end();
+    eq(await p, { transcripts: ["tudo bem"] }, "確定せずに終わった → 途中経過を結果に");
+    ok(r.aborts >= 1, "終わった後も abort（念のため）");
+    const q = P.listen();
+    last().end();
+    eq(await kindOf(q), "no-speech", "何も聞き取れずに終わった → no-speech");
+  }
+  {
+    // 確定していない結果が残っているうちは待つ
+    const p = P.listen();
+    const r = last();
+    r.say({ alts: [["eu"]], final: true }, { alts: [["gos"]], final: false });
+    ok(P.isListening(), "一部だけ確定 → まだ待つ");
+    r.say({ alts: [["eu gosto"]], final: true }, { alts: [["de café"]], final: true });
+    eq(await p, { transcripts: ["eu gosto de café"] }, "複数の結果が確定 → つないだ1件");
+  }
+
+  // 時間切れ（マイクの音を取り始めてから数える）
+  {
+    const p = P.listen({ timeoutMs: 20 });
+    const r = last();
+    r.audioStart();
+    eq(await kindOf(p), "no-speech", "時間切れ（何も無い）→ no-speech");
+    ok(r.aborts >= 1 && !P.isListening(), "時間切れでも認識エンジンを止める");
+    ok(r.onaudiostart === null, "終わったら audiostart のハンドラも外す");
+    const q = P.listen({ timeoutMs: 20 });
+    last().audioStart();
+    last().say({ alts: [["bom dia"]], final: false });
+    eq(await q, { transcripts: ["bom dia"] }, "時間切れ（途中経過あり）→ 途中経過を結果に");
+    // マイクの許可を待つ間（audiostart の前）は時間切れにしない
+    const w = P.listen({ timeoutMs: 20 });
+    const rw = last();
+    await sleep(80);
+    ok(P.isListening() && rw.aborts === 0, "audiostart の前は timeoutMs を過ぎても待つ（マイクの許可の表示）");
+    rw.audioStart();
+    const t0 = Date.now();
+    eq(await kindOf(w), "no-speech", "audiostart から timeoutMs で時間切れ");
+    ok(Date.now() - t0 < 1000, `audiostart で上限を timeoutMs に置き直す（${Date.now() - t0}ms）`);
+    ok(START_GRACE_MS >= 10000, `許可を待つ猶予（${START_GRACE_MS}ms）`);
+    ok(LISTEN_TIMEOUT_MS >= 5000 && LISTEN_TIMEOUT_MS <= 10000, `既定の上限は約8秒（${LISTEN_TIMEOUT_MS}ms）`);
+  }
+
+  // 文の聞き取りの上限: 長い文は語数に合わせて延ばす（短い文は既定のまま）
+  {
+    eq(sentenceListenTimeoutMs("Oi, tudo bem?"), LISTEN_TIMEOUT_MS, "短い文 → 既定の上限");
+    eq(sentenceListenTimeoutMs(""), LISTEN_TIMEOUT_MS, "空 → 既定の上限");
+    const long = "São, sim. O gunga é o mais grave, o médio fica no meio e a viola é a mais aguda.";
+    eq(sentenceListenTimeoutMs(long), 20 * SENTENCE_MS_PER_WORD + SENTENCE_LEAD_MS, "20語の文 → 語数に合わせて延ばす");
+    ok(sentenceListenTimeoutMs(long) >= 15000, `20語の文は15秒以上（${sentenceListenTimeoutMs(long)}ms）`);
+    eq(sentenceListenTimeoutMs(["Oi", long]), sentenceListenTimeoutMs(long), "正解が複数なら、いちばん長い文に合わせる");
+  }
+
+  // 取りやめ（signal・cancel）
+  {
+    const ac = new AbortController();
+    const p = P.listen({ signal: ac.signal });
+    const r = last();
+    ac.abort();
+    eq(await kindOf(p), "aborted", "signal の abort → aborted");
+    ok(r.aborts >= 1 && !P.isListening(), "signal の abort: 認識エンジンを止める");
+    const n = FakeRec.all.length;
+    eq(await kindOf(P.listen({ signal: ac.signal })), "aborted", "abort 済みの signal → aborted");
+    eq(FakeRec.all.length, n, "abort 済みの signal: 認識エンジンを作らない");
+    const q = P.listen();
+    const rq = last();
+    P.cancel();
+    eq(await kindOf(q), "aborted", "cancel() → aborted");
+    ok(rq.aborts >= 1, "cancel(): 認識エンジンを止める");
+    P.cancel();
+    P.stop();
+    ok(!P.isListening(), "聞いていないときの cancel()・stop() は何もしない");
+  }
+
+  // 早めに終える（stop）
+  {
+    const p = P.listen();
+    const r = last();
+    r.say({ alts: [["tudo"]], final: false });
+    P.stop();
+    eq(r.stops, 1, "stop(): 認識エンジンの stop を呼ぶ（聞き取れた分で確定させる）");
+    ok(P.isListening(), "stop() の後も、確定を待つ");
+    r.say({ alts: [["tudo bem"]], final: true });
+    eq(await p, { transcripts: ["tudo bem"] }, "stop() の後の確定で解決");
+    const q = P.listen();
+    const rq = last();
+    rq.say({ alts: [["valeu"]], final: false });
+    P.stop();
+    const t0 = Date.now();
+    eq(await q, { transcripts: ["valeu"] }, "stop() の後に何も来なければ、途中経過で終える");
+    const waited = Date.now() - t0;
+    ok(waited >= STOP_GRACE_MS - 50 && waited < STOP_GRACE_MS + 1000 && rq.aborts >= 1, `待つのは STOP_GRACE_MS（${STOP_GRACE_MS}ms）まで（${waited}ms）・認識エンジンを止める`);
+  }
+
+  // 同時に1つだけ
+  {
+    const pa = P.listen();
+    const ra = last();
+    log.length = 0;
+    const pb = P.listen();
+    const rb = last();
+    eq(await kindOf(pa), "aborted", "次の listen で前の聞き取りは aborted");
+    ok(ra.aborts >= 1 && rb.started && rb !== ra, "前の認識エンジンを止めてから、新しく始める");
+    eq(log, ["cancelAudio"], "新しい聞き取りの前にも読み上げを止める");
+    rb.say({ alts: [["sim"]], final: true });
+    eq(await pb, { transcripts: ["sim"] }, "新しい聞き取りはふつうに終わる");
+  }
+
+  // 始められない
+  {
+    FakeRec.startError = Object.assign(new Error("x"), { name: "NotAllowedError" });
+    const p = P.listen();
+    const r = last();
+    eq(await kindOf(p), "not-allowed", "start の NotAllowedError → not-allowed");
+    ok(r.aborts >= 1 && !P.isListening(), "start に失敗しても abort して片付ける");
+    FakeRec.startError = Object.assign(new Error("x"), { name: "InvalidStateError" });
+    eq(await kindOf(P.listen()), "unknown", "start のほかの例外 → unknown");
+    FakeRec.startError = null;
+    class Broken {
+      constructor() {
+        throw new Error("no");
+      }
+    }
+    eq(await kindOf(mk(Broken as unknown as RecognizerCtor).listen()), "unsupported", "認識エンジンを作れない → unsupported");
+  }
+  await sleep(0);
+
+  // 失敗の種類と案内
+  eq(classifySpeechError("network", false), "offline", "classifySpeechError: オフラインの network → offline");
+  eq(classifySpeechError("network"), "network", "classifySpeechError: 既定はオンライン");
+  const kinds: SpeechErrorKind[] = ["not-allowed", "no-speech", "network", "offline", "audio-capture", "aborted", "unsupported", "language", "unknown"];
+  const msgs = kinds.map(speechErrorMessage);
+  ok(msgs.every((m) => m.length > 10) && new Set(msgs).size === kinds.length, "speechErrorMessage: 種類ごとに違う案内");
+  ok(/権限/.test(speechErrorMessage("not-allowed")) && /Android/.test(speechErrorMessage("not-allowed")), "not-allowed: Android の権限の案内");
+  ok(/オフライン/.test(speechErrorMessage("offline")), "offline: オフラインの案内");
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

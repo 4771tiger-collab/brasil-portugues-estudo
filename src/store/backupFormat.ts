@@ -8,6 +8,8 @@
 //     B3-06 で任意フィールド drill（活用ドリルの成績）を足した（version は 3 のまま。無ければ端末側のまま）。
 //     B3-08 で music.songs[videoId] に任意フィールド selfTranslated（自分で訳した行のハッシュ → true）を足した。
 //     設定に replayAfterLookup を足した（どちらも version は 3 のまま。無ければ端末側のまま）。
+//     T2-1 で産出カード（cards のキー "<語のID>@p"。普通のカードと同じ形）と、設定 productionEnabled・
+//     dailyProductionNewLimit・productionAnswerMode を足した（version は 3 のまま。無ければ端末側のまま）。
 // v4 以降（新しいアプリで作ったファイル）: 警告を出し、このアプリが知っている項目だけ読む。
 // 歌詞の本文・歌詞キャッシュ（lyricsCache）は書き出さず、読み込みでも拾わない。
 // ============================================================================
@@ -19,6 +21,7 @@ import type { DrillExport, DrillStat } from "./useDrill";
 import { readHistory, type History } from "./history";
 import { DRILL_KEY_RE } from "../services/conjugationDrill";
 import { isLineHash } from "../services/lyrics";
+import { isProdKey } from "../srs/cardKey";
 
 export const BACKUP_VERSION = 3;
 
@@ -64,7 +67,7 @@ export type ParseResult =
 // 設定の項目表。Settings に項目を足すと、ここに足すまで型エラーになる（書き出し漏れを防ぐ）。
 // - "count": 0 以上の有限の数 / "positive": 0 より大きい有限の数 / "ratio": 0 以上 1 以下の数 / "boolean"
 // - 値の配列（文字列・数）: その値のどれか（型も一致すること。"3" と 3 は別）
-// - null: バックアップに入れない（voiceURI は端末ごとに違うため）
+// - null: バックアップに入れない（voiceURI は端末ごとに違うため。speechInputEnabled は端末ごとの同意のため）
 // ---------------------------------------------------------------------------
 type SettingKind = "count" | "positive" | "ratio" | "boolean" | readonly (string | number)[] | null;
 
@@ -88,6 +91,13 @@ const SETTINGS_SCHEMA: { [K in keyof Settings]-?: SettingKind } = {
   handsfreeDirection: ["pt2ja", "ja2pt"],
   // B3-08 で追加（単語を調べた後に行の頭から聴き直す。任意フィールド。無い古いファイルでは端末側の値のまま）
   replayAfterLookup: "boolean",
+  // T2-1 で追加（和→葡の産出カード。任意フィールド。無い古いファイルでは端末側の値のまま）
+  productionEnabled: "boolean",
+  dailyProductionNewLimit: [0, 3, 5, 10],
+  productionAnswerMode: ["self", "type"],
+  // T2-8 で追加（音声認識の「言ってみる」）。音声を Google に送ることへの同意は端末ごとに設定画面で行うため、
+  // バックアップに入れない（取り込んでも、別の端末で説明を読まずにオンにならない）
+  speechInputEnabled: null,
 };
 
 function settingOk(kind: SettingKind, v: unknown): boolean {
@@ -319,8 +329,11 @@ export function describeBackup(d: BackupData): string {
     const p = (n: number) => String(n).padStart(2, "0");
     parts.push(`${at.getFullYear()}-${p(at.getMonth() + 1)}-${p(at.getDate())} 作成`);
   }
-  const studied = Object.values(d.progress.cards).filter((c) => c.last).length;
-  parts.push(`学習した単語 ${studied}語`);
+  // 産出カード（キー "…@p"）は語数に入れず、別に数える
+  const rated = Object.entries(d.progress.cards).filter(([, c]) => c.last);
+  const prodCards = rated.filter(([k]) => isProdKey(k)).length;
+  parts.push(`学習した単語 ${rated.length - prodCards}語`);
+  if (prodCards) parts.push(`産出カード ${prodCards}枚`);
   parts.push(`評価 ${d.progress.totalReviews}回`);
   const days = Object.keys(d.progress.history).length;
   if (days) parts.push(`学習ログ ${days}日分`);

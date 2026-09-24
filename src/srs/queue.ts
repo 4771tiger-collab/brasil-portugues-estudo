@@ -2,6 +2,8 @@
 // SRS 学習キューの構築（復習対象・新規語の抽出、習熟度集計）
 // - orderNew: 新規語の導入順（pinned → コア語 → カテゴリの巡回。カポエイラ語を割合で混ぜる）
 // - buildSession: 今日の学習（復習の上限・延滞の大きい順・復習4枚ごとに新規1枚・同じ綴りは1日1枚）
+//   ＋ 和→葡の産出カード（T2-1。理解カードの間隔が7日以上の語から別枠で。キーは cardKey.prodKey。
+//     同じ語・同じ綴りの理解カードを今日使う（使った）日は出さない＝答えを見た直後に言わせない）
 // - pickForQuiz / weakWords: クイズの出題（期限到来 → 延滞比 → ease の低い順 → 最近 again）と「苦手」の範囲
 // 検証: scripts/check-srs.ts（npm run check:srs）
 // ============================================================================
@@ -9,6 +11,8 @@
 import type { SrsCard, SrsLevel, Word } from "../data/types";
 import { ALIAS_IDS, aliasPeerCarded, siblingKey } from "../data/siblings";
 import { addDays, diffDays, displayLevel, todayStr } from "./scheduler";
+import { canHaveProd, isProdKey, prodItem, prodKey, recogItem, type StudyItem } from "./cardKey";
+import { expandAlternatives, levenshtein } from "../services/grade";
 
 export type CardMap = Record<string, SrsCard>;
 
@@ -64,16 +68,35 @@ export function countAddedNew(words: Word[], cards: CardMap, today: string = tod
   return n;
 }
 
-/** その日までに期限が来る復習の数（評価済みのカードだけ。同じ語は1回）。予報や「明日の復習」に使う */
-export function countDueOn(words: Word[], cards: CardMap, date: string): number {
+/** 予報・期限の数に産出カードを含めるか（設定 productionEnabled。省略時は含めない） */
+export interface DueCountOptions {
+  production?: boolean;
+}
+
+/** 数える対象のカード（理解カード ＋ production なら産出カード）。語ごとに1回 */
+function countedCards(words: readonly Word[], cards: CardMap, o: DueCountOptions): SrsCard[] {
   const seen = new Set<string>();
-  let n = 0;
+  const out: SrsCard[] = [];
   for (const w of words) {
     if (seen.has(w.id)) continue;
     seen.add(w.id);
     const c = cards[w.id];
-    if (c && c.last !== null && c.due <= date) n++;
+    if (c) out.push(c);
+    if (o.production && canHaveProd(w.id)) {
+      const p = cards[prodKey(w.id)];
+      if (p) out.push(p);
+    }
   }
+  return out;
+}
+
+/**
+ * その日までに期限が来る復習の数（評価済みのカードだけ。同じ語は1回）。予報や「明日の復習」に使う。
+ * production なら産出カードも数える（同じ語の理解カードと産出カードは別の1枚）。
+ */
+export function countDueOn(words: Word[], cards: CardMap, date: string, o: DueCountOptions = {}): number {
+  let n = 0;
+  for (const c of countedCards(words, cards, o)) if (c.last !== null && c.due <= date) n++;
   return n;
 }
 
@@ -180,11 +203,66 @@ export function interleave<T>(a: readonly T[], b: readonly T[], every: number): 
   return out;
 }
 
+/**
+ * extra を base の中に均等に散らす（入力は変更しない）。extra の j 番目（0始まり）は、
+ * base の ceil((j+1)×n÷(m+1)) 枚目の後ろに入る（n = base の数、m = extra の数）。
+ * base があれば先頭は必ず base。例: base 8枚・extra 3枚 → b b E b b E b b E b b（2・4・6枚目の後ろ）
+ */
+export function spreadEvenly<T>(base: readonly T[], extra: readonly T[]): T[] {
+  const n = base.length;
+  const m = extra.length;
+  if (!m) return [...base];
+  if (!n) return [...extra];
+  const out: T[] = [];
+  let j = 0;
+  base.forEach((x, i) => {
+    out.push(x);
+    while (j < m && Math.ceil(((j + 1) * n) / (m + 1)) <= i + 1) out.push(extra[j++]);
+  });
+  while (j < m) out.push(extra[j++]);
+  return out;
+}
+
+/**
+ * 同じ語の理解カードと産出カードの間に、少なくともこの枚数を挟む（buildSession は同じ語の2枚を
+ * 同じ日に出さないので、念のための並べ直し）
+ */
+export const SAME_WORD_GAP = 4;
+
+/**
+ * 同じ語（word.id）が gap 枚以内に続かないように並べ直す（入力は変更しない）。
+ * 基本は元の並びのまま。直前 gap 枚に同じ語があるものは後回しにし、置けるようになったら先に置く。
+ * 最後まで置けなければ末尾へ（枚数が少なくて離せないとき）。
+ */
+export function separateSameWord(items: readonly StudyItem[], gap: number = SAME_WORD_GAP): StudyItem[] {
+  const g = Math.max(0, Math.floor(gap) || 0);
+  const out: StudyItem[] = [];
+  const pending: StudyItem[] = [];
+  const clash = (it: StudyItem) => g > 0 && out.slice(-g).some((o) => o.word.id === it.word.id);
+  const flush = () => {
+    for (let k = 0; k < pending.length; ) {
+      if (clash(pending[k])) k++;
+      else {
+        out.push(pending.splice(k, 1)[0]);
+        k = 0;
+      }
+    }
+  };
+  for (const it of items) {
+    flush();
+    if (clash(it)) pending.push(it);
+    else out.push(it);
+  }
+  flush();
+  out.push(...pending);
+  return out;
+}
+
 // ---------------------------------------------------------------------------
 // 新規語の導入順（§2e）
 // ---------------------------------------------------------------------------
 
-/** 固有名詞（人名・地名・年号など）は新規語として導入しない */
+/** 固有名詞（人名・地名・年号など）は新規語として導入しない（産出カードも作らない） */
 const PROPER_NOUN = /固有名詞/;
 
 export interface OrderNewOptions {
@@ -355,15 +433,76 @@ export function orderNew(pool: readonly Word[], cards: CardMap, o: OrderNewOptio
 }
 
 // ---------------------------------------------------------------------------
-// 今日の学習（§2e・B2-04）
+// 今日の学習（§2e・B2-04）＋ 和→葡の産出カード（T2-1）
 // ---------------------------------------------------------------------------
 
 /** 通常の日は、復習この枚数ごとに新しい語を1枚はさむ */
 export const REVIEWS_PER_NEW = 4;
 
+/** 産出カードを始められる理解カードの間隔（日）。定着中（7日以上）になった語から */
+export const PROD_MIN_INTERVAL = 7;
+
 /** 相対延滞度 (延滞日数+1)÷間隔。大きいほど忘れかけている（復習を出す順） */
 export function relativeOverdue(card: SrsCard, today: string = todayStr()): number {
   return (diffDays(today, card.due) + 1) / Math.max(1, card.intervalDays);
+}
+
+/**
+ * 産出カード（和→葡）の対象になる語か（純関数）。次のすべてを満たす語:
+ * - 語の ID に "@" が無い（cardKey.canHaveProd。産出カードのキーと紛れない）
+ * - 理解カードが評価済み（last≠null）で、間隔が PROD_MIN_INTERVAL（7日）以上
+ * - 理解カードを今日評価していない（答えを見た直後に言わせない。翌日から）
+ * - 別名（ALIAS_IDS）でも固有名詞でもない
+ * - 和訳に答えのポルトガル語が書かれていない（glossRevealsAnswer。問いに答えが見えてしまう）
+ * 産出カードがすでにあるかは見ない（新しく始める候補は prodCandidates が cards[prodKey] の無い語から選ぶ）。
+ */
+export function isProdEligible(word: Word, cards: CardMap, today: string = todayStr()): boolean {
+  if (!canHaveProd(word.id)) return false;
+  const c = cards[word.id];
+  if (!c || c.last === null || c.last === today || !(c.intervalDays >= PROD_MIN_INTERVAL)) return false;
+  return !ALIAS_IDS.has(word.id) && !PROPER_NOUN.test(word.pos) && !glossRevealsAnswer(word);
+}
+
+const foldLower = (s: string) => s.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
+
+/**
+ * 和訳（word.ja）にラテン文字で答えのポルトガル語（またはその2文字以内の違い）が書かれている語（純関数）。
+ * 産出カードの問い（和訳）に答えが見えてしまうので、産出カードの対象にしない。
+ * 例: favor「…（Por favor）…」、hino「…Hino da Capoeira Regional…」、banguela「benguelaと同じ…」
+ */
+export function glossRevealsAnswer(word: Word): boolean {
+  const toks = (word.ja.match(/[A-Za-zÀ-ÿ]{3,}/g) ?? []).map(foldLower);
+  if (!toks.length) return false;
+  const heads = expandAlternatives(word.pt)
+    .flatMap((a) => foldLower(a).split(/\s+/))
+    .filter((h) => h.length >= 3);
+  return toks.some((t) => heads.some((h) => levenshtein(t, h) <= 2));
+}
+
+/** 小さい順（Infinity どうしは同じ） */
+const cmpPos = (a: number, b: number): number => (a === b ? 0 : a < b ? -1 : 1);
+
+/**
+ * 新しく始める産出カードの候補（純関数）。isProdEligible を満たし、産出カードがまだ無い語を
+ * 理解カードの間隔の長い順（よく覚えている語から）→ コア語の順（coreOrder）→ 元の並び で返す。同じ id は1回。
+ */
+export function prodCandidates(
+  words: readonly Word[],
+  cards: CardMap,
+  today: string = todayStr(),
+  coreOrder: readonly string[] = []
+): Word[] {
+  const corePos = new Map(coreOrder.map((id, i) => [id, i] as const));
+  const pos = (w: Word) => corePos.get(w.id) ?? Infinity;
+  const seen = new Set<string>();
+  const list: Word[] = [];
+  for (const w of words) {
+    if (seen.has(w.id)) continue;
+    seen.add(w.id);
+    if (!isProdEligible(w, cards, today) || cards[prodKey(w.id)]) continue;
+    list.push(w);
+  }
+  return list.sort((a, b) => cards[b.id].intervalDays - cards[a.id].intervalDays || cmpPos(pos(a), pos(b)));
 }
 
 export interface SessionOptions {
@@ -381,25 +520,54 @@ export interface SessionOptions {
   coreOrder: readonly string[];
   /** 新しい語に混ぜるカポエイラ語の割合（設定 capoeiraShare） */
   capoeiraShare: number;
-  /** 1日の復習の上限（設定 dailyReviewLimit。省略時は無制限） */
+  /** 1日の復習の上限（設定 dailyReviewLimit。省略時は無制限）。理解カードと産出カードを合わせて数える */
   reviewLimit?: number;
-  /** 今日すでに評価した期限到来の復習の数（daily.dueReviewed） */
+  /** 今日すでに評価した期限到来の復習の数（daily.dueReviewed。産出カードも含む） */
   reviewedToday?: number;
+  /**
+   * 産出カード（和→葡）を出すか（設定 productionEnabled）。false・省略のときは産出カードを
+   * 一時停止扱いにする（新しく始めず、期限の来た産出カードも出さず、復習の上限にも数えない。カードは残る）
+   */
+  production?: boolean;
+  /** 産出カードを新しく始める1日の上限（設定 dailyProductionNewLimit） */
+  prodNewLimit?: number;
+  /** 今日すでに始めた産出カードの数（daily.prodIntroduced） */
+  prodIntroducedToday?: number;
 }
 
 export interface SessionPlan {
-  /** 復習（相対延滞度の降順・今日の残りの上限まで）＋今日の再学習 */
+  /** 理解カードの復習（相対延滞度の降順・今日の残りの上限まで）＋今日の再学習 */
   review: Word[];
   /** 新しい語（orderNew の並び） */
   fresh: Word[];
   /** 曲から追加した語（未評価） */
   added: Word[];
-  /** 出題順: 復習4枚ごとに新規1枚、その後ろに曲の語 */
+  /** 理解カードの出題順: 復習4枚ごとに新規1枚、その後ろに曲の語（産出カードは含まない。一覧表示・耳だけ復習用） */
   all: Word[];
+  /** 期限の来た産出カード（相対延滞度の降順。上限は理解カードと合わせて数える）＋今日の再学習 */
+  prodReview: Word[];
+  /** 新しく始める産出カード（prodCandidates の順。dailyProductionNewLimit − 今日始めた数まで） */
+  prodFresh: Word[];
+  /**
+   * 今日の学習の出題順（理解＋産出）。理解カードは all の並び、産出カードはその間に均等に散らす
+   * （spreadEvenly）。同じ語・同じ綴りの理解カードと産出カードは同じ日に入れない（念のため separateSameWord も通す）
+   */
+  items: StudyItem[];
   /** 新しい語を止めた理由。backlog = 期限の来た復習が今日の残りの上限を超えている */
   reason?: "backlog";
-  /** 期限の来た復習の数（上限で削る前。今日の再学習と、同じ綴りで明日に回した語は除く） */
+  /**
+   * 期限の来た復習の数（上限で削る前。理解カード＋産出カード。今日の再学習と、同じ語・同じ綴りで明日に回した語は除く）
+   */
   dueTotal: number;
+}
+
+/** グループ → そのグループを今日使う理解カードの語の id */
+type GroupOwners = Map<string, Set<string>>;
+
+function addOwner(m: GroupOwners, g: string, id: string) {
+  const s = m.get(g);
+  if (s) s.add(id);
+  else m.set(g, new Set([id]));
 }
 
 /**
@@ -411,15 +579,37 @@ export interface SessionPlan {
  * - 曲から追加した語: 別枠（musicIntroduced で管理。一般語彙の新規枠は消費しない）。
  * - 同じ綴りの語（兄弟グループ）は1日1枚まで。今日すでに評価した語のグループも埋まっているとみなす。
  *   優先は 復習（延滞の大きい順）→ 新しい語 → 曲の語。
+ * 産出カード（production のとき。キーは prodKey(id)）:
+ * - 期限の来た産出カードは理解カードの復習と合わせて相対延滞度の降順に並べ、合わせて上限まで（同じ値は理解が先）。
+ *   今日 again にした産出カードは上限の外。backlog の判定も合わせた数で行う。
+ * - 同じ語（または同じ綴りの別の語）の理解カードを今日出す・今日評価した日は、産出カードを明日へ
+ *   （答えのポルトガル語を見た直後に言わせない。一覧表示・耳だけ復習で先に答えを見せることもない）。
+ *   今日 again にした産出カード（再学習）も同じ。産出カードどうしも同じ綴りは1日1枚。
+ * - 新しく始める産出カード: prodCandidates の順に、prodNewLimit − prodIntroducedToday 枚まで（backlog の日は0）。
+ *   今日使うグループ（理解・産出とも）の語は始めない。理解カードを今日評価した語は isProdEligible で除く。
+ * - 新しい語（理解）・曲の語も、今日の産出カードと同じ綴りなら出さない。
  */
 export function buildSession(words: Word[], cards: CardMap, opts: SessionOptions): SessionPlan {
   const today = opts.today ?? todayStr();
+  const production = opts.production === true;
 
-  // 今日すでに評価した語の兄弟グループは埋まっている
+  // 今日すでに評価した語の兄弟グループは埋まっている（理解カード）
   const used = new Set<string>();
-  for (const w of words) if (cards[w.id]?.last === today) used.add(siblingKey(w));
+  // 理解カードで今日使う（使った）グループの持ち主。持ち主のいるグループの産出カードは明日へ
+  const recogOwners: GroupOwners = new Map();
+  for (const w of words) {
+    if (cards[w.id]?.last !== today) continue;
+    const g = siblingKey(w);
+    used.add(g);
+    addOwner(recogOwners, g, w.id);
+  }
+  // 産出カードで埋まったグループ（今日評価した産出カード → 今日出す産出カード）
+  const prodUsed = new Set<string>();
+  if (production) {
+    for (const w of words) if (canHaveProd(w.id) && cards[prodKey(w.id)]?.last === today) prodUsed.add(siblingKey(w));
+  }
 
-  // 復習
+  // 復習（理解カード）
   const seen = new Set<string>();
   const relearn: Word[] = [];
   const overdue: Word[] = [];
@@ -436,13 +626,70 @@ export function buildSession(words: Word[], cards: CardMap, opts: SessionOptions
     const g = siblingKey(w);
     if (used.has(g) || eligibleGroups.has(g)) continue; // 同じ綴りの語は明日へ
     eligibleGroups.add(g);
+    addOwner(recogOwners, g, w.id);
     eligible.push(w);
   }
+
+  // 復習（産出カード）
+  const prodRelearn: Word[] = [];
+  const prodOverdue: Word[] = [];
+  if (production) {
+    const pseen = new Set<string>();
+    for (const w of words) {
+      if (pseen.has(w.id) || !canHaveProd(w.id)) continue;
+      pseen.add(w.id);
+      const c = cards[prodKey(w.id)];
+      if (!c || c.last === null || c.due > today) continue;
+      if (c.last === today) {
+        // 今日 again にした産出カードでも、同じ綴りの理解カードを今日使う（クイズなどで評価した）なら明日へ
+        if (!recogOwners.has(siblingKey(w))) prodRelearn.push(w);
+      } else prodOverdue.push(w);
+    }
+  }
+  const pcard = (w: Word) => cards[prodKey(w.id)];
+  const pscore = new Map(prodOverdue.map((w) => [w.id, relativeOverdue(pcard(w), today)]));
+  // due の古い順に並べてから相対延滞度の降順（理解カードの reviewDueWords と同じ並べ方）
+  prodOverdue.sort((a, b) => pcard(a).due.localeCompare(pcard(b).due));
+  prodOverdue.sort((a, b) => pscore.get(b.id)! - pscore.get(a.id)!);
+  const prodEligible: Word[] = [];
+  for (const w of prodOverdue) {
+    const g = siblingKey(w);
+    if (prodUsed.has(g)) continue; // 同じ綴りの産出カードは1日1枚
+    if (recogOwners.has(g)) continue; // 同じ語・同じ綴りの理解カードが今日ある → 明日へ
+    prodUsed.add(g);
+    prodEligible.push(w);
+  }
+
+  // 1日の復習の上限（理解＋産出）
   const limit = typeof opts.reviewLimit === "number" && opts.reviewLimit >= 0 ? Math.floor(opts.reviewLimit) : Infinity;
   const budget = Math.max(0, limit - Math.max(0, opts.reviewedToday ?? 0));
-  const backlog = eligible.length > budget;
-  const review = [...eligible.slice(0, budget), ...relearn];
+  const dueTotal = eligible.length + prodEligible.length;
+  const backlog = dueTotal > budget;
+  let recogChosen: Word[] = eligible.slice(0, budget);
+  let prodChosen: Word[] = [];
+  if (prodEligible.length) {
+    // 相対延滞度の降順に合わせて上限まで（安定ソート: 同じ値は理解カード、その中は元の順が先）
+    const merged = [
+      ...eligible.map((w) => ({ w, prod: false, s: score.get(w.id)! })),
+      ...prodEligible.map((w) => ({ w, prod: true, s: pscore.get(w.id)! })),
+    ].sort((a, b) => b.s - a.s);
+    const chosen = merged.slice(0, budget);
+    recogChosen = chosen.filter((x) => !x.prod).map((x) => x.w);
+    prodChosen = chosen.filter((x) => x.prod).map((x) => x.w);
+  }
+  const review = [...recogChosen, ...relearn];
   for (const w of review) used.add(siblingKey(w));
+  const prodReview = [...prodChosen, ...prodRelearn];
+  // 上限で明日に回した産出カードのグループは空ける（新しい語が使える）
+  prodUsed.clear();
+  if (production) {
+    for (const w of words) if (canHaveProd(w.id) && cards[prodKey(w.id)]?.last === today) prodUsed.add(siblingKey(w));
+  }
+  for (const w of prodReview) prodUsed.add(siblingKey(w));
+  const taken = (w: Word) => {
+    const g = siblingKey(w);
+    return used.has(g) || prodUsed.has(g);
+  };
 
   // 新しい語（復習が溜まっている日は出さない）
   const remainingNew = backlog ? 0 : Math.max(0, opts.newLimit - opts.introducedToday);
@@ -451,7 +698,7 @@ export function buildSession(words: Word[], cards: CardMap, opts: SessionOptions
     capoeiraShare: opts.capoeiraShare,
     coreOrder: opts.coreOrder,
     pinned: opts.pinned,
-    isExcluded: (w) => used.has(siblingKey(w)),
+    isExcluded: taken,
     seed: today,
   });
   for (const w of fresh) used.add(siblingKey(w));
@@ -463,19 +710,36 @@ export function buildSession(words: Word[], cards: CardMap, opts: SessionOptions
     if (added.length >= remainingAdded) break;
     if (seen.has(w.id)) continue;
     seen.add(w.id);
-    const g = siblingKey(w);
-    if (used.has(g)) continue;
-    used.add(g);
+    if (taken(w)) continue;
+    used.add(siblingKey(w));
     added.push(w);
   }
 
+  // 新しく始める産出カード（復習が溜まっている日・産出カードを止めているときは出さない）
+  const remainingProd =
+    production && !backlog ? Math.max(0, Math.floor(opts.prodNewLimit ?? 0) - Math.max(0, opts.prodIntroducedToday ?? 0)) : 0;
+  const prodFresh: Word[] = [];
+  if (remainingProd > 0) {
+    for (const w of prodCandidates(words, cards, today, opts.coreOrder)) {
+      if (prodFresh.length >= remainingProd) break;
+      if (taken(w)) continue;
+      prodUsed.add(siblingKey(w));
+      prodFresh.push(w);
+    }
+  }
+
+  const all = [...interleave(review, fresh, REVIEWS_PER_NEW), ...added];
+  const items = separateSameWord(spreadEvenly(all.map(recogItem), [...prodReview, ...prodFresh].map(prodItem)));
   return {
     review,
     fresh,
     added,
-    all: [...interleave(review, fresh, REVIEWS_PER_NEW), ...added],
+    all,
+    prodReview,
+    prodFresh,
+    items,
     ...(backlog ? { reason: "backlog" as const } : {}),
-    dueTotal: eligible.length,
+    dueTotal,
   };
 }
 
@@ -483,19 +747,22 @@ export function buildSession(words: Word[], cards: CardMap, opts: SessionOptions
  * 復習の予報（完了画面の「明日の復習」と7日分の棒）。
  * 1日目（明日）は、評価済みで due が明日以前のカード（今日やり残した分も明日に回る）。
  * 2日目以降は due がその日ちょうどのカード。未評価（曲から追加しただけ）のカードは数えない。
+ * production なら産出カードも数える（同じ語の理解カードと産出カードは別の1枚）。
  */
-export function forecast(words: Word[], cards: CardMap, today: string = todayStr(), days = 7): number[] {
+export function forecast(
+  words: Word[],
+  cards: CardMap,
+  today: string = todayStr(),
+  days = 7,
+  o: DueCountOptions = {}
+): number[] {
   const out = new Array<number>(Math.max(0, days)).fill(0);
   if (!out.length) return out;
   const dates = out.map((_, i) => addDays(today, i + 1));
   const index = new Map(dates.map((d, i) => [d, i]));
   const tomorrow = dates[0];
-  const seen = new Set<string>();
-  for (const w of words) {
-    if (seen.has(w.id)) continue;
-    seen.add(w.id);
-    const c = cards[w.id];
-    if (!c || !c.last) continue;
+  for (const c of countedCards(words, cards, o)) {
+    if (!c.last) continue;
     if (c.due <= tomorrow) out[0]++;
     else {
       const i = index.get(c.due);
@@ -503,6 +770,31 @@ export function forecast(words: Word[], cards: CardMap, today: string = todayStr
     }
   }
   return out;
+}
+
+/** 産出カードの集計（ホームの「ポルトガル語で言える語」）。評価済みの産出カードを displayLevel で数える */
+export interface ProdMastery {
+  /** 評価したことのある産出カード */
+  started: number;
+  learning: number;
+  young: number;
+  mature: number;
+  /** ポルトガル語で言える語（young + mature ＝ 産出カードの間隔7日以上） */
+  canSay: number;
+}
+
+export function prodMastery(cards: CardMap): ProdMastery {
+  const m: ProdMastery = { started: 0, learning: 0, young: 0, mature: 0, canSay: 0 };
+  for (const [key, c] of Object.entries(cards)) {
+    if (!isProdKey(key) || !c?.last) continue;
+    m.started++;
+    const lv = displayLevel(c);
+    if (lv === "young") m.young++;
+    else if (lv === "mature") m.mature++;
+    else m.learning++;
+  }
+  m.canSay = m.young + m.mature;
+  return m;
 }
 
 // ---------------------------------------------------------------------------

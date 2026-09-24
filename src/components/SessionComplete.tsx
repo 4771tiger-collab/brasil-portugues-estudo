@@ -3,9 +3,11 @@ import { Link } from "react-router-dom";
 import type { Word } from "../data/types";
 import { CORE_ORDER, reviewPool } from "../data/loadWords";
 import { useProgress } from "../store/useProgress";
+import { useSettings } from "../store/useSettings";
 import { useAddedIds, useUserWordMap } from "../store/useMusic";
 import { forecast as buildForecast, orderNew } from "../srs/queue";
 import { addDays } from "../srs/scheduler";
+import type { StudyItem } from "../srs/cardKey";
 import type { SessionStats } from "../srs/session";
 import { useToday } from "../hooks/useToday";
 
@@ -18,19 +20,20 @@ function usePool(): Word[] {
   return useMemo(() => reviewPool(addedIds, userMap), [addedIds, userMap]);
 }
 
-/** 復習の予報（明日から days 日分） */
+/** 復習の予報（明日から days 日分。産出カードを出す設定なら産出カードも数える） */
 export function useForecast(days = 7): number[] {
   const today = useToday();
   const cards = useProgress((s) => s.cards);
+  const production = useSettings((s) => s.productionEnabled);
   const pool = usePool();
-  return useMemo(() => buildForecast(pool, cards, today, days), [pool, cards, today, days]);
+  return useMemo(() => buildForecast(pool, cards, today, days, { production }), [pool, cards, today, days, production]);
 }
 
 interface Props {
   /** このセッションの集計。null は「始めた時点で今日の分が無かった」 */
   stats: SessionStats | null;
-  /** 今の周で again だった語 */
-  againWords: Word[];
+  /** 今の周で again だったカード（産出カードは dir="prod"） */
+  againItems: StudyItem[];
   /** 明日からの復習数（useForecast） */
   forecast: number[];
   /** 新しい語を止めている理由。backlog = 期限の来た復習が1日の復習の上限を超えている（buildSession） */
@@ -79,7 +82,12 @@ function ForecastBars({ values, today }: { values: number[]; today: string }) {
   );
 }
 
-export default function SessionComplete({ stats, againWords, forecast, reason, onAgainRound, onExtra, quizPath }: Props) {
+/** 1回目の正答率（%）。評価したカードが無ければ null */
+function pct(correct: number, total: number): number | null {
+  return total ? Math.round((correct / total) * 100) : null;
+}
+
+export default function SessionComplete({ stats, againItems, forecast, reason, onAgainRound, onExtra, quizPath }: Props) {
   const today = useToday();
   const cards = useProgress((s) => s.cards);
   const pool = usePool();
@@ -89,7 +97,9 @@ export default function SessionComplete({ stats, againWords, forecast, reason, o
     [pool, cards, today]
   );
   const tomorrow = forecast[0] ?? 0;
-  const accuracy = stats && stats.words ? Math.round((stats.firstCorrect / stats.words) * 100) : null;
+  const accuracy = stats ? pct(stats.firstCorrect, stats.words) : null;
+  const prod = stats?.prod;
+  const prodAccuracy = prod ? pct(prod.firstCorrect, prod.words) : null;
 
   return (
     <div className="animate-fade-in space-y-4">
@@ -120,21 +130,40 @@ export default function SessionComplete({ stats, againWords, forecast, reason, o
             </div>
           </div>
         )}
+        {/* 和→葡の産出カード（T2-1）は理解カードと分けて出す */}
+        {prod && (
+          <div className="flex flex-wrap items-baseline justify-center gap-x-3 gap-y-1 border-t border-slate-100 px-3 py-2.5 text-center text-sm text-slate-600">
+            <span className="font-bold text-brand-blue">✍ 産出</span>
+            <span>
+              <span className="font-bold text-brand-ink">{prod.reviews}</span> 枚
+            </span>
+            <span>
+              1回目 <span className="font-bold text-brand-ink">{prodAccuracy ?? "—"}</span>
+              {prodAccuracy !== null && "%"}
+            </span>
+            {prod.newCards > 0 && (
+              <span>
+                新しく <span className="font-bold text-brand-ink">{prod.newCards}</span> 語
+              </span>
+            )}
+          </div>
+        )}
       </section>
 
-      {againWords.length > 0 && (
+      {againItems.length > 0 && (
         <section className="card space-y-3 p-4">
-          <h2 className="text-sm font-bold text-slate-500">「もう一度」だった語（{againWords.length}）</h2>
+          <h2 className="text-sm font-bold text-slate-500">「もう一度」だった語（{againItems.length}）</h2>
           <div className="flex flex-wrap gap-1.5">
-            {againWords.map((w) => (
-              <span key={w.id} className="chip bg-rose-50 text-rose-600">
-                {w.pt}
+            {againItems.map((it) => (
+              <span key={it.key} className="chip bg-rose-50 text-rose-600" title={it.dir === "prod" ? "和→葡の産出カード" : undefined}>
+                {it.dir === "prod" && <span aria-label="産出">✍ </span>}
+                {it.word.pt}
               </span>
             ))}
           </div>
           {onAgainRound && (
             <button type="button" onClick={onAgainRound} className="btn-primary min-h-11 w-full">
-              この {againWords.length}語をもう1周
+              この {againItems.length}{againItems.some((it) => it.dir === "prod") ? "枚" : "語"}をもう1周
             </button>
           )}
         </section>

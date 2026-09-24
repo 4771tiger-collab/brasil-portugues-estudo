@@ -21,6 +21,8 @@ import { useBack } from "../hooks/useBack";
 import { useWakeLock } from "../hooks/useWakeLock";
 import { useVisibleStopwatch } from "../hooks/useActivityTimer";
 import { useProgress } from "../store/useProgress";
+import { LEVEL_FILTERS, LEVEL_LABEL, groupByLevel, parseLevelFilter, type LevelFilter } from "../services/materials";
+import FilterChips from "../components/FilterChips";
 
 /** 一覧の URL。詳細は /practice/dictation/:id（id は DICTATIONS の id） */
 const LIST_PATH = "/practice/dictation";
@@ -31,14 +33,6 @@ const GRADE_CAP_SEC = 600;
 /** 全文の順次再生で、文と文の間に置く時間（ms） */
 const SENTENCE_GAP_MS = 500;
 
-const LEVELS = [
-  { v: "all", label: "すべて" },
-  { v: "short", label: "短文" },
-  { v: "medium", label: "中文" },
-  { v: "long", label: "長文" },
-] as const;
-type LevelFilter = (typeof LEVELS)[number]["v"];
-const isLevelFilter = (v: string | null): v is LevelFilter => LEVELS.some((l) => l.v === v);
 
 /** 再生速度の選択肢（null = 設定の速さ） */
 const SPEEDS: { rate: number | null; label: string }[] = [
@@ -494,49 +488,52 @@ export function DictationDetail() {
   return <Runner key={item.id} item={item} onBack={back} />;
 }
 
+/** 難易度ごとのまとまり（一覧の見出しと「第n問」の番号。番号は難易度の中の順） */
+const DICTATION_GROUPS = groupByLevel(DICTATIONS);
+
 export default function Dictation() {
   // 難易度の絞り込みは URL（?level=）に持つ。一覧は詳細を開くとアンマウントされるので、
   // state だと戻ったときに「すべて」に戻ってしまう。履歴を増やさないよう replace で書き換える
   const [params, setParams] = useSearchParams();
-  const q = params.get("level");
-  const level: LevelFilter = isLevelFilter(q) ? q : "all";
+  const level = parseLevelFilter(params.get("level"));
   const setLevel = (v: LevelFilter) => setParams(v === "all" ? {} : { level: v }, { replace: true });
-  const list = useMemo(() => (level === "all" ? DICTATIONS : DICTATIONS.filter((d) => d.level === level)), [level]);
-
-  const levelLabel: Record<string, string> = { short: "短文", medium: "中文", long: "長文" };
+  const groups = level === "all" ? DICTATION_GROUPS : DICTATION_GROUPS.filter((g) => g.level === level);
+  const options = LEVEL_FILTERS.map((o) => ({
+    ...o,
+    count: o.v === "all" ? DICTATIONS.length : DICTATION_GROUPS.find((g) => g.level === o.v)?.items.length ?? 0,
+  }));
 
   return (
     <div className="animate-fade-in space-y-4">
-      <Link to="/practice" className="text-sm text-brand-green">‹ 練習に戻る</Link>
+      <Link to="/practice" className="inline-flex min-h-11 items-center pr-2 text-sm text-brand-green">‹ 練習に戻る</Link>
       <div>
         <h1 className="text-xl font-bold text-brand-ink">ディクテーション</h1>
         <p className="text-sm text-slate-500">音声を聴いて書き取る、4ステップの集中学習。</p>
       </div>
-      <div className="flex gap-1.5">
-        {LEVELS.map((l) => (
-          <button key={l.v} onClick={() => setLevel(l.v)} className={`chip ring-1 ${level === l.v ? "bg-brand-green text-white ring-brand-green" : "bg-white text-slate-500 ring-slate-200"}`}>
-            {l.label}
-          </button>
-        ))}
-      </div>
+      <FilterChips label="難易度" options={options} value={level} onChange={setLevel} />
       <p className="text-xs text-slate-400">※ 一覧では答え（本文・和訳）は伏せています。挑戦してから答え合わせしましょう。</p>
-      <div className="space-y-2">
-        {list.map((d) => {
-          const no = DICTATIONS.filter((x) => x.level === d.level).findIndex((x) => x.id === d.id) + 1;
-          return (
-            <Link key={d.id} to={`${LIST_PATH}/${encodeURIComponent(d.id)}`} className="card flex w-full items-center gap-3 p-3 text-left transition hover:ring-brand-green/40">
-              <span className="text-xl">✍️</span>
-              <div className="min-w-0 flex-1">
-                <div className="font-medium text-brand-ink">
-                  {levelLabel[d.level]} 第{no}問{d.isDialogue ? "（会話）" : ""}
+      {groups.length === 0 && <p className="card p-4 text-center text-sm text-slate-400">この難易度の問題はありません。</p>}
+      {groups.map((g) => (
+        <section key={g.level} className="space-y-2" aria-labelledby={`dct-${g.level}`}>
+          <h2 id={`dct-${g.level}`} className="px-1 text-xs font-bold text-slate-400">
+            {LEVEL_LABEL[g.level]}（{g.items.length}問）
+          </h2>
+          <div className="space-y-2">
+            {g.items.map((d, i) => (
+              <Link key={d.id} to={`${LIST_PATH}/${encodeURIComponent(d.id)}`} className="card flex w-full items-center gap-3 p-3 text-left transition hover:ring-brand-green/40">
+                <span className="text-xl">{d.isDialogue ? "💬" : "✍️"}</span>
+                <div className="min-w-0 flex-1">
+                  <div className="font-medium text-brand-ink">
+                    {LEVEL_LABEL[g.level]} 第{i + 1}問{d.isDialogue ? "（会話）" : ""}
+                  </div>
+                  <div className="text-xs text-slate-400">音声を聴いて書き取り（約{d.text.split(/\s+/).length}語）</div>
                 </div>
-                <div className="text-xs text-slate-400">音声を聴いて書き取り（約{d.text.split(/\s+/).length}語）</div>
-              </div>
-              <span className="text-slate-300">›</span>
-            </Link>
-          );
-        })}
-      </div>
+                <span className="text-slate-300">›</span>
+              </Link>
+            ))}
+          </div>
+        </section>
+      ))}
     </div>
   );
 }

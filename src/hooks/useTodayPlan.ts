@@ -1,5 +1,5 @@
 // ============================================================================
-// 「今日の学習」の中身（復習・新しい語・曲の語と、新しい語を止めた理由）
+// 「今日の学習」の中身（復習・新しい語・曲の語・和→葡の産出カードと、新しい語を止めた理由）
 // ホーム・単語帳の一覧の数字と、実際に始めるセッション（Flashcards の StudyView）で同じ計算を使う。
 // 本体は純関数 buildSession（src/srs/queue.ts）。ここではストアと設定から引数をそろえるだけ。
 // ============================================================================
@@ -13,14 +13,17 @@ import { useSettings } from "../store/useSettings";
 import { useAddedIds, useUserWordMap } from "../store/useMusic";
 import { useToday } from "./useToday";
 
-type PlanSettings = Pick<Settings, "dailyNewLimit" | "musicNewLimit" | "dailyReviewLimit" | "capoeiraShare">;
+type PlanSettings = Pick<
+  Settings,
+  "dailyNewLimit" | "musicNewLimit" | "dailyReviewLimit" | "capoeiraShare" | "productionEnabled" | "dailyProductionNewLimit"
+>;
 
 export interface TodayInputs {
   /** reviewPool(addedIds, userMap) */
   pool: Word[];
   cards: CardMap;
   /** 今日の daily（todayCounters を通したもの） */
-  daily: Pick<DailyCounters, "newIntroduced" | "musicIntroduced" | "dueReviewed">;
+  daily: Pick<DailyCounters, "newIntroduced" | "musicIntroduced" | "dueReviewed" | "prodIntroduced">;
   settings: PlanSettings;
   /** useProgress.pinnedNew */
   pinned: readonly string[];
@@ -43,6 +46,10 @@ export function planToday(i: TodayInputs): SessionPlan {
     // クイズ結果の「今日の学習に追加」で指定した語を新規枠の先頭に
     pinned: i.pinned,
     today: i.today,
+    // 和→葡の産出カード（T2-1。止めているときは産出カードを出さない）
+    production: i.settings.productionEnabled,
+    prodNewLimit: i.settings.dailyProductionNewLimit,
+    prodIntroducedToday: i.daily.prodIntroduced ?? 0,
   });
 }
 
@@ -56,6 +63,8 @@ export function useTodayPlan(): SessionPlan {
   const musicNewLimit = useSettings((s) => s.musicNewLimit);
   const dailyReviewLimit = useSettings((s) => s.dailyReviewLimit);
   const capoeiraShare = useSettings((s) => s.capoeiraShare);
+  const productionEnabled = useSettings((s) => s.productionEnabled);
+  const dailyProductionNewLimit = useSettings((s) => s.dailyProductionNewLimit);
   const addedIds = useAddedIds();
   const userMap = useUserWordMap();
   const pool = useMemo(() => reviewPool(addedIds, userMap), [addedIds, userMap]);
@@ -65,10 +74,22 @@ export function useTodayPlan(): SessionPlan {
         pool,
         cards,
         daily: todayCounters(rawDaily),
-        settings: { dailyNewLimit, musicNewLimit, dailyReviewLimit, capoeiraShare },
+        settings: { dailyNewLimit, musicNewLimit, dailyReviewLimit, capoeiraShare, productionEnabled, dailyProductionNewLimit },
         pinned,
         today,
       }),
-    [pool, cards, rawDaily, pinned, today, dailyNewLimit, musicNewLimit, dailyReviewLimit, capoeiraShare]
+    [
+      pool,
+      cards,
+      rawDaily,
+      pinned,
+      today,
+      dailyNewLimit,
+      musicNewLimit,
+      dailyReviewLimit,
+      capoeiraShare,
+      productionEnabled,
+      dailyProductionNewLimit,
+    ]
   );
 }

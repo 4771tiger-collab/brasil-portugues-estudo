@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { Passage, Rating, SrsCard } from "../data/types";
 import { addDays, newCard, quizDecision, review, todayStr } from "../srs/scheduler";
+import { isProdKey } from "../srs/cardKey";
 import {
   MUSIC_STUDY_SEC,
   addActivity,
@@ -27,6 +28,11 @@ export interface DailyCounters {
    * B2-04 で追加。保存済みの古い daily には無いので、読むときは `?? 0`。
    */
   dueReviewed?: number;
+  /**
+   * 産出カード（和→葡。キー "id@p"）を今日新しく始めた数（T2-1。1日の上限 dailyProductionNewLimit の残りを数える）。
+   * 新規語の枠（newIntroduced）とは別。保存済みの古い daily には無いので、読むときは `?? 0`。
+   */
+  prodIntroduced?: number;
 }
 
 /** クイズ1問の SRS への反映結果（結果画面の「SRSに反映」表示用） */
@@ -60,7 +66,10 @@ interface ProgressState extends ProgressData {
 
   // --- actions ---
   ensureToday: () => void;
-  /** 単語帳の評価（取り消し用のスナップショットを1段分残す） */
+  /**
+   * 単語帳の評価（取り消し用のスナップショットを1段分残す）。id はカードキー
+   * （理解カードは語の ID、産出カードは ID+"@p"。src/srs/cardKey.ts）
+   */
   rate: (id: string, rating: Rating) => void;
   /** クイズの解答を quizDecision の規則で反映する（取り消し対象外） */
   rateQuiz: (id: string, rating: Rating) => QuizEffect;
@@ -94,7 +103,7 @@ export function todayCounters(daily: DailyCounters): DailyCounters {
 }
 
 function freshDaily(today: string = todayStr()): DailyCounters {
-  return { date: today, newIntroduced: 0, reviewsDone: 0, studied: 0, musicIntroduced: 0, dueReviewed: 0 };
+  return { date: today, newIntroduced: 0, reviewsDone: 0, studied: 0, musicIntroduced: 0, dueReviewed: 0, prodIntroduced: 0 };
 }
 
 type StreakFields = Pick<ProgressData, "streak" | "lastStudyDate">;
@@ -122,8 +131,11 @@ function recordStudyDay(
 }
 
 /**
- * 評価1回分の状態変化（純関数）。rate / rateQuiz の本体。
+ * 評価1回分の状態変化（純関数）。rate / rateQuiz の本体。id はカードキー（cardKey.ts）。
  * 据え置き（scheduler.isHeld）でもカウンタ・ストリークは進める（学習した事実は残す）。
+ * 産出カード（"id@p"）を新しく始めたときは prodIntroduced だけを数え、新規語の枠（newIntroduced）・
+ * 学習ログの newWords には数えない。評価の回数（reviewsDone・studied・dueReviewed・history の reviews/again）は
+ * 理解カードと同じく数える。
  */
 export function applyRating(
   state: Pick<
@@ -135,9 +147,12 @@ export function applyRating(
   today: string = todayStr()
 ): Partial<ProgressData> {
   const prev = state.cards[id];
-  const wasNew = !prev;
+  const prod = isProdKey(id);
+  // 新しく始めた産出カード（新規語の枠とは別に数える）
+  const wasNewProd = prod && (!prev || prev.last === null);
+  const wasNew = !prev && !prod;
   // addCard で作られ、まだ一度も評価していないカード（曲から追加した語）
-  const wasAddedNew = !!prev && prev.last === null;
+  const wasAddedNew = !prod && !!prev && prev.last === null;
   // 期限の来た復習を今日はじめて評価した（同じ日の再評価・期限前の評価は復習の上限に数えない）
   const wasDueReview = !!prev && prev.last !== null && prev.last !== today && prev.due <= today;
   const updated = review(prev ?? newCard(today), rating, today);
@@ -150,6 +165,7 @@ export function applyRating(
     newIntroduced: baseDaily.newIntroduced + (wasNew ? 1 : 0),
     musicIntroduced: (baseDaily.musicIntroduced ?? 0) + (wasAddedNew ? 1 : 0),
     dueReviewed: (baseDaily.dueReviewed ?? 0) + (wasDueReview ? 1 : 0),
+    prodIntroduced: (baseDaily.prodIntroduced ?? 0) + (wasNewProd ? 1 : 0),
   };
 
   // 日ごとの学習ログ（その日のキーを新しく作るときに 400 日より古い日を消す）

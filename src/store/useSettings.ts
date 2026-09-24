@@ -24,6 +24,12 @@ const DEFAULTS: Settings = {
   dailyReviewLimit: 100,
   handsfreeGapSec: 3,
   handsfreeDirection: "pt2ja",
+  // T2-1: 和→葡の産出カード（保存済みの設定に無ければ、永続化の浅いマージでこの既定値が入る）
+  productionEnabled: true,
+  dailyProductionNewLimit: 5,
+  productionAnswerMode: "self",
+  // T2-8: 音声認識の「言ってみる」。オプトイン（設定画面で説明を読んでからオンにする）
+  speechInputEnabled: false,
 };
 
 export const useSettings = create<SettingsState>()(

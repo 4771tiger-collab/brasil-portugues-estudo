@@ -3,6 +3,7 @@
     "id": "scr_apresentacao",
     "title": "自己紹介 (Apresentação pessoal)",
     "description": "初対面で使える自己紹介。",
+    "level": "short",
     "lines": [
       { "pt": "Oi, tudo bem?", "ja": "やあ、元気ですか？" },
       { "pt": "Meu nome é Tiago.", "ja": "私の名前はチアゴです。" },
@@ -17,6 +18,7 @@
     "id": "scr_natureza",
     "title": "ブラジルの自然 (A natureza do Brasil)",
     "description": "少し長めの読み応えのあるスクリプト。",
+    "level": "short",
     "lines": [
       { "pt": "O Brasil é um país", "ja": "ブラジルは国です" },
       { "pt": "de natureza incrível.", "ja": "驚くべき自然を持つ。" },
@@ -27,6 +29,270 @@
       { "pt": "têm águas quentes", "ja": "暖かい海と" },
       { "pt": "e areia branca.", "ja": "白い砂浜があります。" },
       { "pt": "É um lugar maravilhoso!", "ja": "素晴らしい場所です！" }
+    ]
+  },
+  {
+    "id": "scr_padaria",
+    "title": "パン屋で朝ごはん (Na padaria)",
+    "description": "パン屋でコーヒーとポン・デ・ケージョを注文し、Pixで支払います。",
+    "level": "short",
+    "kind": "dialogue",
+    "lines": [
+      { "speaker": "Márcio", "pt": "Bom dia! O que vai ser hoje?", "ja": "おはようございます！今日は何にしますか？" },
+      { "speaker": "Yuki", "pt": "Bom dia! Um café com leite pequeno, por favor.", "ja": "おはようございます！カフェオレの小さいサイズをお願いします。" },
+      { "speaker": "Márcio", "pt": "Mais alguma coisa?", "ja": "ほかにご注文はありますか？" },
+      { "speaker": "Yuki", "pt": "Sim, dois pães de queijo também.", "ja": "はい、ポン・デ・ケージョも2つください。" },
+      { "speaker": "Márcio", "pt": "É para comer aqui ou para levar?", "ja": "こちらで召し上がりますか、それともお持ち帰りですか？" },
+      { "speaker": "Yuki", "pt": "Para levar. Quanto fica?", "ja": "持ち帰りです。おいくらですか？" },
+      { "speaker": "Márcio", "pt": "Fica doze reais.", "ja": "12レアルです。" },
+      { "speaker": "Yuki", "pt": "Posso pagar com Pix?", "ja": "Pixで払えますか？" },
+      { "speaker": "Márcio", "pt": "Pode, sim. O QR code está aqui.", "ja": "はい、大丈夫です。QRコードはこちらです。" },
+      { "speaker": "Yuki", "pt": "Pronto, já paguei. Obrigada!", "ja": "はい、支払いました。ありがとうございます！" },
+      { "speaker": "Márcio", "pt": "Eu que agradeço! Tenha um bom dia.", "ja": "こちらこそありがとうございます！良い一日を。" }
+    ]
+  },
+  {
+    "id": "scr_feira",
+    "title": "青空市場で買い物 (Na feira)",
+    "description": "フェイラ（青空市場）で値段と量を聞いて買い物をします。",
+    "level": "short",
+    "kind": "dialogue",
+    "lines": [
+      { "speaker": "Cida", "pt": "Olha a fruta fresquinha! Pode chegar, freguês!", "ja": "新鮮な果物ですよ！お客さん、どうぞ見ていってください！" },
+      { "speaker": "Kenji", "pt": "Bom dia! Quanto está o quilo do tomate?", "ja": "おはようございます！トマトは1キロいくらですか？" },
+      { "speaker": "Cida", "pt": "Está oito reais o quilo.", "ja": "1キロ8レアルです。" },
+      { "speaker": "Kenji", "pt": "Então me dá meio quilo, por favor.", "ja": "では、半キロください。" },
+      { "speaker": "Cida", "pt": "Aqui está. Mais alguma coisa?", "ja": "はい、どうぞ。ほかに何かいりますか？" },
+      { "speaker": "Kenji", "pt": "Essas bananas estão maduras?", "ja": "このバナナは熟していますか？" },
+      { "speaker": "Cida", "pt": "Estão, sim! A dúzia sai por seis reais.", "ja": "ええ、熟していますよ！1ダースで6レアルです。" },
+      { "speaker": "Kenji", "pt": "Então vou levar uma dúzia também.", "ja": "では、バナナも1ダースください。" },
+      { "speaker": "Cida", "pt": "Deu dez reais no total.", "ja": "合計で10レアルになります。" },
+      { "speaker": "Kenji", "pt": "Aqui estão os dez reais. Obrigado, até a próxima!", "ja": "はい、10レアルです。ありがとうございます、また今度！" }
+    ]
+  },
+  {
+    "id": "scr_direcoes",
+    "title": "道を尋ねる (Pedindo direções)",
+    "description": "通りで一番近い地下鉄の駅までの道順を尋ねます。",
+    "level": "short",
+    "kind": "dialogue",
+    "lines": [
+      { "speaker": "Yuki", "pt": "Com licença, você pode me ajudar?", "ja": "すみません、ちょっと助けていただけますか？" },
+      { "speaker": "Paulo", "pt": "Claro! Pode falar.", "ja": "もちろんです！どうぞ。" },
+      { "speaker": "Yuki", "pt": "Onde fica a estação de metrô mais próxima?", "ja": "一番近い地下鉄の駅はどこですか？" },
+      { "speaker": "Paulo", "pt": "É só seguir reto nesta rua até o semáforo.", "ja": "この通りを信号までまっすぐ行ってください。" },
+      { "speaker": "Yuki", "pt": "Até o semáforo. E depois?", "ja": "信号までですね。それから？" },
+      { "speaker": "Paulo", "pt": "Aí você vira à esquerda. A estação fica ao lado de um banco.", "ja": "そこで左に曲がってください。駅は銀行の隣にあります。" },
+      { "speaker": "Yuki", "pt": "É longe daqui?", "ja": "ここから遠いですか？" },
+      { "speaker": "Paulo", "pt": "Não, dá uns cinco minutos a pé.", "ja": "いいえ、歩いて5分くらいです。" },
+      { "speaker": "Yuki", "pt": "Muito obrigada pela ajuda!", "ja": "助けてくださって、どうもありがとうございます！" },
+      { "speaker": "Paulo", "pt": "Imagina! Bom passeio.", "ja": "いえいえ。お出かけを楽しんでくださいね。" }
+    ]
+  },
+  {
+    "id": "scr_corrida_app",
+    "title": "配車アプリの車で (Corrida de aplicativo)",
+    "description": "配車アプリの運転手と、行き先や所要時間について話します。",
+    "level": "short",
+    "kind": "dialogue",
+    "lines": [
+      { "speaker": "Carlos", "pt": "Boa tarde! Você é o Kenji?", "ja": "こんにちは！ケンジさんですか？" },
+      { "speaker": "Kenji", "pt": "Sou eu, sim. Boa tarde!", "ja": "はい、私です。こんにちは！" },
+      { "speaker": "Carlos", "pt": "O destino é o aeroporto, certo?", "ja": "行き先は空港で合っていますか？" },
+      { "speaker": "Kenji", "pt": "Isso. Quanto tempo leva, mais ou menos?", "ja": "そうです。だいたいどのくらいかかりますか？" },
+      { "speaker": "Carlos", "pt": "Uns quarenta minutos, se não tiver trânsito.", "ja": "渋滞がなければ、40分くらいです。" },
+      { "speaker": "Kenji", "pt": "Tudo bem. Posso colocar a mala no porta-malas?", "ja": "わかりました。スーツケースをトランクに入れてもいいですか？" },
+      { "speaker": "Carlos", "pt": "Claro, deixa que eu te ajudo.", "ja": "もちろんです。手伝いますよ。" },
+      { "speaker": "Kenji", "pt": "Obrigado! Você pode ligar o ar-condicionado?", "ja": "ありがとうございます！エアコンをつけてもらえますか？" },
+      { "speaker": "Carlos", "pt": "Posso, sim. A temperatura está boa assim?", "ja": "いいですよ。温度はこのくらいで大丈夫ですか？" },
+      { "speaker": "Kenji", "pt": "Está ótima, valeu!", "ja": "ちょうどいいです。ありがとうございます！" }
+    ]
+  },
+  {
+    "id": "scr_restaurante",
+    "title": "レストランで注文と会計 (No restaurante)",
+    "description": "料理を注文し、サービス料やカード払いを確認して会計します。",
+    "level": "medium",
+    "kind": "dialogue",
+    "lines": [
+      { "speaker": "Rafael", "pt": "Boa noite! Mesa para quantas pessoas?", "ja": "こんばんは！何名様ですか？" },
+      { "speaker": "Yuki", "pt": "Só para mim.", "ja": "私1人です。" },
+      { "speaker": "Rafael", "pt": "Pode se sentar aqui. Este é o cardápio.", "ja": "こちらの席へどうぞ。こちらがメニューです。" },
+      { "speaker": "Yuki", "pt": "Obrigada. O que você recomenda?", "ja": "ありがとうございます。おすすめは何ですか？" },
+      { "speaker": "Rafael", "pt": "O prato do dia é feijoada. Hoje está muito boa!", "ja": "日替わり料理はフェイジョアーダです。今日はとてもおいしいですよ！" },
+      { "speaker": "Yuki", "pt": "Então vou querer a feijoada, por favor.", "ja": "では、フェイジョアーダをお願いします。" },
+      { "speaker": "Rafael", "pt": "E para beber?", "ja": "お飲み物はいかがですか？" },
+      { "speaker": "Yuki", "pt": "Um suco de laranja sem açúcar.", "ja": "砂糖なしのオレンジジュースをお願いします。" },
+      { "speaker": "Rafael", "pt": "Perfeito, já volto com o suco.", "ja": "かしこまりました。すぐにジュースをお持ちします。" },
+      { "speaker": "Yuki", "pt": "Com licença! A conta, por favor.", "ja": "すみません！お会計をお願いします。" },
+      { "speaker": "Rafael", "pt": "Aqui está. A taxa de serviço de dez por cento é opcional.", "ja": "こちらです。10%のサービス料は任意です。" },
+      { "speaker": "Yuki", "pt": "Pode incluir, sim. Vocês aceitam cartão?", "ja": "サービス料は含めてください。カードは使えますか？" },
+      { "speaker": "Rafael", "pt": "Aceitamos. É no débito ou no crédito?", "ja": "使えます。デビットですか、クレジットですか？" },
+      { "speaker": "Yuki", "pt": "No crédito. A comida estava deliciosa!", "ja": "クレジットでお願いします。料理はとてもおいしかったです！" }
+    ]
+  },
+  {
+    "id": "scr_hotel_checkin",
+    "title": "ホテルのチェックイン (Check-in no hotel)",
+    "description": "予約の確認のあと、朝食の時間やWi-Fi、部屋の番号などを確かめます。",
+    "level": "medium",
+    "kind": "dialogue",
+    "lines": [
+      { "speaker": "Juliana", "pt": "Boa tarde, seja bem-vindo!", "ja": "こんにちは、ようこそいらっしゃいました！" },
+      { "speaker": "Kenji", "pt": "Boa tarde! Eu tenho uma reserva em nome de Kenji Tanaka.", "ja": "こんにちは！タナカ・ケンジの名前で予約しています。" },
+      { "speaker": "Juliana", "pt": "Um momento, por favor. Achei: são três noites, certo?", "ja": "少々お待ちください。ありました、3泊ですね？" },
+      { "speaker": "Kenji", "pt": "Isso mesmo.", "ja": "はい、その通りです。" },
+      { "speaker": "Juliana", "pt": "Posso ver o seu passaporte, por favor?", "ja": "パスポートを拝見してもよろしいですか？" },
+      { "speaker": "Kenji", "pt": "Claro, aqui está.", "ja": "もちろんです。どうぞ。" },
+      { "speaker": "Juliana", "pt": "Obrigada. O café da manhã é servido das seis às dez.", "ja": "ありがとうございます。朝食は6時から10時までです。" },
+      { "speaker": "Kenji", "pt": "Ótimo! O quarto tem Wi-Fi?", "ja": "いいですね！部屋にWi-Fiはありますか？" },
+      { "speaker": "Juliana", "pt": "Tem, sim. A senha está neste cartão.", "ja": "はい、あります。パスワードはこのカードに書いてあります。" },
+      { "speaker": "Kenji", "pt": "E o check-out é até que horas?", "ja": "チェックアウトは何時までですか？" },
+      { "speaker": "Juliana", "pt": "Até o meio-dia. O seu quarto é o quinhentos e quatro, no quinto andar.", "ja": "正午までです。お部屋は5階（日本式では6階）の504号室です。" },
+      { "speaker": "Kenji", "pt": "Perfeito. Onde fica o elevador?", "ja": "わかりました。エレベーターはどこですか？" },
+      { "speaker": "Juliana", "pt": "Logo ali, à direita. Tenha uma ótima estadia!", "ja": "すぐそこの右側です。どうぞ快適にお過ごしください！" }
+    ]
+  },
+  {
+    "id": "scr_telefone_horario",
+    "title": "電話で予約を取る (Marcando horário por telefone)",
+    "description": "美容院に電話して、カットの予約日時を決めます。",
+    "level": "medium",
+    "kind": "dialogue",
+    "lines": [
+      { "speaker": "Patrícia", "pt": "Salão Beleza Pura, bom dia!", "ja": "おはようございます、美容院ベレーザ・プーラです！" },
+      { "speaker": "Yuki", "pt": "Bom dia! Eu queria marcar um horário para cortar o cabelo.", "ja": "おはようございます！髪を切る予約を取りたいのですが。" },
+      { "speaker": "Patrícia", "pt": "Claro! Para qual dia?", "ja": "かしこまりました！何日がよろしいですか？" },
+      { "speaker": "Yuki", "pt": "Pode ser na sexta-feira à tarde?", "ja": "金曜日の午後は空いていますか？" },
+      { "speaker": "Patrícia", "pt": "Na sexta à tarde está lotado. Tenho um horário no sábado às dez da manhã.", "ja": "金曜の午後はいっぱいです。土曜日の午前10時なら空いています。" },
+      { "speaker": "Yuki", "pt": "Sábado às dez está ótimo.", "ja": "土曜日の10時でお願いします。" },
+      { "speaker": "Patrícia", "pt": "Qual é o seu nome, por favor?", "ja": "お名前をお願いします。" },
+      { "speaker": "Yuki", "pt": "Meu nome é Yuki.", "ja": "ユキです。" },
+      { "speaker": "Patrícia", "pt": "E um telefone para contato?", "ja": "連絡先の電話番号も教えていただけますか？" },
+      { "speaker": "Yuki", "pt": "Pode ser este mesmo número.", "ja": "この番号で大丈夫です。" },
+      { "speaker": "Patrícia", "pt": "Combinado. Então fica marcado: sábado, às dez, com a Fernanda.", "ja": "承知しました。では、土曜日の10時、担当はフェルナンダでご予約をお取りしました。" },
+      { "speaker": "Yuki", "pt": "E se eu precisar desmarcar?", "ja": "もしキャンセルが必要になったら、どうすればいいですか？" },
+      { "speaker": "Patrícia", "pt": "É só avisar com um dia de antecedência.", "ja": "1日前までにご連絡いただければ大丈夫です。" },
+      { "speaker": "Yuki", "pt": "Tudo bem. Obrigada, até sábado!", "ja": "わかりました。ありがとうございます、では土曜日に！" }
+    ]
+  },
+  {
+    "id": "scr_convite_fim_de_semana",
+    "title": "週末のお誘い (Convite para o fim de semana)",
+    "description": "友人からシュラスコとビーチに誘われ、週末の予定を決めます。",
+    "level": "medium",
+    "kind": "dialogue",
+    "lines": [
+      { "speaker": "Beatriz", "pt": "E aí, Kenji! Vai fazer alguma coisa no fim de semana?", "ja": "やあ、ケンジさん！週末は何か予定がありますか？" },
+      { "speaker": "Kenji", "pt": "Ainda não tenho planos. Por quê?", "ja": "まだ予定はありません。どうしてですか？" },
+      { "speaker": "Beatriz", "pt": "A gente vai fazer um churrasco no sábado. Quer vir?", "ja": "土曜日にみんなでシュラスコをするんです。来ませんか？" },
+      { "speaker": "Kenji", "pt": "Quero, sim! Que horas vai ser?", "ja": "ぜひ行きたいです！何時からですか？" },
+      { "speaker": "Beatriz", "pt": "Lá pela uma da tarde, na casa da minha prima.", "ja": "午後1時ごろ、いとこの家でやります。" },
+      { "speaker": "Kenji", "pt": "Legal! Preciso levar alguma coisa?", "ja": "いいですね！何か持っていったほうがいいですか？" },
+      { "speaker": "Beatriz", "pt": "Se quiser, pode levar uma bebida ou uma sobremesa.", "ja": "よかったら、飲み物かデザートを持ってきてください。" },
+      { "speaker": "Kenji", "pt": "Então eu levo um refrigerante e um pudim.", "ja": "では、ソフトドリンクとプリンを持っていきます。" },
+      { "speaker": "Beatriz", "pt": "Perfeito! E no domingo, você topa ir à praia?", "ja": "いいですね！それと日曜日は、ビーチに行きませんか？" },
+      { "speaker": "Kenji", "pt": "Topo! Mas, se chover, a gente vai ao cinema, pode ser?", "ja": "行きます！でも雨が降ったら、映画館に行くのはどうですか？" },
+      { "speaker": "Beatriz", "pt": "Boa ideia! Te mando o endereço do churrasco por mensagem.", "ja": "いい考えですね！シュラスコをする家の住所は、メッセージで送りますね。" },
+      { "speaker": "Kenji", "pt": "Combinado! Até sábado, então.", "ja": "了解です！では、土曜日に会いましょう。" }
+    ]
+  },
+  {
+    "id": "scr_loja_roupa",
+    "title": "服を買う (Comprando roupa)",
+    "description": "サイズや色を選び、交換の条件と支払い方法を確認します。",
+    "level": "medium",
+    "kind": "dialogue",
+    "lines": [
+      { "speaker": "Camila", "pt": "Oi, tudo bem? Posso te ajudar?", "ja": "こんにちは。何かお探しですか？" },
+      { "speaker": "Yuki", "pt": "Oi! Estou procurando uma camiseta para o verão.", "ja": "こんにちは！夏用のTシャツを探しています。" },
+      { "speaker": "Camila", "pt": "Temos várias. Qual é o seu tamanho?", "ja": "いろいろありますよ。サイズはいくつですか？" },
+      { "speaker": "Yuki", "pt": "Acho que é P, mas não tenho certeza.", "ja": "たぶんP（S）だと思いますが、自信がありません。" },
+      { "speaker": "Camila", "pt": "Pode experimentar. O provador fica ali no fundo.", "ja": "試着してみてください。試着室はあの奥にあります。" },
+      { "speaker": "Yuki", "pt": "A P ficou um pouco apertada. Tem M?", "ja": "Pは少しきつかったです。Mはありますか？" },
+      { "speaker": "Camila", "pt": "Tem, sim. Qual cor você prefere?", "ja": "ありますよ。何色がいいですか？" },
+      { "speaker": "Yuki", "pt": "Tem azul ou verde?", "ja": "青か緑はありますか？" },
+      { "speaker": "Camila", "pt": "Azul tem. Verde, só no tamanho G.", "ja": "青ならあります。緑はG（L）サイズしかありません。" },
+      { "speaker": "Yuki", "pt": "Então vou levar a azul. Se não servir, posso trocar?", "ja": "では、青にします。もしサイズが合わなかったら、交換できますか？" },
+      { "speaker": "Camila", "pt": "Pode, sim. Você tem trinta dias para trocar, com a nota fiscal.", "ja": "はい、できます。レシートがあれば、30日以内なら交換できます。" },
+      { "speaker": "Yuki", "pt": "Ótimo! E quanto custa?", "ja": "よかったです！それで、おいくらですか？" },
+      { "speaker": "Camila", "pt": "Sessenta reais. No Pix, tem dez por cento de desconto.", "ja": "60レアルです。Pixなら10%引きになります。" },
+      { "speaker": "Yuki", "pt": "Então vou pagar no Pix. Obrigada!", "ja": "では、Pixで払います。ありがとうございます！" }
+    ]
+  },
+  {
+    "id": "scr_consulta_medica",
+    "title": "診察を受ける (Consulta médica)",
+    "description": "医師に症状を説明し、診察を受けて処方箋をもらうまでの会話です。",
+    "level": "long",
+    "kind": "dialogue",
+    "lines": [
+      { "speaker": "Dra. Luciana", "pt": "Boa tarde, Kenji. O que você está sentindo?", "ja": "こんにちは、ケンジさん。どうされましたか？" },
+      { "speaker": "Kenji", "pt": "Boa tarde, doutora. Estou com dor de garganta e um pouco de febre.", "ja": "こんにちは、先生。喉が痛くて、少し熱があります。" },
+      { "speaker": "Dra. Luciana", "pt": "Desde quando você está assim?", "ja": "いつからその症状がありますか？" },
+      { "speaker": "Kenji", "pt": "Desde anteontem. Ontem à noite, comecei a tossir também.", "ja": "おとといからです。昨日の夜には、咳も出始めました。" },
+      { "speaker": "Dra. Luciana", "pt": "Você mediu a temperatura?", "ja": "熱は測りましたか？" },
+      { "speaker": "Kenji", "pt": "Medi hoje de manhã. Deu trinta e oito graus.", "ja": "今朝測りました。38度ありました。" },
+      { "speaker": "Dra. Luciana", "pt": "Vou examinar a sua garganta. Abra a boca, por favor.", "ja": "喉を診ますね。口を開けてください。" },
+      { "speaker": "Kenji", "pt": "Assim está bom?", "ja": "これでいいですか？" },
+      { "speaker": "Dra. Luciana", "pt": "Está, sim. A garganta está bem inflamada.", "ja": "はい、大丈夫です。喉がかなり炎症を起こしていますね。" },
+      { "speaker": "Kenji", "pt": "É grave?", "ja": "重い病気ですか？" },
+      { "speaker": "Dra. Luciana", "pt": "Não, não é grave. Vou te passar um remédio para a garganta e outro para a febre.", "ja": "いいえ、重くはありません。喉の薬と熱の薬を出しますね。" },
+      { "speaker": "Kenji", "pt": "Posso comprar na farmácia aqui perto?", "ja": "近くの薬局で買えますか？" },
+      { "speaker": "Dra. Luciana", "pt": "Pode, sim. É só levar esta receita.", "ja": "はい、買えます。この処方箋を持って行けば大丈夫です。" },
+      { "speaker": "Kenji", "pt": "Tem mais alguma recomendação?", "ja": "ほかに気をつけることはありますか？" },
+      { "speaker": "Dra. Luciana", "pt": "Beba bastante água e descanse. Se a febre não passar em três dias, volte aqui.", "ja": "水分をたくさんとって、休んでください。3日たっても熱が下がらなければ、また来てください。" },
+      { "speaker": "Kenji", "pt": "Pode deixar. Muito obrigado, doutora!", "ja": "わかりました。ありがとうございました、先生！" }
+    ]
+  },
+  {
+    "id": "scr_primeira_aula_capoeira",
+    "title": "カポエイラ教室の初日 (Primeira aula de capoeira)",
+    "description": "カポエイラ教室の初回レッスンで、先生に持ち物やスタイル、練習内容を聞きます。",
+    "level": "long",
+    "kind": "dialogue",
+    "lines": [
+      { "speaker": "Yuki", "pt": "Boa noite! É aqui a aula de capoeira para iniciantes?", "ja": "こんばんは！初心者向けのカポエイラのクラスはここですか？" },
+      { "speaker": "Marcos", "pt": "É aqui, sim! Seja bem-vinda. Qual é o seu nome?", "ja": "はい、ここですよ！ようこそ。お名前を教えてください。" },
+      { "speaker": "Yuki", "pt": "Meu nome é Yuki. Hoje é a minha primeira aula.", "ja": "ユキです。今日が初めてのレッスンです。" },
+      { "speaker": "Marcos", "pt": "Prazer, Yuki! Eu sou o professor Marcos.", "ja": "はじめまして、ユキさん！講師のマルコスです。" },
+      { "speaker": "Yuki", "pt": "Muito prazer, professor. O que eu preciso trazer para as aulas?", "ja": "はじめまして、先生。レッスンには何を持ってくればいいですか？" },
+      { "speaker": "Marcos", "pt": "Por enquanto, venha com uma roupa confortável e traga uma garrafa de água.", "ja": "今のところは、動きやすい服で来て、水を1本持ってきてください。" },
+      { "speaker": "Yuki", "pt": "O grupo de vocês é de capoeira Angola ou Regional?", "ja": "こちらのグループは、カポエイラ・アンゴラですか、それともヘジョナウですか？" },
+      { "speaker": "Marcos", "pt": "A gente treina Regional, o estilo criado pelo Mestre Bimba.", "ja": "私たちはヘジョナウを練習しています。メストリ・ビンバが創始したスタイルです。" },
+      { "speaker": "Yuki", "pt": "E por onde eu começo?", "ja": "それで、私は何から始めればいいですか？" },
+      { "speaker": "Marcos", "pt": "Pela ginga. É o movimento básico, a base de tudo na capoeira.", "ja": "ジンガからです。基本の動きで、カポエイラのすべての土台になります。" },
+      { "speaker": "Yuki", "pt": "Vou aprender a tocar berimbau também?", "ja": "ビリンバウの弾き方も習いますか？" },
+      { "speaker": "Marcos", "pt": "Vai, sim. Aqui a gente aprende os movimentos, a música e o canto.", "ja": "はい、習いますよ。ここでは動きも、音楽も、歌も学びます。" },
+      { "speaker": "Yuki", "pt": "Que legal! Mas eu ainda não conheço as músicas.", "ja": "すてきですね！でも、まだ歌を知らないんです。" },
+      { "speaker": "Marcos", "pt": "Não tem problema. Você vai aprendendo aos poucos, ouvindo na roda.", "ja": "大丈夫ですよ。ホーダで聞きながら、少しずつ覚えていけます。" },
+      { "speaker": "Yuki", "pt": "Estou um pouco nervosa, mas muito animada!", "ja": "少し緊張していますが、とても楽しみです！" },
+      { "speaker": "Marcos", "pt": "Relaxa! Vamos começar com um alongamento.", "ja": "肩の力を抜いてくださいね！まずはストレッチから始めましょう。" }
+    ]
+  },
+  {
+    "id": "scr_depois_da_roda",
+    "title": "ホーダのあとで (Depois da roda)",
+    "description": "ホーダの後、仲間と楽器や歌の種類について話します。",
+    "level": "long",
+    "kind": "dialogue",
+    "lines": [
+      { "speaker": "Thiago", "pt": "E aí, Kenji, gostou da roda de hoje?", "ja": "やあ、ケンジさん。今日のホーダはどうでしたか？" },
+      { "speaker": "Kenji", "pt": "Gostei muito! Mas fiquei um pouco perdido com a música.", "ja": "とても楽しかったです！でも、音楽のところで少し戸惑いました。" },
+      { "speaker": "Thiago", "pt": "É normal no começo. Quem comanda a roda é o berimbau.", "ja": "最初はよくあることですよ。ホーダを取り仕切るのはビリンバウなんです。" },
+      { "speaker": "Kenji", "pt": "Por isso todo mundo presta atenção no toque, né?", "ja": "だから、みんなトッキ（リズム）をよく聞いているんですね？" },
+      { "speaker": "Thiago", "pt": "Exatamente. O toque muda o ritmo do jogo.", "ja": "その通りです。トッキによってジョーゴ（ゲーム）のテンポが変わります。" },
+      { "speaker": "Kenji", "pt": "Hoje eu vi três berimbaus. Eles são diferentes?", "ja": "今日はビリンバウが3本ありました。それぞれ違うんですか？" },
+      { "speaker": "Thiago", "pt": "São, sim. O gunga é o mais grave, o médio fica no meio e a viola é a mais aguda.", "ja": "違いますよ。グンガが一番低い音で、メジオはその中間、ヴィオラが一番高い音です。" },
+      { "speaker": "Kenji", "pt": "Eu também vi pandeiro e atabaque.", "ja": "パンデイロとアタバキも見ました。" },
+      { "speaker": "Thiago", "pt": "Dependendo do grupo, também tem agogô e reco-reco.", "ja": "グループによっては、アゴゴやヘコヘコもあります。" },
+      { "speaker": "Kenji", "pt": "E as músicas? Tem tipos diferentes?", "ja": "歌はどうですか？いろいろな種類がありますか？" },
+      { "speaker": "Thiago", "pt": "Tem, sim. A ladainha, a chula e o corrido, por exemplo.", "ja": "ありますよ。たとえば、ラダイーニャ、シューラ、コヒードです。" },
+      { "speaker": "Kenji", "pt": "No corrido, todo mundo responde em coro, não é?", "ja": "コヒードでは、みんなが合唱で応えるんですよね？" },
+      { "speaker": "Thiago", "pt": "Isso! Bater palmas e cantar junto dá axé para a roda.", "ja": "そうです！手拍子をして一緒に歌うと、ホーダにアシェ（エネルギー）が生まれます。" },
+      { "speaker": "Kenji", "pt": "Eu li que a roda de capoeira é Patrimônio Cultural Imaterial da Humanidade.", "ja": "ホーダ・ジ・カポエイラは人類の無形文化遺産だと読みました。" },
+      { "speaker": "Thiago", "pt": "É verdade! A UNESCO reconheceu a roda em 2014.", "ja": "本当です！2014年にユネスコがホーダを認定しました。" },
+      { "speaker": "Kenji", "pt": "Que incrível! Na próxima roda, vou cantar mais alto.", "ja": "すごいですね！次のホーダでは、もっと大きな声で歌います。" }
     ]
   }
 ]

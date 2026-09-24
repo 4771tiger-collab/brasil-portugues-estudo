@@ -3,8 +3,8 @@ import { Link } from "react-router-dom";
 const items = [
   { to: "/practice/pattern", title: "パターンプラクティス", emoji: "🔁", desc: "文型を入れ替えて発話。和文を見て言う発話ドリル・オートも。" },
   { to: "/practice/conjugation", title: "活用ドリル", emoji: "🔤", desc: "動詞の活用形を入力。不規則動詞と、学習した動詞から出題。" },
-  { to: "/practice/chunk", title: "チャンクリーディング", emoji: "📖", desc: "意味のカタマリ(/)で前から理解する速読特訓。" },
-  { to: "/practice/shadowing", title: "シャドーイング", emoji: "🗣️", desc: "お手本を追いかけて発話＋マイク録音で聞き比べ。" },
+  { to: "/practice/chunk", title: "チャンクリーディング", emoji: "📖", desc: "意味のカタマリ(/)で前から理解。話題で選べて、内容チェックの問題も。" },
+  { to: "/practice/shadowing", title: "シャドーイング", emoji: "🗣️", desc: "お手本を追いかけて発話＋録音で聞き比べ。会話はロールプレイも。" },
   { to: "/practice/dictation", title: "ディクテーション", emoji: "✍️", desc: "音声を聴いて書き取る4ステップ学習。" },
   { to: "/practice/add", title: "教材を追加", emoji: "➕", desc: "ポルトガル語テキストを貼り付けて自分だけの教材に。" },
 ];

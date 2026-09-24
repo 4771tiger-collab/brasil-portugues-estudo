@@ -2,8 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { PATTERNS } from "../data/content";
 import type { Pattern } from "../data/types";
+import SayItButton from "../components/SayItButton";
 import SpeakerButton from "../components/SpeakerButton";
 import { audio, delay } from "../services/audio";
+import { speechInput } from "../services/speechInput";
 import { toKana } from "../services/pronunciation";
 import {
   SELF_RATINGS,
@@ -25,6 +27,7 @@ import { useSequencePlayer } from "../hooks/useSequencePlayer";
 import { useWakeLock } from "../hooks/useWakeLock";
 import { useProgress } from "../store/useProgress";
 import { useSettings } from "../store/useSettings";
+import { frameBlank, patternGroups } from "../services/materials";
 
 /** 1文に記録する時間の上限（秒）。前の文からこれより空いた分は放置とみなす */
 const SENTENCE_CAP_SEC = 60;
@@ -48,6 +51,9 @@ const AUTO_AFTER_MS = 1500;
 /** ドリル・オートで出す文（すべての文型 × 選択肢） */
 const ALL_ITEMS: PatternItem[] = patternItems(PATTERNS);
 
+/** 見て覚えるの一覧（「カポエイラ：誘う」のようなカテゴリは「：」の前でまとめる） */
+const PATTERN_GROUPS = patternGroups(PATTERNS);
+
 /** 練習のしかた（URL の ?mode=。既定は browse） */
 type Mode = "browse" | "drill" | "auto";
 
@@ -58,7 +64,7 @@ const MODES: { id: Mode; label: string }[] = [
 ];
 
 const MODE_DESC: Record<Mode, string> = {
-  browse: "スロットの語を入れ替えて、文型を口に馴染ませよう。",
+  browse: "文型をタップして開き、スロットの語を入れ替えて口に馴染ませよう。",
   drill: `和文を見て、3秒でポルトガル語を口に出す → 答えと音声で確認 → 自己評価。全文型から${DRILL_SIZE}問、言えなかった文は最後にもう一度出ます。`,
   auto: "和文 → 考える間 → ポルトガル語の音声 を自動でくり返します。画面を見ながら、手を使わずに練習できます。",
 };
@@ -224,6 +230,55 @@ function PatternCard({ pattern, onSentence }: { pattern: Pattern; onSentence: ()
   );
 }
 
+/**
+ * 見て覚えるの一覧。文型は見出し（カテゴリ・型・和文の型）だけを並べ、タップで開く（開くのは1つだけ）。
+ * 文型が増えても一覧で見渡せるように。開いている文型は URL（?open=、置き換え）に持つ
+ */
+function PatternBrowser({ onSentence }: { onSentence: () => void }) {
+  const [params, setParams] = useSearchParams();
+  const q = params.get("open");
+  const openId = q && PATTERNS.some((p) => p.id === q) ? q : null;
+  const setOpen = (id: string | null) => setParams(id ? { open: id } : {}, { replace: true });
+  const titled = PATTERN_GROUPS.length > 1;
+
+  return (
+    <div className="space-y-4">
+      {PATTERN_GROUPS.map((g) => (
+        <section key={g.name ?? ""} className="space-y-2">
+          {titled && (
+            <h2 className="px-1 text-xs font-bold text-slate-400">
+              {g.name ?? "基本の文型"}（{g.entries.length}）
+            </h2>
+          )}
+          {g.entries.map(({ pattern, label }) => {
+            const open = pattern.id === openId;
+            return (
+              <div key={pattern.id} className="space-y-2">
+                <button
+                  type="button"
+                  onClick={() => setOpen(open ? null : pattern.id)}
+                  aria-expanded={open}
+                  className={`card flex min-h-11 w-full items-center gap-3 p-3 text-left transition ${open ? "ring-brand-green/50" : "hover:ring-brand-green/40"}`}
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="text-xs font-bold text-brand-blue">{label}</div>
+                    <div className="truncate font-medium text-brand-ink">{frameBlank(pattern.frame)}</div>
+                    <div className="truncate text-xs text-slate-400">{frameBlank(pattern.ja)}</div>
+                  </div>
+                  <span className={`inline-block text-slate-300 transition ${open ? "rotate-90" : ""}`} aria-hidden>
+                    ›
+                  </span>
+                </button>
+                {open && <PatternCard pattern={pattern} onSentence={onSentence} />}
+              </div>
+            );
+          })}
+        </section>
+      ))}
+    </div>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // 発話ドリル（和文を見る → 3秒 → 答えと音声 → 自己評価。言えなかった文は最後にもう一度）
 // ---------------------------------------------------------------------------
@@ -296,6 +351,8 @@ function DrillResult({ queue, onRestart, onBrowse }: { queue: DrillEntry[]; onRe
 
 function Drill({ onBrowse }: { onBrowse: () => void }) {
   const showKana = useSettings((s) => s.showKana);
+  // 音声認識の「🎤 言ってみる」（T2-8。オフなら何も出さない）
+  const speechOn = useSettings((s) => s.speechInputEnabled) && speechInput.isSupported();
   const [queue, setQueue] = useState<DrillEntry[]>(() => newDrill(ALL_ITEMS, DRILL_SIZE));
   const [pos, setPos] = useState(0);
   const [revealed, setRevealed] = useState(false);
@@ -320,9 +377,18 @@ function Drill({ onBrowse }: { onBrowse: () => void }) {
     else setPos(p);
   }
 
-  /** 答え: ポルトガル語を見せて読む（音声はタップの処理の中で読み始める） */
+  /** 「🎤 言ってみる」の聞き取りを取りやめる（答えの音声を認識に拾わせない）。音声認識がオフなら何もしない */
+  function stopListening() {
+    if (useSettings.getState().speechInputEnabled) speechInput.cancel();
+  }
+
+  /**
+   * 答え: ポルトガル語を見せて読む（音声はタップの処理の中で読み始める）。
+   * 「🎤 言ってみる」の採点の後にも呼ぶ（🎤 のタップでページは操作済みなので、Chrome は読み上げを許す）
+   */
   function reveal() {
     if (!entry || revealed) return;
+    stopListening();
     void player.playOne(entry.item.pt, 0);
     setRevealed(true);
   }
@@ -330,6 +396,7 @@ function Drill({ onBrowse }: { onBrowse: () => void }) {
   /** 答えをもう一度・ゆっくり（同じボタンで再生中なら止める） */
   function replay(slow: boolean) {
     if (!entry) return;
+    stopListening();
     const idx = slow ? 1 : 0;
     if (player.activeIdx === idx) {
       player.stop();
@@ -395,7 +462,11 @@ function Drill({ onBrowse }: { onBrowse: () => void }) {
           <div className="flex flex-col items-center gap-2">
             <CountdownRing ms={THINK_MS} onDone={() => setTimeUp(true)} />
             <p className="text-xs text-slate-400" aria-live="polite">
-              {timeUp ? "言えたら（言えなくても）答えを確認しよう" : "ポルトガル語で口に出して言ってみよう"}
+              {timeUp
+                ? "言えたら（言えなくても）答えを確認しよう"
+                : speechOn
+                  ? "ポルトガル語で言ってみよう（🎤 で判定もできます）"
+                  : "ポルトガル語で口に出して言ってみよう"}
             </p>
           </div>
         ) : (
@@ -416,6 +487,8 @@ function Drill({ onBrowse }: { onBrowse: () => void }) {
             {item.pattern.note && <p className="pt-1 text-left text-xs text-slate-400">💡 {item.pattern.note}</p>}
           </div>
         )}
+        {/* 🎤 言ってみる（音声認識がオンのときだけ出る）。採点したら答えを開く。答えの後も言い直せる */}
+        <SayItButton mode="sentence" expected={item.pt} onStart={() => player.stop()} onScored={() => reveal()} />
       </div>
 
       {!revealed ? (
@@ -708,11 +781,7 @@ export default function PatternPractice() {
       ) : mode === "auto" ? (
         <AutoDrill />
       ) : (
-        <div className="space-y-4">
-          {PATTERNS.map((p) => (
-            <PatternCard key={p.id} pattern={p} onSentence={onSentence} />
-          ))}
-        </div>
+        <PatternBrowser onSentence={onSentence} />
       )}
     </div>
   );

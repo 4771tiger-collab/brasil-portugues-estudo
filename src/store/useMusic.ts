@@ -13,6 +13,7 @@ import type { UserWordRaw } from "../data/loadWords";
 import { userWordMap } from "../data/loadWords";
 import { isLineHash, lineHash } from "../services/lyrics";
 import type { GapMode } from "../services/musicPractice";
+import { canHaveProd, prodKey } from "../srs/cardKey";
 import { useProgress } from "./useProgress";
 
 export interface LineTranslation {
@@ -184,7 +185,11 @@ export const useMusic = create<MusicState>()(
           // どの曲にも残っていない。この機能が作ったカードで、まだ一度も評価していない時だけカードも消す（学習履歴は消さない）
           const progress = useProgress.getState();
           const card = progress.cards[id];
-          if (created && card && card.last === null) progress.removeCard(id);
+          if (created && card && card.last === null) {
+            progress.removeCard(id);
+            // 同じ語の未評価の産出カード（T2-1。通常は評価したときに作られるので残らないが、取り込んだ記録などに備える）
+            if (canHaveProd(id) && progress.cards[prodKey(id)]?.last === null) progress.removeCard(prodKey(id));
+          }
         } else if (created && !remaining.some((w) => w.createdCard)) {
           // 他の曲に記録が残る → 「カードを作った」印を残る記録へ引き継ぐ（最後に外した時に未評価カードを片付けるため）
           const heir = remaining[0];

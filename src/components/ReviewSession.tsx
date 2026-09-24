@@ -3,6 +3,8 @@
 // 状態遷移は純粋な reducer（src/srs/session.ts）。SRS への書き込み（rate/undo）と音声は
 // click/keydown の handler の中だけで行う（StrictMode の effect 二重実行と自動再生の制限を避ける）。
 // 学習中は useUi.immersive で下部ナビを隠し、操作バーを親指の届く画面下部に置く。
+// 和→葡の産出カード（T2-1。StudyItem.dir="prod"）も同じ流れで出す。評価・取り消しはカードキー
+// （cardKey.ts。産出カードは "id@p"）で行い、入力で答えたときは採点して「おすすめ」の評価を強調する。
 // ============================================================================
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -12,7 +14,12 @@ import { useSettings } from "../store/useSettings";
 import { useUi } from "../store/useUi";
 import { useToday } from "../hooks/useToday";
 import { audio } from "../services/audio";
+import { gradeWord, ratingForGrade, type SpeechScore } from "../services/grade";
+import { isKnownForm, quizAnswers } from "../services/gradeLexicon";
+import { speechInput } from "../services/speechInput";
+import type { StudyItem } from "../srs/cardKey";
 import {
+  againItems,
   currentItem,
   initSession,
   isDone,
@@ -22,14 +29,18 @@ import {
   type SessionAction,
   type SessionState,
 } from "../srs/session";
-import ReviewCard from "./ReviewCard";
+import ReviewCard, { type ProdAnswer } from "./ReviewCard";
 import RatingButtons, { RATING_KEYS, RATING_LABEL } from "./RatingButtons";
+import SayItButton from "./SayItButton";
 import SessionComplete, { useForecast } from "./SessionComplete";
 import UndoToast from "./UndoToast";
 
 interface Props {
-  /** 出題する語（親で確定して固定する。並びもこのまま） */
-  words: Word[];
+  /**
+   * 出題するカード（親で確定して固定する。並びもこのまま）。
+   * Word は理解カード、StudyItem は dir で理解・産出を指定する（今日の学習の plan.items）
+   */
+  items: readonly (Word | StudyItem)[];
   title: string;
   /** ✕（一覧へ戻る） */
   onExit: () => void;
@@ -41,9 +52,12 @@ interface Props {
   onExtra?: () => void;
   /** 今日の学習で新しい語を止めた理由（完了画面に出す） */
   reason?: "backlog";
-  /** 評価・取り消しを親へ知らせる（表示を切り替えたときに合格済みの語を出し直さないため） */
-  onRated?: (id: string, r: Rating) => void;
-  onUnrated?: (id: string) => void;
+  /**
+   * 評価・取り消しを親へ知らせる（表示を切り替えたときに合格済みのカードを出し直さないため）。
+   * key はカードキー（理解カードは語の ID、産出カードは ID+"@p"）
+   */
+  onRated?: (key: string, r: Rating) => void;
+  onUnrated?: (key: string) => void;
   /** 完了画面の「このデッキでクイズ」のリンク先（今日の学習では無し） */
   quizPath?: string;
 }
@@ -51,10 +65,10 @@ interface Props {
 /** 状態が変わった直後、この時間だけ画面上のボタンの押下を無視する（ダブルタップが次のボタンに当たらないように） */
 const INPUT_LOCK_MS = 350;
 
-/** 取り消し用: 評価する直前のセッション状態（直前カードの裏面）と、その語の id */
+/** 取り消し用: 評価する直前のセッション状態（直前カードの裏面）と、そのカードキー */
 interface UndoRef {
   snap: SessionState;
-  id: string;
+  key: string;
 }
 
 /** 入力欄・IME 変換中・キーリピートでは反応しない */
@@ -84,22 +98,20 @@ function Done({
   quizPath,
 }: {
   s: SessionState;
-  onAgainRound: (words: Word[]) => void;
+  onAgainRound: (items: StudyItem[]) => void;
   onExtra?: () => void;
   reason?: "backlog";
   quizPath?: string;
 }) {
   const fc = useForecast();
-  const againWords = useMemo(() => {
-    const byId = new Map(s.queue.map((q) => [q.word.id, q.word]));
-    return s.again.map((id) => byId.get(id)).filter((w): w is Word => !!w);
-  }, [s]);
+  // again だったカード（同じ語の理解カードと産出カードは別の1枚）
+  const again = useMemo(() => againItems(s), [s]);
   return (
     <SessionComplete
       stats={sessionStats(s)}
-      againWords={againWords}
+      againItems={again}
       forecast={fc}
-      onAgainRound={againWords.length ? () => onAgainRound(againWords) : undefined}
+      onAgainRound={again.length ? () => onAgainRound(again) : undefined}
       onExtra={onExtra}
       reason={reason}
       quizPath={quizPath}
@@ -108,7 +120,7 @@ function Done({
 }
 
 export default function ReviewSession({
-  words,
+  items,
   title,
   onExit,
   onSwitchView,
@@ -127,10 +139,15 @@ export default function ReviewSession({
   const autoPlay = useSettings((st) => st.autoPlayOnReveal);
   const voiceURI = useSettings((st) => st.voiceURI);
   const speechRate = useSettings((st) => st.rate);
+  const answerMode = useSettings((st) => st.productionAnswerMode);
+  // 音声認識の「🎤 言ってみる」（T2-8。オプトイン。オフなら何も描かず、何も動かさない）
+  const speechOn = useSettings((st) => st.speechInputEnabled);
   const setImmersive = useUi((st) => st.setImmersive);
 
   // mount 時の cards で intro/test を決める（以後の評価で並びは変えない）
-  const [s, setS] = useState<SessionState>(() => initSession(words, useProgress.getState().cards));
+  const [s, setS] = useState<SessionState>(() => initSession(items, useProgress.getState().cards));
+  // 産出カードを入力で答えた結果（キューの key ごと。取り消しで裏面に戻ったときもそのまま出す）
+  const [answers, setAnswers] = useState<Record<string, ProdAnswer>>({});
   // handler は連打でも最新の状態を読む（再描画を待たずに二重評価しないため）
   const sRef = useRef(s);
   const undoRef = useRef<UndoRef | null>(null);
@@ -187,6 +204,43 @@ export default function ReviewSession({
     if (autoPlay) speak(it.word);
   }
 
+  /**
+   * 産出カードの答え合わせ（入力）。input が null なら「わからない」（採点なし・おすすめは「もう一度」）。
+   * 採点 → 裏返し → 読み上げを同じ handler の中で行う（自動再生の制限を避けるため）。
+   * 正解の集合は見出しの表記ゆれ ＋ 和訳が同じ別見出し（クイズの和→葡の入力式と同じ）。
+   */
+  function answerProd(input: string | null) {
+    const it = currentItem(sRef.current);
+    if (!it) return;
+    const result = input === null ? null : gradeWord(input, quizAnswers(it.word, true), { isKnownForm });
+    showProdAnswer(it.key, {
+      input: input ?? "",
+      result,
+      suggested: result ? ratingForGrade(result.grade, false) : "again",
+      via: "type",
+    });
+  }
+
+  /**
+   * 産出カードを「🎤 言ってみる」で答えた（SayItButton が採点済み。正解の集合は入力と同じ、アクセントの違いは正解）。
+   * 聞き取りの間に別のカードへ進んでいたら何もしない（key で確かめる）。
+   * 読み上げは聞き取りの後になる（🎤 のタップでページは操作済みなので、Chrome は読み上げを許す）。
+   */
+  function answerProdSpeech(key: string, sc: SpeechScore) {
+    if (sc.kind !== "word") return;
+    showProdAnswer(key, { input: sc.heard, result: sc.result, suggested: sc.suggestedRating, via: "speech" });
+  }
+
+  /** 産出カードの採点を記録して裏返し、（設定なら）読み上げる。表面の産出カードでなければ何もしない */
+  function showProdAnswer(key: string, answer: ProdAnswer) {
+    const st = sRef.current;
+    const it = currentItem(st);
+    if (!it || it.key !== key || it.dir !== "prod" || it.kind !== "test" || st.phase !== "front") return;
+    setAnswers((a) => ({ ...a, [it.key]: answer }));
+    commit(step(st, { t: "reveal" }));
+    if (autoPlay) speak(it.word);
+  }
+
   function introNext() {
     audio.cancel();
     dispatch({ t: "introNext" });
@@ -197,10 +251,12 @@ export default function ReviewSession({
     const it = currentItem(st);
     if (!it || it.kind !== "test" || st.phase !== "back") return;
     audio.cancel();
-    useProgress.getState().rate(it.word.id, r);
-    onRated?.(it.word.id, r);
-    undoRef.current = { snap: st, id: it.word.id };
-    setToast((t) => ({ token: (t?.token ?? 0) + 1, message: `「${it.word.pt}」→ ${RATING_LABEL[r]}` }));
+    // 評価はカードキーで（産出カードは "id@p"。理解カードとは別の SRS）
+    useProgress.getState().rate(it.cardKey, r);
+    onRated?.(it.cardKey, r);
+    undoRef.current = { snap: st, key: it.cardKey };
+    const label = it.dir === "prod" ? `✍「${it.word.pt}」` : `「${it.word.pt}」`;
+    setToast((t) => ({ token: (t?.token ?? 0) + 1, message: `${label}→ ${RATING_LABEL[r]}` }));
     commit(step(st, { t: "rate", r }));
   }
 
@@ -211,27 +267,27 @@ export default function ReviewSession({
     if (!u) return;
     const P = useProgress.getState();
     // 取り消しは1段だけ。別の操作（クイズ等）で破棄されていたら何もしない
-    if (!P.canUndo(u.id)) return;
-    if (P.undo() !== u.id) return;
-    onUnrated?.(u.id);
+    if (!P.canUndo(u.key)) return;
+    if (P.undo() !== u.key) return;
+    onUnrated?.(u.key);
     audio.cancel();
     sRef.current = u.snap;
     inputLockRef.current = performance.now() + INPUT_LOCK_MS;
     setS(u.snap);
   }
 
-  function againRound(ws: Word[]) {
+  function againRound(ws: StudyItem[]) {
     undoRef.current = null;
     setToast(null);
-    dispatch({ t: "append", words: ws });
+    dispatch({ t: "append", items: ws });
   }
 
   function replay() {
     const st = sRef.current;
     const it = currentItem(st);
     if (!it) return;
-    // 和→葡の表面では答え（葡）を読み上げない
-    if (it.kind === "test" && st.phase === "front" && testDirection(it.word.id, today, direction) === "ja2pt") return;
+    // 和→葡の表面（産出カード・和→葡で出した理解カード）では答え（葡）を読み上げない
+    if (it.kind === "test" && st.phase === "front" && (it.dir === "prod" || testDirection(it.word.id, today, direction) === "ja2pt")) return;
     speak(it.word);
   }
 
@@ -372,9 +428,24 @@ export default function ReviewSession({
           direction={dir}
           showKana={showKana}
           showIpa={showIpa}
-          card={cards[cur.word.id]}
+          card={cards[cur.cardKey]}
           today={today}
           onReveal={reveal}
+          dir={cur.dir}
+          answer={answers[cur.key]}
+          answerMode={answerMode}
+          onAnswer={guard((input: string | null) => answerProd(input))}
+          speechSlot={
+            speechOn && cur.dir === "prod" && cur.kind === "test" && s.phase === "front" && speechInput.isSupported() ? (
+              <SayItButton
+                mode="word"
+                expected={quizAnswers(cur.word, true)}
+                gradeOptions={{ isKnownForm }}
+                showResult={false}
+                onScored={(sc) => answerProdSpeech(cur.key, sc)}
+              />
+            ) : undefined
+          }
         />
         <p className="mt-3 hidden text-center text-[11px] text-slate-400 md:block">
           Space: 答えを見る・次へ ／ 1〜4: 評価 ／ U: 取り消す ／ R: 音声
@@ -393,7 +464,13 @@ export default function ReviewSession({
             答えを見る
           </button>
         ) : (
-          <RatingButtons card={cards[cur.word.id]} onRate={guard(rate)} size="lg" today={today} />
+          <RatingButtons
+            card={cards[cur.cardKey]}
+            onRate={guard(rate)}
+            size="lg"
+            today={today}
+            suggested={cur.dir === "prod" ? answers[cur.key]?.suggested : undefined}
+          />
         )}
       </ActionBar>
       {toastEl}

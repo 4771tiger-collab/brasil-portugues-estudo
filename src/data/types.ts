@@ -94,19 +94,37 @@ export interface Pattern {
   note?: string;
 }
 
+/** 教材の難易度（短文 / 中文 / 長文） */
+export type ContentLevel = "short" | "medium" | "long";
+
 /** チャンクリーディングの1チャンク */
 export interface Chunk {
   pt: string;
   ja: string;
 }
+
+/** 読み物の内容チェックの設問（選択式。choices は3〜4個、answer は正解の番号 0 始まり） */
+export interface PassageQuestion {
+  /** 問い（日本語） */
+  q: string;
+  choices: string[];
+  answer: number;
+  /** 答えを選んだ後に出す解説（任意） */
+  explain?: string;
+}
+
 export interface Passage {
   id: string;
   title: string;
-  level: "short" | "medium" | "long";
+  level: ContentLevel;
   source: "original" | "news" | "custom";
   chunks: Chunk[];
   /** 取り込み元メモ（任意） */
   origin?: string;
+  /** 話題（任意。日常 / 食事 / 旅行 / 文化 / カポエイラ / 仕事 / 健康 など。一覧の絞り込みとチップに使う） */
+  topic?: string;
+  /** 内容チェックの設問（任意。本文の後に出す） */
+  questions?: PassageQuestion[];
 }
 
 /** シャドーイング用スクリプトの1行（kana省略時は自動生成） */
@@ -114,18 +132,24 @@ export interface ScriptLine {
   pt: string;
   kana?: string;
   ja: string;
+  /** 話者の表示名（会話 kind: "dialogue" では全行に必須。話者はちょうど2人） */
+  speaker?: string;
 }
 export interface Script {
   id: string;
   title: string;
   description?: string;
   lines: ScriptLine[];
+  /** 難易度（任意。一覧の絞り込みに使う。無ければ「すべて」でだけ出る） */
+  level?: ContentLevel;
+  /** monologue = 1人の語り（既定）、dialogue = 2人の会話（行ごとの話者・ロールプレイ） */
+  kind?: "monologue" | "dialogue";
 }
 
 /** ディクテーション項目 */
 export interface DictationItem {
   id: string;
-  level: "short" | "medium" | "long";
+  level: ContentLevel;
   /** 読み上げ・採点対象の本文 */
   text: string;
   ja: string;
@@ -143,6 +167,9 @@ export type StudyDirection = "pt2ja" | "ja2pt" | "mixed";
 
 /** 耳だけ復習の向き（pt2ja: 葡を聴いて和を思い出す / ja2pt: 和を聴いて葡を言う） */
 export type HandsfreeDirection = "pt2ja" | "ja2pt";
+
+/** 産出カード（和→葡）の答え方の既定（self: 言ってから答えを見て自分で評価 / type: 入力して採点） */
+export type ProductionAnswerMode = "self" | "type";
 
 /** 設定 */
 export interface Settings {
@@ -172,4 +199,19 @@ export interface Settings {
   handsfreeGapSec: number;
   /** 耳だけ復習の向き */
   handsfreeDirection: HandsfreeDirection;
+  /**
+   * 和→葡の産出カード（T2-1）を今日の学習に出す。理解カードの間隔が7日以上になった語から、別の SRS で。
+   * false にすると産出カードを一時停止する（新しく始めず、期限の来た産出カードも出さない。記録は残る）
+   */
+  productionEnabled: boolean;
+  /** 産出カードを新しく始める1日の上限（画面の選択肢は 0 / 3 / 5 / 10） */
+  dailyProductionNewLimit: number;
+  /** 産出カードの答え方の既定（どちらでも、カードの上で入力に切り替えられる） */
+  productionAnswerMode: ProductionAnswerMode;
+  /**
+   * 音声認識の「🎤 言ってみる」（T2-8）を使う。既定 false（オプトイン）。
+   * 設定画面で説明（音声は Chrome が Google の音声認識サービスに送る・このアプリは音声も認識結果も保存しない・
+   * オンラインのときだけ）を読んでからオンにする。端末ごとの同意なのでバックアップには入れない
+   */
+  speechInputEnabled: boolean;
 }

@@ -1,7 +1,12 @@
 // ============================================================================
 // 同梱データ（data/*.json）の整合性チェック
 //   npm run check:content
-// - 教材（patterns / passages / scripts / dictation）: ID の重複・形式、必須項目、パターンの {slot} の整合
+// - 教材（patterns / passages / scripts / dictation）: ID の重複・形式、必須項目、難易度、パターンの {slot} の整合
+// - 読み物の話題（topic）と内容チェックの設問（questions）: 3〜4個の重複の無い選択肢・範囲内の答えの番号
+// - スクリプトの会話（kind: dialogue）: 全行に話者（speaker）があり、話者がちょうど2人
+// - カポエイラ語のカテゴリの付け替え（capoeira-category-map.json）: キーが実在するカテゴリか・連鎖が無いか
+// - 教材の画面の純関数（services/materials・services/rolePlay）: 一覧の絞り込み・設問の答え・会話の話者・
+//   ロールプレイの進行（偽の読み上げと待ちで、順番・止めた位置・最初の読み上げが同期か）
 // - パターンの和文: 型に差し込むと崩れる選択肢（「手伝うしてもらえますか」など）に jaFull があるか
 // - パターン → 発話ドリル（patternDrill）: 文に { } が残らないか、10問に同じ文型が続かず全文型が出るか
 // - 読み物 → シャドーイングの文（sentenceGroups.groupChunks）: チャンクをすき間なく覆い、本文が変わらないか
@@ -19,8 +24,30 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join, relative, resolve } from "node:path";
-import type { Chunk, Pattern, PatternSlotOption, RawWord } from "../src/data/types";
+import type { Chunk, Passage, Pattern, PatternSlotOption, RawWord, Script } from "../src/data/types";
 import { groupChunks, isSentenceEnd, passageToScript } from "../src/services/sentenceGroups";
+import {
+  answerQuestion,
+  choiceOrders,
+  dialogueSpeakers,
+  emptyAnswers,
+  filterPassages,
+  frameBlank,
+  groupByLevel,
+  lineSpeaker,
+  matchesLevel,
+  normalizePassage,
+  normalizeScript,
+  parseLevelFilter,
+  passageQuestions,
+  passageTopic,
+  patternGroups,
+  quizSummary,
+  scriptSpeakers,
+  sentenceCount,
+  topicsOf,
+} from "../src/services/materials";
+import { myTurns, runRolePlay, turnGapMs, waitTurn, type RolePlayDeps } from "../src/services/rolePlay";
 import {
   fillSlot,
   frameParts,
@@ -74,7 +101,14 @@ const reqStr = (v: unknown) => (nonEmpty(v) ? null : "空でない文字列が�
 const optStr = (v: unknown) => (isStr(v) ? null : "文字列が必要");
 const optBool = (v: unknown) => (typeof v === "boolean" ? null : "true/false が必要");
 const oneOf = (xs: readonly string[]) => (v: unknown) => (isStr(v) && xs.includes(v) ? null : `${xs.join(" / ")} のどれか`);
+/** 画面にそのまま出す名前（話題・話者）: 空でなく、前後に空白が無い（表記ゆれで別の話題・話者にならないように） */
+const label = (v: unknown) => (!nonEmpty(v) ? "空でない文字列が必要" : v !== v.trim() ? "前後に空白がある" : null);
 const LEVELS = ["short", "medium", "long"] as const;
+/** スクリプトの種類（dialogue = 2人の会話。行ごとに speaker が要る） */
+const SCRIPT_KINDS = ["monologue", "dialogue"] as const;
+/** 内容チェックの設問の選択肢の数 */
+const QUESTION_CHOICES_MIN = 3;
+const QUESTION_CHOICES_MAX = 4;
 
 /** {pt, ja} の配列（min 件以上）。extra は各要素に許す任意項目 */
 function pairList(min: number, extra: Record<string, (v: unknown) => string | null> = {}) {
@@ -116,11 +150,13 @@ const SPECS: Record<ContentKind, FieldSpec> = {
       source: oneOf(["original", "news", "custom"]),
       chunks: pairList(1),
     },
-    optional: { origin: optStr },
+    // questions の中身は checkQuestions で1問ずつ検査する
+    optional: { origin: optStr, topic: label, questions: (v) => (Array.isArray(v) ? null : "配列が必要") },
   },
   scripts: {
-    required: { id: reqStr, title: reqStr, lines: pairList(1, { kana: optStr }) },
-    optional: { description: optStr },
+    // 会話（kind: dialogue）の話者の決まりは checkDialogue で検査する
+    required: { id: reqStr, title: reqStr, lines: pairList(1, { kana: optStr, speaker: label }) },
+    optional: { description: optStr, level: oneOf(LEVELS), kind: oneOf(SCRIPT_KINDS) },
   },
   dictation: {
     required: { id: reqStr, level: oneOf(LEVELS), text: reqStr, ja: reqStr, keyVocab: pairList(0) },
@@ -214,6 +250,71 @@ function checkPatternSlots(p: Obj, where: string, r: Report) {
   }
 }
 
+/**
+ * 読み物の内容チェックの設問（questions）: 1問ずつ、問い・3〜4個の重複の無い選択肢・範囲内の答えの番号・解説（任意）。
+ * どの設問も答えが同じ位置（3問以上）なら警告（位置で当てられる）
+ */
+export function checkQuestions(p: Obj, where: string, r: Report) {
+  const qs = p.questions;
+  if (qs === undefined || !Array.isArray(qs)) return;
+  if (qs.length === 0) {
+    r.error(`${where}.questions: 空の配列（設問が無いなら項目ごと書かない）`);
+    return;
+  }
+  const answers: number[] = [];
+  qs.forEach((x, i) => {
+    const w = `${where}.questions[${i}]`;
+    if (!isObj(x)) {
+      r.error(`${w}: オブジェクトでない`);
+      return;
+    }
+    for (const k of Object.keys(x)) {
+      if (!["q", "choices", "answer", "explain"].includes(k)) r.error(`${w}: 未知の項目 "${k}"（q / choices / answer / explain）`);
+    }
+    if (!nonEmpty(x.q)) r.error(`${w}.q: 空でない文字列が必要`);
+    if (x.explain !== undefined && !nonEmpty(x.explain)) r.error(`${w}.explain: 空でない文字列にする（無いなら書かない）`);
+    const ch = x.choices;
+    if (!Array.isArray(ch)) {
+      r.error(`${w}.choices: 配列が必要`);
+      return;
+    }
+    if (ch.length < QUESTION_CHOICES_MIN || ch.length > QUESTION_CHOICES_MAX) {
+      r.error(`${w}.choices: 選択肢は ${QUESTION_CHOICES_MIN}〜${QUESTION_CHOICES_MAX} 個（${ch.length} 個）`);
+    }
+    if (!ch.every(nonEmpty)) r.error(`${w}.choices: どの選択肢も空でない文字列にする`);
+    else {
+      const norm = ch.map((c) => c.trim().toLowerCase());
+      const dup = norm.find((c, j) => norm.indexOf(c) !== j);
+      if (dup !== undefined) r.error(`${w}.choices: 同じ選択肢「${dup}」が2回`);
+    }
+    const a = x.answer;
+    if (typeof a !== "number" || !Number.isInteger(a)) r.error(`${w}.answer: 整数（正解の番号。0 始まり）が必要`);
+    else if (a < 0 || a >= ch.length) r.error(`${w}.answer: ${a} は選択肢の範囲外（0〜${ch.length - 1}）`);
+    else answers.push(a);
+  });
+  if (answers.length >= 3 && answers.length === qs.length && answers.every((a) => a === answers[0])) {
+    r.warn(`${where}.questions: どの設問も正解が ${answers[0] + 1} 番目（位置で当てられる。並びを散らす）`);
+  }
+}
+
+/**
+ * スクリプトの話者: 会話（kind: "dialogue"）は全行に speaker があり、話者がちょうど2人。
+ * 会話でないのに speaker がある行は警告（画面では会話のときだけ話者を出す）
+ */
+export function checkDialogue(s: Obj, where: string, r: Report) {
+  if (!Array.isArray(s.lines)) return;
+  const lines = s.lines.filter(isObj);
+  const withSpeaker = lines.filter((l) => l.speaker !== undefined);
+  if (s.kind !== "dialogue") {
+    if (withSpeaker.length > 0) r.warn(`${where}: kind が "dialogue" でないのに speaker のある行が ${withSpeaker.length} 行（話者は会話でだけ出す）`);
+    return;
+  }
+  const missing = s.lines.flatMap((l, i) => (isObj(l) && nonEmpty(l.speaker) ? [] : [i]));
+  if (missing.length) r.error(`${where}: 会話（kind: dialogue）なのに speaker の無い行がある（lines[${missing.slice(0, 5).join("], [")}]）`);
+  const speakers = [...new Set(lines.flatMap((l) => (nonEmpty(l.speaker) ? [l.speaker.trim()] : [])))];
+  if (speakers.length !== 2) r.error(`${where}: 会話の話者はちょうど2人にする（${speakers.length} 人: ${speakers.join(" / ") || "なし"}）`);
+}
+
 /** 教材ファイル1つを検査し、ID の一覧を返す（ファイルをまたぐ重複の検査用） */
 export function checkContentFile(kind: ContentKind, raw: unknown, r: Report): string[] {
   const ids: string[] = [];
@@ -258,8 +359,59 @@ export function checkContentFile(kind: ContentKind, raw: unknown, r: Report): st
       if (kind === "passages" && id.startsWith("custom_")) r.error(`${where}: id "${id}" は custom_ で始めない（自作教材の ID と衝突する）`);
     }
     if (kind === "patterns") checkPatternSlots(item, where, r);
+    if (kind === "passages") checkQuestions(item, where, r);
+    if (kind === "scripts") checkDialogue(item, where, r);
   });
+  // 一部の項目にだけ話題・難易度があると、その話題・難易度で絞り込んだときに無い項目が一覧から消える
+  if (kind === "passages") checkPartialKey(raw, "topic", kind, r);
+  if (kind === "scripts") checkPartialKey(raw, "level", kind, r);
   return ids;
+}
+
+/** 一部の項目にだけ key がある（ほかの項目に無い）なら警告（絞り込むと key の無い項目が一覧に出ない） */
+function checkPartialKey(raw: readonly unknown[], key: string, kind: ContentKind, r: Report) {
+  const items = raw.filter(isObj);
+  const missing = items.filter((x) => !(key in x)).map((x) => (isStr(x.id) ? x.id : "?"));
+  if (missing.length > 0 && missing.length < items.length) {
+    r.warn(`${kind}: ${key} の無い項目 ${missing.join(", ")}（ほかの項目にはあるので、絞り込むと一覧から消える）`);
+  }
+}
+
+/**
+ * data/capoeira-category-map.json: { 元のカテゴリ: 表示するカテゴリ }（"_" で始まるキーはメモ）。
+ * キーは capoeira-words.json に実在するカテゴリ、値は空でない文字列でキーと違うもの。
+ * 付け替え先がまた付け替えられる（連鎖）と、読み込み（1回だけ引く）と食い違うのでエラー。
+ * 付け替えた後のカテゴリの一覧（出現順）を返す
+ */
+export function checkCategoryMap(raw: unknown, capoeira: readonly RawWord[], r: Report): string[] {
+  const cats: string[] = [];
+  for (const w of capoeira) if (w && isStr(w.カテゴリ) && !cats.includes(w.カテゴリ)) cats.push(w.カテゴリ);
+  if (!isObj(raw)) {
+    r.error("capoeira-category-map: オブジェクトでない");
+    return cats;
+  }
+  const map = new Map<string, string>();
+  for (const [k, v] of Object.entries(raw)) {
+    if (k.startsWith("_")) continue;
+    const where = `capoeira-category-map["${k}"]`;
+    if (!cats.includes(k)) r.error(`${where}: capoeira-words.json にこのカテゴリが無い`);
+    if (!nonEmpty(v)) {
+      r.error(`${where}: 付け替え先は空でない文字列にする`);
+      continue;
+    }
+    if (v !== v.trim()) r.error(`${where}: 付け替え先の前後に空白がある`);
+    if (v.trim() === k) r.error(`${where}: 付け替え先が元のカテゴリと同じ`);
+    map.set(k, v.trim());
+  }
+  for (const [k, v] of map) {
+    if (map.has(v) && v !== k) r.error(`capoeira-category-map["${k}"]: 付け替え先「${v}」がまた付け替えられている（連鎖。最後の名前を直接書く）`);
+  }
+  const after: string[] = [];
+  for (const c of cats) {
+    const d = map.get(c) ?? c;
+    if (!after.includes(d)) after.push(d);
+  }
+  return after;
 }
 
 /** 教材ファイルをまたいだ ID の重複 */
@@ -809,6 +961,335 @@ console.log("=== 自己テスト（壊したフィクスチャを見つけられ
   expect(findLyricFields({ note: "[00:12.34] Eu sei" }).length === 1, "歌詞: LRC のタイムスタンプ");
   expect(findLyricFields({ t: "12:30 に集合 [注]" }).length === 0, "歌詞: 普通の時刻・角括弧は当たらない");
 }
+
+// ---------------------------------------------------------------------------
+// 拡充した教材の形（T2-3）: 読み物の話題・設問、スクリプトの会話、カポエイラのカテゴリの付け替え
+{
+  const Q = (o: Obj = {}) => ({ q: "どこ？", choices: ["A", "B", "C"], answer: 1, explain: "B とある", ...o });
+  const psg = (o: Obj = {}) => ({
+    id: "psg_q",
+    title: "t",
+    level: "short",
+    source: "original",
+    topic: "食事",
+    chunks: [{ pt: "Oi.", ja: "やあ。" }],
+    questions: [Q(), Q({ answer: 0 }), Q({ choices: ["A", "B", "C", "D"], answer: 3 })],
+    ...o,
+  });
+  const P1 = (o: Obj) => (r: Report) => checkContentFile("passages", [psg(o)], r);
+  flags(P1({}), null, "設問つきの読み物（話題・3〜4択・解説）");
+  flags(P1({ questions: [Q({ answer: 3 })] }), /範囲外/, "設問: 答えの番号が選択肢の範囲外");
+  flags(P1({ questions: [Q({ answer: -1 })] }), /範囲外/, "設問: 答えの番号が負");
+  flags(P1({ questions: [Q({ answer: 1.5 })] }), /整数/, "設問: 答えの番号が整数でない");
+  flags(P1({ questions: [Q({ answer: "1" })] }), /整数/, "設問: 答えの番号が文字列");
+  flags(P1({ questions: [Q({ choices: ["A", "B"], answer: 0 })] }), /3〜4 個/, "設問: 選択肢が2個");
+  flags(P1({ questions: [Q({ choices: ["A", "B", "C", "D", "E"] })] }), /3〜4 個/, "設問: 選択肢が5個");
+  flags(P1({ questions: [Q({ choices: ["A", "b ", "B"] })] }), /同じ選択肢/, "設問: 同じ選択肢（大文字小文字・空白の違いだけ）");
+  flags(P1({ questions: [Q({ choices: ["A", "", "C"] })] }), /空でない文字列/, "設問: 空の選択肢");
+  flags(P1({ questions: [Q({ choices: "A,B,C" })] }), /choices: 配列/, "設問: 選択肢が配列でない");
+  flags(P1({ questions: [Q({ q: "" })] }), /\.q: 空でない/, "設問: 問いが空");
+  flags(P1({ questions: [Q({ explain: "" })] }), /explain/, "設問: 解説が空");
+  flags(P1({ questions: [Q({ hint: "x" })] }), /未知の項目 "hint"/, "設問: 未知の項目");
+  flags(P1({ questions: [] }), /空の配列/, "設問: 空の配列");
+  flags(P1({ questions: { q: "x" } }), /questions: 配列が必要/, "設問: 配列でない");
+  flags(P1({ questions: ["x"] }), /オブジェクトでない/, "設問: 要素がオブジェクトでない");
+  flags(P1({ topic: " 食事" }), /topic: 前後に空白/, "話題の前後に空白");
+  flags(P1({ topic: "" }), /topic/, "話題が空");
+  flags(P1({ level: "easy" }), /level/, "読み物の難易度が範囲外");
+  {
+    const r = new Report();
+    checkContentFile("passages", [psg({ questions: [Q({ answer: 2 }), Q({ answer: 2 }), Q({ answer: 2 })] })], r);
+    expect(r.errors.length === 0 && r.warns.some((w) => /正解が 3 番目/.test(w)), "設問: どれも正解が同じ位置 → 警告だけ");
+  }
+
+  const L = (speaker: unknown, pt = "Oi.") => (speaker === undefined ? { pt, ja: "やあ" } : { pt, ja: "やあ", speaker });
+  const scr = (o: Obj = {}) => ({ id: "scr_d", title: "t", level: "short", kind: "dialogue", lines: [L("Ana"), L("Yuki"), L("Ana")], ...o });
+  const S1 = (o: Obj) => (r: Report) => checkContentFile("scripts", [scr(o)], r);
+  flags(S1({}), null, "会話（2人・全行に話者・難易度つき）");
+  flags(S1({ kind: "monologue", lines: [L(undefined)] }), null, "1人の語り（話者なし）");
+  flags((r) => checkContentFile("scripts", [{ id: "scr_o", title: "t", lines: [L(undefined)] }], r), null, "難易度・種類の無い旧形式のスクリプト");
+  flags(S1({ lines: [L("Ana"), L(undefined), L("Yuki")] }), /speaker の無い行/, "会話: 話者の無い行");
+  flags(S1({ lines: [L("Ana"), L("Yuki"), L("Rui")] }), /ちょうど2人.*3 人/, "会話: 話者が3人");
+  flags(S1({ lines: [L("Ana"), L("Ana")] }), /ちょうど2人.*1 人/, "会話: 話者が1人");
+  flags(S1({ lines: [L("Ana"), L("Yuki "), L("Ana")] }), /前後に空白/, "会話: 話者の前後に空白（表記ゆれ）");
+  flags(S1({ lines: [L("Ana"), L(""), L("Yuki")] }), /speaker/, "会話: 話者が空");
+  flags(S1({ level: "easy" }), /level/, "スクリプトの難易度が範囲外");
+  flags(S1({ kind: "chat" }), /kind/, "スクリプトの種類が範囲外");
+  {
+    const r = new Report();
+    checkContentFile("scripts", [scr({ kind: "monologue" })], r);
+    expect(r.errors.length === 0 && r.warns.some((w) => /speaker のある行が 3 行/.test(w)), "会話でないのに話者 → 警告だけ");
+  }
+  flags((r) => checkContentFile("scripts", [scr(), scr()], r), /重複/, "スクリプトの id 重複");
+  {
+    const r = new Report();
+    checkContentFile("scripts", [scr(), { id: "scr_o", title: "t", lines: [L(undefined)] }], r);
+    expect(r.errors.length === 0 && r.warns.some((w) => /level の無い項目 scr_o/.test(w)), "一部のスクリプトにだけ難易度 → 警告だけ");
+    const r2 = new Report();
+    checkContentFile("passages", [psg(), { ...psg({ id: "psg_n" }), topic: undefined }].map((x) => JSON.parse(JSON.stringify(x))), r2);
+    expect(r2.errors.length === 0 && r2.warns.some((w) => /topic の無い項目 psg_n/.test(w)), "一部の読み物にだけ話題 → 警告だけ");
+  }
+
+  // カポエイラのカテゴリの付け替え
+  const cw = (cat: string): RawWord => ({ カテゴリ: cat, ポルトガル語: "x", 日本語: "j", 品詞: "名詞" });
+  const CAP = [cw("基本動作・技術"), cw("状態・方向"), cw("状態・評価"), cw("基本動作"), cw("音楽")];
+  {
+    const r = new Report();
+    const after = checkCategoryMap(
+      { _comment: "メモ", 基本動作: "基本動作・技術", "状態・方向": "状態・方向・評価", "状態・評価": "状態・方向・評価" },
+      CAP,
+      r
+    );
+    expect(
+      r.errors.length === 0 && after.join("|") === "基本動作・技術|状態・方向・評価|音楽",
+      `カテゴリの付け替え: 正しい表（付け替え後 ${after.join("|")}）`
+    );
+  }
+  flags((r) => checkCategoryMap({ 存在しない: "x" }, CAP, r), /このカテゴリが無い/, "カテゴリの付け替え: 実在しないキー");
+  flags((r) => checkCategoryMap({ 音楽: "音楽" }, CAP, r), /元のカテゴリと同じ/, "カテゴリの付け替え: 同じ名前へ");
+  flags((r) => checkCategoryMap({ 音楽: "" }, CAP, r), /空でない/, "カテゴリの付け替え: 付け替え先が空");
+  flags((r) => checkCategoryMap({ 音楽: 3 }, CAP, r), /空でない/, "カテゴリの付け替え: 付け替え先が文字列でない");
+  flags((r) => checkCategoryMap({ 基本動作: "状態・方向", "状態・方向": "状態" }, CAP, r), /連鎖/, "カテゴリの付け替え: 連鎖");
+  flags((r) => checkCategoryMap([], CAP, r), /オブジェクトでない/, "カテゴリの付け替え: 配列");
+  flags((r) => checkCategoryMap({ _x: "何でも" }, CAP, r), null, "カテゴリの付け替え: _ で始まるキーはメモ");
+
+  // 発話ドリル: 文型が多い（30文型）ときも、10問は重複なし・同じ文型が続かず10文型から出る
+  {
+    const many: Pattern[] = Array.from({ length: 30 }, (_, k) => ({
+      id: `p${k}`,
+      category: `c${k}`,
+      frame: `F {X} ${k}.`,
+      ja: `{X}の${k}`,
+      slots: { X: Array.from({ length: 6 }, (_, i) => ({ pt: `w${k}_${i}`, ja: `j${i}` })) },
+    }));
+    flags((r) => checkPatternDrill(many, r, 10, 30), null, "発話ドリル: 30文型×6語から10問");
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 教材の画面の純関数（services/materials）
+{
+  const ch = (pt: string, ja = "") => ({ pt, ja });
+  const P = (id: string, level: string, topic?: unknown, o: Obj = {}): Passage =>
+    ({ id, title: id, level, source: "original", chunks: [ch("Oi, tudo bem?"), ch("Sim."), ch("E você")], ...(topic !== undefined ? { topic } : {}), ...o }) as Passage;
+  const ps = [P("a", "short", "旅行"), P("b", "medium", "食事"), P("c", "long"), P("d", "short", " 家族 "), P("e", "short", "趣味"), P("f", "medium", 3), P("g", "long", "旅行")];
+
+  expect(parseLevelFilter("short") === "short" && parseLevelFilter("x") === "all" && parseLevelFilter(null) === "all", "parseLevelFilter: 知らない値は all");
+  expect(matchesLevel(undefined, "all") && !matchesLevel(undefined, "short") && matchesLevel("long", "long"), "matchesLevel: 難易度の無い教材は「すべて」だけ");
+  const gl = groupByLevel([{ id: 1, level: "long" }, { id: 2, level: "short" }, { id: 3 }, { id: 4, level: "short" }, { id: 5, level: "x" }]);
+  expect(
+    gl.map((g) => `${g.level}:${g.items.map((x) => x.id).join(",")}`).join(" ") === "short:2,4 long:1",
+    "groupByLevel: 短文→中文→長文、空は出さない、難易度の無い項目は入れない"
+  );
+  expect(passageTopic(ps[3]) === "家族" && passageTopic(ps[2]) === null && passageTopic(ps[5]) === null, "passageTopic: 前後の空白を除く・無い・文字列でない");
+  expect(topicsOf(ps).join("|") === "食事|家族|旅行|趣味", `topicsOf: よく使う話題の順 → 残りは出現順（${topicsOf(ps).join("|")}）`);
+  expect(
+    filterPassages(ps, "short", null).map((p) => p.id).join() === "a,d,e" &&
+      filterPassages(ps, "all", "旅行").map((p) => p.id).join() === "a,g" &&
+      filterPassages(ps, "long", "旅行").map((p) => p.id).join() === "g" &&
+      filterPassages(ps, "all", null).length === ps.length,
+    "filterPassages: 難易度と話題の両方で絞る"
+  );
+  expect(sentenceCount(ps[0]) === 3 && sentenceCount(P("z", "short", undefined, { chunks: [ch("A,"), ch("b."), ch(" ")] })) === 1, "sentenceCount: 文の数（本文の無い文は数えない）");
+  expect(
+    sentenceCount(P("y", "short", undefined, { chunks: [ch("A."), { ja: "x" }, null, ch("B.")] })) === 2 && sentenceCount(P("x", "short", undefined, { chunks: "A." })) === 0,
+    "sentenceCount: 形の崩れたチャンク・配列でない chunks でも落ちない"
+  );
+
+  const good = { q: "問", choices: ["A", "B", "C"], answer: 2, explain: "説明" };
+  const pq = P("q", "short", undefined, {
+    questions: [good, { q: "", choices: ["A", "B"], answer: 0 }, { q: "問2", choices: ["A", "B"], answer: 2 }, { q: "問3", choices: ["A", 1], answer: 0 }, { q: "問4", choices: ["A", "B"], answer: 1, explain: 5 }, null, "x"],
+  });
+  const vq = passageQuestions(pq);
+  expect(vq.length === 2 && vq[0].explain === "説明" && vq[1].q === "問4" && !("explain" in vq[1]), "passageQuestions: 崩れた設問を落とす（解説は文字列のときだけ）");
+  expect(passageQuestions(P("n", "short", undefined, { questions: "x" })).length === 0 && passageQuestions(ps[0]).length === 0, "passageQuestions: 配列でない・無い → []");
+
+  const qs = [good, { q: "b", choices: ["x", "y", "z"], answer: 0 }];
+  const a0 = emptyAnswers(2);
+  const a1 = answerQuestion(qs, a0, 0, 1);
+  const a2 = answerQuestion(qs, a1, 0, 2);
+  const a3 = answerQuestion(qs, a1, 1, 0);
+  expect(a0[0] === null && a1[0] === 1 && a2 === a1 && a3[1] === 0 && a3[0] === 1, "answerQuestion: 1回目の答えで決まる（答え直せない）・元の配列は変えない");
+  expect(answerQuestion(qs, a0, 5, 0) === a0 && answerQuestion(qs, a0, 0, 3) === a0 && answerQuestion(qs, a0, 0, -1) === a0, "answerQuestion: 範囲外の設問・選択肢は無視");
+  const s1 = quizSummary(qs, a1);
+  const s3 = quizSummary(qs, a3);
+  expect(s1.answered === 1 && !s1.done && s3.done && s3.correct === 1 && s3.total === 2, "quizSummary: 回答数・正解数・全問回答");
+  expect(!quizSummary([], []).done, "quizSummary: 設問0は done にしない");
+
+  // 選択肢の出す順（画面でシャッフル。答えは元の番号のまま）
+  const q4 = [good, { q: "b", choices: ["w", "x", "y", "z"], answer: 3 }];
+  const o1 = choiceOrders(q4, "psg_x:0");
+  expect(
+    o1.length === 2 && o1.every((o, i) => o.length === q4[i].choices.length && [...o].sort().join() === q4[i].choices.map((_, k) => k).join()),
+    "choiceOrders: 設問ごとに元の番号の並べ替え（抜け・重複なし）"
+  );
+  expect(JSON.stringify(choiceOrders(q4, "psg_x:0")) === JSON.stringify(o1), "choiceOrders: 同じ種なら同じ並び");
+  expect(choiceOrders([], "x").length === 0, "choiceOrders: 設問0 → []");
+
+  const np = normalizePassage(P("np", "short", " 旅行 ", { questions: [good, { q: "x" }] }));
+  const np0 = normalizePassage(P("np0", "short", "", { questions: [{ q: "x" }] }));
+  expect(np.topic === "旅行" && np.questions?.length === 1 && !("topic" in np0) && !("questions" in np0) && np0.chunks.length === 3, "normalizePassage: 話題を整え、崩れた設問を落とし、空の項目は置かない");
+
+  const sc = (o: Obj): Script => ({ id: "s", title: "t", lines: [{ pt: "a", ja: "", speaker: " Ana " }, { pt: "b", ja: "", speaker: "Yuki" }, { pt: "c", ja: "", speaker: "Ana" }], ...o }) as Script;
+  const dia = normalizeScript(sc({ kind: "dialogue", level: "medium" }));
+  expect(lineSpeaker({ speaker: " Ana " }) === "Ana" && lineSpeaker({ speaker: "" }) === null && lineSpeaker({}) === null, "lineSpeaker: 前後の空白を除く・空は null");
+  expect(scriptSpeakers(sc({})).join() === "Ana,Yuki", "scriptSpeakers: 出てくる順・重複なし");
+  expect(dialogueSpeakers(dia)?.join() === "Ana,Yuki" && dia.level === "medium" && dia.lines[0].speaker === "Ana", "dialogueSpeakers: 会話の2人（normalizeScript で話者を整える）");
+  expect(dialogueSpeakers(sc({})) === null && dialogueSpeakers(sc({ kind: "monologue" })) === null, "dialogueSpeakers: kind が dialogue でなければ null");
+  expect(
+    dialogueSpeakers(sc({ kind: "dialogue", lines: [{ pt: "a", ja: "", speaker: "A" }, { pt: "b", ja: "", speaker: "B" }, { pt: "c", ja: "" }] })) === null &&
+      dialogueSpeakers(sc({ kind: "dialogue", lines: [{ pt: "a", ja: "", speaker: "A" }, { pt: "b", ja: "", speaker: "B" }, { pt: "c", ja: "", speaker: "C" }] })) === null &&
+      dialogueSpeakers(sc({ kind: "dialogue", lines: [] })) === null,
+    "dialogueSpeakers: 話者の無い行・3人・行なし → null（ふつうのスクリプトとして出す）"
+  );
+  const bad = normalizeScript(sc({ kind: "chat", level: "easy", lines: [{ pt: "a", ja: "", speaker: "  " }] }));
+  expect(!("kind" in bad) && !("level" in bad) && !("speaker" in bad.lines[0]), "normalizeScript: 知らない種類・難易度・空の話者は置かない");
+
+  const pat = (id: string, category: string): Pattern => ({ id, category, frame: `Eu {X} ${id}.`, ja: "{X}", slots: { X: [{ pt: "a", ja: "a" }] } });
+  const groups = patternGroups([pat("1", "欲求"), pat("2", "カポエイラ：誘う"), pat("3", "場所"), pat("4", "欲求"), pat("5", "カポエイラ: 指示"), pat("6", "カポエイラ：誘う")]);
+  expect(
+    groups.map((g) => `${g.name ?? "基本"}=${g.entries.map((e) => `${e.pattern.id}:${e.label}`).join(",")}`).join(" ") ===
+      "基本=1:欲求,4:欲求,3:場所 カポエイラ=2:誘う,6:誘う,5:指示",
+    `patternGroups: 「：」の前でまとめ、同じカテゴリを隣に（${groups.map((g) => `${g.name}=${g.entries.map((e) => e.pattern.id).join(",")}`).join(" ")}）`
+  );
+  expect(patternGroups([pat("1", "カポエイラ：誘う")]).length === 1 && patternGroups([pat("1", "カポエイラ：誘う")])[0].name === "カポエイラ", "patternGroups: 基本の文型が無ければそのまとまりは出さない");
+  expect(frameBlank("Eu quero {X}.") === "Eu quero ＿＿." && frameBlank("{S} {V:inf}") === "＿＿ ＿＿", "frameBlank: {…} を ＿＿ に");
+}
+
+// ---------------------------------------------------------------------------
+// 会話のロールプレイ（services/rolePlay）: 偽の読み上げ・待ちで進行を確かめる
+{
+  expect(turnGapMs("Oi.", 1) === 1500 && turnGapMs("x".repeat(30), 1) === 2700 && turnGapMs("x".repeat(30), 1.5) === 1800, "turnGapMs: max(1.5秒, 文字数×90ms÷速さ)");
+  expect(turnGapMs("x".repeat(30), 0) === 2700 && turnGapMs("  Oi  ", NaN) === 1500, "turnGapMs: 速さが 0・NaN なら 1.0");
+  const lines = [
+    { pt: "A1", speaker: "Ana" },
+    { pt: "Y1", speaker: "Yuki" },
+    { pt: "A2", speaker: "Ana" },
+    { pt: "A3", speaker: "Ana" },
+    { pt: "Y2", speaker: "Yuki" },
+  ];
+  const mine = myTurns(lines, "Yuki");
+  expect(mine.join() === "false,true,false,false,true", "myTurns: 自分の役の行");
+
+  /** 偽の依存。onTurn / onSpeak で途中に止める */
+  const fake = (hooks: { onSpeak?: (i: number) => void; onTurn?: (i: number) => void; onPause?: () => void } = {}) => {
+    const log: string[] = [];
+    const deps: RolePlayDeps = {
+      speak: async (t, i) => {
+        log.push(`speak:${t}`);
+        hooks.onSpeak?.(i);
+      },
+      turn: async (i, signal) => {
+        log.push(`turn:${i}`);
+        hooks.onTurn?.(i);
+        if (signal.aborted) throw new DOMException("aborted", "AbortError");
+      },
+      pause: async (ms, signal) => {
+        log.push(`pause:${ms}`);
+        hooks.onPause?.();
+        if (signal.aborted) throw new DOMException("aborted", "AbortError");
+      },
+      onLine: (i, m) => log.push(`line:${i}${m ? "*" : ""}`),
+    };
+    return { log, deps };
+  };
+
+  {
+    const f = fake();
+    const ctrl = new AbortController();
+    const p = runRolePlay(lines, mine, 0, f.deps, ctrl.signal, 500);
+    // 最初の読み上げは呼び出しの中で同期に始まる（クリック処理の中で speak する）
+    expect(f.log.join() === "line:0,speak:A1", `runRolePlay: 最初の読み上げは同期（${f.log.join()}）`);
+    const res = await p;
+    expect(
+      f.log.join(" ") === "line:0 speak:A1 line:1* turn:1 line:2 speak:A2 pause:500 line:3 speak:A3 line:4* turn:4",
+      `runRolePlay: 相手の行は読み、自分の行は待つ。間は相手の行が続くときだけ（${f.log.join(" ")}）`
+    );
+    expect(res.completed && res.next === 5, "runRolePlay: 最後まで → completed");
+  }
+  {
+    const ctrl = new AbortController();
+    const f = fake({ onTurn: (i) => i === 1 && ctrl.abort() });
+    const res = await runRolePlay(lines, mine, 0, f.deps, ctrl.signal);
+    expect(!res.completed && res.next === 1 && !f.log.includes("line:2"), "runRolePlay: 自分の番で止めた → その行から再開");
+    const f2 = fake();
+    const res2 = await runRolePlay(lines, mine, res.next, f2.deps, new AbortController().signal);
+    expect(res2.completed && f2.log[0] === "line:1*", "runRolePlay: 止めた行から再開して最後まで");
+  }
+  {
+    const ctrl = new AbortController();
+    const f = fake({ onSpeak: (i) => i === 2 && ctrl.abort() });
+    const res = await runRolePlay(lines, mine, 0, f.deps, ctrl.signal);
+    expect(!res.completed && res.next === 2 && !f.log.some((x) => x.startsWith("pause")), "runRolePlay: 読み上げの途中で止めた → その行から");
+  }
+  {
+    const ctrl = new AbortController();
+    const f = fake({ onPause: () => ctrl.abort() });
+    const res = await runRolePlay(lines, mine, 0, f.deps, ctrl.signal);
+    expect(!res.completed && res.next === 3, "runRolePlay: 行の後の間で止めた → 次の行から");
+  }
+  {
+    const f = fake();
+    const ctrl = new AbortController();
+    ctrl.abort();
+    const r1 = await runRolePlay(lines, mine, 0, f.deps, ctrl.signal);
+    const r2 = await runRolePlay(lines, mine, 9, f.deps, new AbortController().signal);
+    expect(!r1.completed && r1.next === 0 && !r2.completed && r2.next === 5 && f.log.length === 0, "runRolePlay: 止めてから・範囲外からは何もしない");
+  }
+  {
+    const f = fake();
+    const res = await runRolePlay(lines, myTurns(lines, "Ana"), 0, f.deps, new AbortController().signal, 0);
+    expect(res.completed && f.log[1] === "turn:0" && !f.log.some((x) => x.startsWith("pause")), "runRolePlay: 自分が先に話す役・間 0");
+  }
+
+  // waitTurn: 「次へ」・考える間・止める
+  {
+    let adv: (() => void) | null = null;
+    const set = (fn: (() => void) | null) => {
+      adv = fn;
+    };
+    const t0 = Date.now();
+    const pNext = waitTurn(null, new AbortController().signal, set);
+    const gotAdv = typeof adv === "function";
+    (adv as unknown as () => void)();
+    await pNext;
+    expect(gotAdv && adv === null && Date.now() - t0 < 1000, "waitTurn: 「次へ」で進み、終わったら setAdvance(null)");
+
+    await waitTurn(20, new AbortController().signal, set);
+    expect(adv === null && Date.now() - t0 >= 20, "waitTurn: 考える間が過ぎたら進む");
+
+    const ctrl = new AbortController();
+    const pAbort = waitTurn(10_000, ctrl.signal, set);
+    ctrl.abort();
+    let rejected = false;
+    try {
+      await pAbort;
+    } catch (e) {
+      rejected = e instanceof DOMException && e.name === "AbortError";
+    }
+    expect(rejected && adv === null, "waitTurn: 止めたら AbortError（考える間のタイマーも止まる）");
+
+    const done = new AbortController();
+    done.abort();
+    let rejected2 = false;
+    await waitTurn(null, done.signal, set).catch(() => (rejected2 = true));
+    expect(rejected2, "waitTurn: 止めた後に呼んだら、すぐ AbortError");
+
+    // 「次へ」を2回押しても1回だけ（2回目は何もしない。次の番の「次へ」を消さない）
+    let n = 0;
+    const p2 = waitTurn(null, new AbortController().signal, set).then(() => n++);
+    const a = adv as unknown as () => void;
+    a();
+    await p2;
+    const p3 = waitTurn(null, new AbortController().signal, set);
+    const b = adv as unknown as () => void;
+    a();
+    const keptNext = adv === b;
+    b();
+    await p3;
+    expect(n === 1 && keptNext, "waitTurn: 前の番の「次へ」をもう一度押しても、次の番の「次へ」は消えない");
+  }
+}
 console.log(`  ${selfPass} passed, ${selfFail} failed`);
 
 // ---------------------------------------------------------------------------
@@ -836,16 +1317,62 @@ for (const kind of ["patterns", "passages", "scripts", "dictation"] as const) {
 checkCrossIds(idsByKind, report);
 console.log(`  passages → シャドーイング: ${checkPassageSentences(loadJson("data/passages.json"), report)} 文`);
 {
+  // 内容チェックの正解の位置: 画面の並び（choiceOrders）では、同じ並びの読み物が偏らない
+  const withQ = (loadJson("data/passages.json") as Passage[]).filter((p) => passageQuestions(p).length > 0);
+  const seqs = new Map<string, number>();
+  for (const p of withQ) {
+    const qs = passageQuestions(p);
+    const shown = choiceOrders(qs, `${p.id}:0`).map((o, qi) => String.fromCharCode(65 + o.indexOf(qs[qi].answer))).join("");
+    seqs.set(shown, (seqs.get(shown) ?? 0) + 1);
+  }
+  const top = Math.max(0, ...seqs.values());
+  console.log(`  内容チェック: 画面での正解の位置の並び ${seqs.size} 通り（最多 ${top} / ${withQ.length} 件）`);
+  if (withQ.length >= 6 && top > withQ.length / 3) report.warn(`内容チェック: 画面での正解の位置の並びが ${top} / ${withQ.length} 件で同じ（位置で当てられる）`);
+}
+{
   const d = checkPatternDrill(loadJson("data/patterns.json"), report);
   console.log(`  patterns → 発話ドリル: ${d.items} 文（うち jaFull ${d.jaFull}）`);
 }
+{
+  // 画面で読む形（content.ts と同じ整え）でも、検査を通った設問・会話がそのまま残るか
+  const rawP = loadJson("data/passages.json");
+  const rawS = loadJson("data/scripts.json");
+  const rawPat = loadJson("data/patterns.json");
+  if (Array.isArray(rawP)) {
+    const ps = (rawP.filter(isObj) as unknown as Passage[]).map(normalizePassage);
+    const nq = ps.reduce((n, p) => n + (p.questions?.length ?? 0), 0);
+    const rawQ = rawP.filter(isObj).reduce((n, p) => n + (Array.isArray(p.questions) ? p.questions.length : 0), 0);
+    if (nq !== rawQ) report.error(`passages: 画面に出せない設問がある（${rawQ} 問中 ${nq} 問）`);
+    const levels = groupByLevel(ps).map((g) => `${g.level} ${g.items.length}`).join("・");
+    console.log(`  passages: ${levels} / 話題 ${topicsOf(ps).join("・") || "なし"} / 内容チェック ${nq} 問（${ps.filter((p) => p.questions).length} 編）`);
+  }
+  if (Array.isArray(rawS)) {
+    const ss = (rawS.filter((s) => isObj(s) && Array.isArray(s.lines)) as unknown as Script[]).map(normalizeScript);
+    const dialogues = ss.filter((s) => dialogueSpeakers(s) !== null);
+    const declared = ss.filter((s) => s.kind === "dialogue").length;
+    if (dialogues.length !== declared) report.error(`scripts: 会話（kind: dialogue）${declared} 本のうち、ロールプレイにできるのは ${dialogues.length} 本`);
+    console.log(`  scripts: 会話 ${dialogues.length} 本・そのほか ${ss.length - dialogues.length} 本（難易度つき ${ss.filter((s) => s.level).length} 本）`);
+  }
+  if (Array.isArray(rawPat) && rawPat.every((p) => isObj(p) && isStr(p.category))) {
+    const pats = rawPat as unknown as Pattern[];
+    const groups = patternGroups(pats);
+    const listed = groups.flatMap((g) => g.entries.map((e) => e.pattern.id));
+    if (listed.length !== pats.length || new Set(listed).size !== pats.length) report.error("patterns → 一覧: まとめると漏れる・重なる文型がある");
+    console.log(`  patterns → 一覧: ${groups.map((g) => `${g.name ?? "基本"} ${g.entries.length}`).join("・")}`);
+  }
+}
 
-console.log("=== 導入順（core-order）・別名（word-aliases） ===");
+console.log("=== カテゴリの付け替え・導入順（core-order）・別名（word-aliases） ===");
 const tables: WordTables = {
   words: asTable(loadJson("data/words.json"), "words"),
   capoeira: asTable(loadJson("data/capoeira-words.json"), "capoeira-words"),
   dict: asTable(loadJson("data/dict-words.json"), "dict-words"),
 };
+{
+  const before = new Set(tables.capoeira.map((w) => w?.カテゴリ)).size;
+  const after = checkCategoryMap(loadJson("data/capoeira-category-map.json"), tables.capoeira, report);
+  console.log(`  capoeira-category-map: カポエイラのカテゴリ ${before} → ${after.length}（${after.join(" ／ ")}）`);
+}
 const aliasesRaw = loadJson("data/word-aliases.json");
 checkAliases(aliasesRaw, tables, report);
 const aliasIds = aliasIdsOf(aliasesRaw);

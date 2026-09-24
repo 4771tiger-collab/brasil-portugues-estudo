@@ -26,7 +26,6 @@ import {
   hintText,
   ratingForGrade,
   ratingForOverride,
-  type DiffSeg,
   type GradeResult,
 } from "../services/grade";
 import { isKnownForm, isOwnAnswer, quizAnswers } from "../services/gradeLexicon";
@@ -34,6 +33,7 @@ import { useToday } from "../hooks/useToday";
 import { useTodayPlan } from "../hooks/useTodayPlan";
 import SpeakerButton from "../components/SpeakerButton";
 import PtInput from "../components/PtInput";
+import DiffView from "../components/DiffView";
 
 /**
  * 出題モード。
@@ -167,30 +167,6 @@ function markOf(ok: boolean, t: TypedAnswer | null): { mark: string; cls: string
 
 /** ボタンを押してもフォーカス（スマホのキーボード）を入力欄に残す（pointerdown/mousedown の既定動作を止める） */
 const keepFocus = (e: React.SyntheticEvent) => e.preventDefault();
-
-/** 空白の差分は見えないので記号にする */
-const showSpaces = (s: string) => s.replace(/ /g, "␣");
-
-/** 入力と正解の文字差分（赤の取り消し線 = 余分な文字、緑 = 足りない文字） */
-function DiffView({ diff }: { diff: DiffSeg[] }) {
-  return (
-    <div className="break-all font-mono text-lg tracking-wide text-brand-ink">
-      {diff.map((d, i) =>
-        d.kind === "same" ? (
-          <span key={i}>{d.text}</span>
-        ) : d.kind === "del" ? (
-          <del key={i} className="rounded bg-rose-100 text-rose-600">
-            {showSpaces(d.text)}
-          </del>
-        ) : (
-          <ins key={i} className="rounded bg-emerald-100 font-bold text-emerald-700 no-underline">
-            {showSpaces(d.text)}
-          </ins>
-        )
-      )}
-    </div>
-  );
-}
 
 /**
  * 解答カード: 正解の綴り・カナ・音声・意味・例文1件・解説（カポエイラ語）。

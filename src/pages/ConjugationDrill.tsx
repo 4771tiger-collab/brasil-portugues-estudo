@@ -1,12 +1,12 @@
 import { useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import PtInput from "../components/PtInput";
+import DiffView from "../components/DiffView";
 import SpeakerButton from "../components/SpeakerButton";
 import { ALL_WORDS, DICT_RAW, resolveWord } from "../data/loadWords";
 import { getConjugator, irregularTable, irregularVerbs } from "../data/conjugator";
 import type { SrsCard, Word } from "../data/types";
 import { audio } from "../services/audio";
-import type { DiffSeg } from "../services/grade";
 import { toKana } from "../services/pronunciation";
 import {
   answerEntry,
@@ -135,30 +135,6 @@ function Prompt({ inf, tense, person, big }: { inf: string; tense: TableTense; p
       <span className="font-normal text-slate-300"> ・ </span>
       {PERSON_PROMPT[person]}
     </span>
-  );
-}
-
-/** 空白の差分は見えないので記号にする */
-const showSpaces = (s: string) => s.replace(/ /g, "␣");
-
-/** 入力と正解の文字差分（赤の取り消し線 = 余分な文字、緑 = 足りない文字） */
-function DiffView({ diff }: { diff: DiffSeg[] }) {
-  return (
-    <div className="break-all font-mono text-lg tracking-wide text-brand-ink">
-      {diff.map((d, i) =>
-        d.kind === "same" ? (
-          <span key={i}>{d.text}</span>
-        ) : d.kind === "del" ? (
-          <del key={i} className="rounded bg-rose-100 text-rose-600">
-            {showSpaces(d.text)}
-          </del>
-        ) : (
-          <ins key={i} className="rounded bg-emerald-100 font-bold text-emerald-700 no-underline">
-            {showSpaces(d.text)}
-          </ins>
-        )
-      )}
-    </div>
   );
 }
 

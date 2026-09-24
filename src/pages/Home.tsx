@@ -5,7 +5,7 @@ import { currentStreak, studiedToday, todayCounters, useProgress } from "../stor
 import { activitySeconds } from "../store/history";
 import { useSettings } from "../store/useSettings";
 import { useAddedIds } from "../store/useMusic";
-import { masteryBreakdown } from "../srs/queue";
+import { masteryBreakdown, prodMastery } from "../srs/queue";
 import { useToday } from "../hooks/useToday";
 import { useTodayPlan } from "../hooks/useTodayPlan";
 import UpdateBanner from "../components/UpdateBanner";
@@ -33,6 +33,7 @@ export default function Home() {
   const { practice: practiceSec, music: musicSec } = activitySeconds(dayLog);
   const dailyGoal = useSettings((s) => s.dailyGoal);
   const dailyReviewLimit = useSettings((s) => s.dailyReviewLimit);
+  const productionEnabled = useSettings((s) => s.productionEnabled);
   const addedIds = useAddedIds();
 
   // 今日の学習の中身（実際に始めるセッションと同じ計算。復習は曲から追加した語も含め、1日の上限まで）。
@@ -41,12 +42,16 @@ export default function Home() {
   const due = plan.review.length;
   const newCount = plan.fresh.length;
   const musicNew = plan.added.length;
+  // 和→葡の産出カード（T2-1。期限の来たもの＋新しく始めるもの）
+  const prodCount = plan.prodReview.length + plan.prodFresh.length;
   const backlog = plan.reason === "backlog";
   const mastery = useMemo(() => masteryBreakdown(ALL_WORDS, cards), [cards]);
+  // ポルトガル語で言える語（産出カードの間隔7日以上）
+  const prod = useMemo(() => prodMastery(cards), [cards]);
   const musicLearned = addedIds.filter((id) => cards[id]?.last).length;
   const goalRatio = dailyGoal ? Math.min(1, daily.studied / dailyGoal) : 0;
-  // 今日の分があれば単語帳の一覧を経ずに「今日の学習」へ直行する
-  const hasToday = plan.all.length > 0;
+  // 今日の分があれば単語帳の一覧を経ずに「今日の学習」へ直行する（産出カードだけの日も）
+  const hasToday = plan.items.length > 0;
 
   return (
     <div className="animate-fade-in space-y-5">
@@ -60,7 +65,7 @@ export default function Home() {
       <section className="card overflow-hidden">
         <div className="bg-gradient-to-br from-brand-green to-emerald-600 p-5 text-white">
           <div className="text-sm/relaxed opacity-90">今日の学習</div>
-          <div className="mt-1 flex items-end gap-4">
+          <div className="mt-1 flex flex-wrap items-end gap-x-3 gap-y-2">
             <div>
               <div className="text-4xl font-extrabold leading-none">{due}</div>
               <div className="mt-1 text-xs opacity-90">復習する語</div>
@@ -79,7 +84,19 @@ export default function Home() {
                 </div>
               </>
             )}
+            {prodCount > 0 && (
+              <>
+                <div className="mb-0.5 text-white/70">＋</div>
+                <div>
+                  <div className="text-4xl font-extrabold leading-none">{prodCount}</div>
+                  <div className="mt-1 text-xs opacity-90">✍ 産出</div>
+                </div>
+              </>
+            )}
           </div>
+          {prodCount > 0 && (
+            <p className="mt-2 text-xs opacity-90">✍ 産出 = 日本語を見てポルトガル語を言うカード（覚えた語から）</p>
+          )}
           {/* 期限の来た復習が1日の上限を超えている日は、延滞の大きい順に上限まで出し、新しい語は止める */}
           {backlog && (
             <p className="mt-3 rounded-lg bg-white/15 px-3 py-2 text-xs/relaxed">
@@ -167,6 +184,17 @@ export default function Home() {
           ))}
         </div>
         <p className="mt-1.5 text-center text-[11px] text-slate-400">学習中＝間隔7日未満 ／ 定着中＝7〜20日 ／ 習得＝21日以上</p>
+        {/* 和→葡の産出カード（T2-1）: 日本語から言えるようになった語 */}
+        {(prod.started > 0 || productionEnabled) && (
+          <div className="mt-3 flex items-center justify-between gap-2 rounded-lg bg-brand-blue/5 px-3 py-2 text-xs text-slate-600">
+            <span>
+              ✍ ポルトガル語で言える語 <span className="text-base font-bold text-brand-blue">{prod.canSay}</span>語
+            </span>
+            <span className="text-slate-400">
+              {prod.started > 0 ? `練習中 ${prod.learning}語` : "定着中の語から始まります"}
+            </span>
+          </div>
+        )}
         {addedIds.length > 0 && (
           <Link to="/flashcards/music" className="mt-3 flex items-center justify-between rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">
             <span>🎵 曲の単語 {addedIds.length}語（うち学習済み {musicLearned}）</span>

@@ -9,6 +9,7 @@ import { useAddedIds, useMusic, useUserWordMap } from "../store/useMusic";
 import { countReview } from "../srs/queue";
 import { isHeld, newCard, todayStr } from "../srs/scheduler";
 import { MAX_REQUEUE } from "../srs/session";
+import { recogItem, type StudyItem } from "../srs/cardKey";
 import { audio } from "../services/audio";
 import { useToday } from "../hooks/useToday";
 import { planToday, useTodayPlan } from "../hooks/useTodayPlan";
@@ -33,6 +34,8 @@ function DeckPicker() {
   const due = plan.review.length;
   const newCount = plan.fresh.length;
   const musicNew = plan.added.length;
+  // 和→葡の産出カード（期限の来たもの＋新しく始めるもの）
+  const prodCount = plan.prodReview.length + plan.prodFresh.length;
 
   const decks = ALL_DECKS.map((d, i) => ({ ...d, i }));
   const sections: { source: "words" | "capoeira"; title: string }[] = [
@@ -59,7 +62,9 @@ function DeckPicker() {
         <div className="mt-1 text-2xl font-extrabold">
           復習 {due} ＋ 新規 {newCount}
           {musicNew > 0 && <span> ＋ 🎵 {musicNew}</span>}
+          {prodCount > 0 && <span> ＋ ✍ {prodCount}</span>}
         </div>
+        {prodCount > 0 && <div className="mt-0.5 text-xs opacity-90">✍ = 日本語からポルトガル語を言う産出カード</div>}
         <div className="mt-1 text-xs opacity-90">
           {plan.reason === "backlog"
             ? `復習が溜まっているため、新しい語はお休み中です（期限の来た復習 ${plan.dueTotal}語）›`
@@ -145,9 +150,11 @@ function DeckPicker() {
 
 // ============================ 学習画面 ============================
 /**
- * 出題する語を確定し、表示（1枚ずつ / 一覧）を選ぶ。
- * 語は mount 時に1回だけ決める（学習中に並びが変わらないよう固定）。URL が変わったら
+ * 出題するカードを確定し、表示（1枚ずつ / 一覧）を選ぶ。
+ * カードは mount 時に1回だけ決める（学習中に並びが変わらないよう固定）。URL が変わったら
  * Flashcards 側の key で作り直す（「あと5語」の ?cap=… など）。
+ * 今日の学習は和→葡の産出カード（T2-1）も含む（plan.items）。産出カードは1枚ずつ学習でだけ出し、
+ * 一覧表示と耳だけ復習は理解カード（語）だけを扱う。評価の記録はカードキーで持つ。
  */
 function StudyView({ deckId }: { deckId: string }) {
   const navigate = useNavigate();
@@ -166,8 +173,8 @@ function StudyView({ deckId }: { deckId: string }) {
   const capParam = isToday ? searchParams.get("cap") : null;
   const capDate = isToday ? searchParams.get("d") : null;
 
-  // 出題する語と、新しい語を止めた理由（今日の学習のみ）
-  const { words, reason } = useMemo<{ words: Word[]; reason?: "backlog" }>(() => {
+  // 出題するカードと、新しい語を止めた理由（今日の学習のみ）
+  const { items, reason } = useMemo<{ items: StudyItem[]; reason?: "backlog" }>(() => {
     if (isToday) {
       const addedIds = [...new Set(addedWords.map((w) => w.id))];
       const settings = useSettings.getState();
@@ -189,49 +196,52 @@ function StudyView({ deckId }: { deckId: string }) {
         newLimit,
       });
       // 空なら完了画面を出す（上限を超えて新規を黙って足すことはしない）
-      return { words: plan.all, reason: plan.reason };
+      return { items: plan.items, reason: plan.reason };
     }
     // 単語帳のデッキ（番号）と曲の語（music = 全曲 / music:<videoId> = その曲）。クイズの /quiz/:deckId と共通
-    return { words: resolveDeckWords(deckId, addedWords, userMap) ?? [] };
+    return { items: (resolveDeckWords(deckId, addedWords, userMap) ?? []).map(recogItem) };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deckId, capParam, capDate]);
 
   // 今日の学習は設定に従う（既定は1枚ずつ）。他のデッキは一覧が既定（つけたい機能.md）
   const [view, setView] = useState<StudyViewMode>(() => (isToday ? studyViewSetting : "list"));
-  // 表示を切り替えたときに出す語（null = words のまま）。この画面で最後の評価が合格だった語は出し直さない
+  // 表示を切り替えたときに出すカード（null = items のまま）。この画面で最後の評価が合格だったカードは出し直さない
   // （出し直すと進捗が最初からになり、据え置きの評価で今日の枚数・総評価数だけが増えるため）
-  const [remaining, setRemaining] = useState<Word[] | null>(null);
-  // この画面での語ごとの評価の履歴（取り消しで1つ戻す）
+  const [remaining, setRemaining] = useState<StudyItem[] | null>(null);
+  // この画面でのカードごと（カードキー）の評価の履歴（取り消しで1つ戻す）
   const ratingsRef = useRef(new Map<string, Rating[]>());
-  const onRated = (id: string, r: Rating) => {
+  const onRated = (key: string, r: Rating) => {
     const m = ratingsRef.current;
-    m.set(id, [...(m.get(id) ?? []), r]);
+    m.set(key, [...(m.get(key) ?? []), r]);
   };
-  const onUnrated = (id: string) => {
+  const onUnrated = (key: string) => {
     const m = ratingsRef.current;
-    m.set(id, (m.get(id) ?? []).slice(0, -1));
+    m.set(key, (m.get(key) ?? []).slice(0, -1));
   };
-  /** 今の並びから、この画面で合格した語を除いたもの（again のままの語・評価を取り消した語は残す） */
+  /** 今の並びから、この画面で合格したカードを除いたもの（again のままのカード・評価を取り消したカードは残す） */
   const unpassed = () => {
-    const passed = (id: string) => {
-      const rs = ratingsRef.current.get(id);
+    const passed = (key: string) => {
+      const rs = ratingsRef.current.get(key);
       return !!rs?.length && rs[rs.length - 1] !== "again";
     };
     // 耳だけ復習の「1枚ずつで確認」で並べ替えた後も、その並びのまま
-    return (remaining ?? words).filter((w) => !passed(w.id));
+    return (remaining ?? items).filter((it) => !passed(it.key));
   };
   const switchView = (v: StudyViewMode) => {
     setRemaining(unpassed());
     setView(v);
   };
+  /** 理解カードの語だけ（一覧表示・耳だけ復習は産出カードを扱わない） */
+  const recogWords = (list: readonly StudyItem[]) => list.filter((it) => it.dir === "recog").map((it) => it.word);
   // 耳だけ復習（🎧）で聴く語（null = 開いていない）。開いている間は学習の表示を閉じる
-  // （戻るときは表示の切り替えと同じく、合格した語を除いて作り直す）
+  // （戻るときは表示の切り替えと同じく、合格したカードを除いて作り直す）
   const [hfWords, setHfWords] = useState<Word[] | null>(null);
   const openHandsfree = () => {
     const rest = unpassed();
     setRemaining(rest);
     // すべて合格済みでも聴くことはできる（SRS には書かない）ので、そのときは今の並びをそのまま聴く
-    setHfWords(rest.length ? rest : (remaining ?? words));
+    const restWords = recogWords(rest);
+    setHfWords(restWords.length ? restWords : recogWords(remaining ?? items));
   };
 
   const title = deckTitle(deckId, (id) => SONG_BY_ID.get(id)?.title) ?? "単語帳";
@@ -249,7 +259,7 @@ function StudyView({ deckId }: { deckId: string }) {
       }
     : undefined;
 
-  if (words.length === 0) {
+  if (items.length === 0) {
     if (isToday) {
       return (
         <div className="space-y-4">
@@ -288,9 +298,10 @@ function StudyView({ deckId }: { deckId: string }) {
         words={hfWords}
         title={title}
         onClose={() => setHfWords(null)}
-        // 印の語を先頭にした並びで1枚ずつ学習を始める（評価は通常の rate を通る）
+        // 印の語を先頭にした並びで1枚ずつ学習を始める（評価は通常の rate を通る）。
+        // まだ合格していない産出カードはその後ろに残す
         onReview={(ordered) => {
-          setRemaining(ordered);
+          setRemaining([...ordered.map(recogItem), ...unpassed().filter((it) => it.dir === "prod")]);
           setView("session");
           setHfWords(null);
         }}
@@ -298,8 +309,11 @@ function StudyView({ deckId }: { deckId: string }) {
     );
   }
 
-  const shown = remaining ?? words;
-  // 表示を切り替えた時点で、この画面の語をすべて評価し終えていた
+  const shown = remaining ?? items;
+  // 一覧表示・耳だけ復習に出す語（理解カード）と、1枚ずつ学習でだけ出す産出カードの数
+  const shownWords = recogWords(shown);
+  const prodShown = shown.length - shownWords.length;
+  // 表示を切り替えた時点で、この画面のカードをすべて評価し終えていた
   if (shown.length === 0) {
     return (
       <div className="animate-fade-in space-y-4">
@@ -322,14 +336,15 @@ function StudyView({ deckId }: { deckId: string }) {
     );
   }
 
-  if (view === "session") {
+  // 一覧に出す語が無い（今日は産出カードだけ）ときは、一覧表示の設定でも1枚ずつで出す
+  if (view === "session" || shownWords.length === 0) {
     return (
       <ReviewSession
-        words={shown}
+        items={shown}
         title={title}
         onExit={onExit}
-        onSwitchView={() => switchView("list")}
-        onHandsfree={openHandsfree}
+        onSwitchView={shownWords.length ? () => switchView("list") : undefined}
+        onHandsfree={shownWords.length ? openHandsfree : undefined}
         onExtra={onExtra}
         reason={reason}
         onRated={onRated}
@@ -340,11 +355,12 @@ function StudyView({ deckId }: { deckId: string }) {
   }
   return (
     <ListView
-      words={shown}
+      words={shownWords}
+      prodCount={prodShown}
       title={title}
       onExit={onExit}
       onSwitchView={() => switchView("session")}
-      onHandsfree={openHandsfree}
+      onHandsfree={shownWords.length ? openHandsfree : undefined}
       onExtra={onExtra}
       reason={reason}
       onRated={onRated}
@@ -357,7 +373,7 @@ function StudyView({ deckId }: { deckId: string }) {
 /** 今日の分が最初から無いとき（「あと5語」と予報だけ出す。復習が溜まっていればその理由） */
 function EmptyToday({ onExtra, reason }: { onExtra?: () => void; reason?: "backlog" }) {
   const fc = useForecast();
-  return <SessionComplete stats={null} againWords={[]} forecast={fc} reason={reason} onExtra={onExtra} />;
+  return <SessionComplete stats={null} againItems={[]} forecast={fc} reason={reason} onExtra={onExtra} />;
 }
 
 // ============================ 一覧表示 ============================
@@ -386,6 +402,7 @@ const itemKey = (it: ListItem) => `${it.word.id}#${it.n}`;
 
 function ListView({
   words,
+  prodCount = 0,
   title,
   onExit,
   onSwitchView,
@@ -397,6 +414,8 @@ function ListView({
   quizPath,
 }: {
   words: Word[];
+  /** この画面の産出カードの数（一覧には出さず、1枚ずつ学習でだけ出す） */
+  prodCount?: number;
   title: string;
   onExit: () => void;
   onSwitchView: () => void;
@@ -624,6 +643,16 @@ function ListView({
         </div>
       </div>
 
+      {/* 産出カード（和→葡）は一覧には出さない。1枚ずつ学習で出す */}
+      {prodCount > 0 && (
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-brand-blue/5 px-3 py-2 text-sm text-brand-ink ring-1 ring-brand-blue/20">
+          <span>✍ 産出カード（和→葡）{prodCount}枚は「1枚ずつ」で出ます</span>
+          <button type="button" onClick={onSwitchView} className="min-h-11 px-1 text-sm font-medium text-brand-blue">
+            1枚ずつへ ›
+          </button>
+        </div>
+      )}
+
       {quizPath && (
         <Link
           to={quizPath}
@@ -662,9 +691,14 @@ function ListView({
         })}
       </div>
 
-      {/* すべて評価したら完了のまとめ */}
+      {/* すべて評価したら完了のまとめ（産出カードが残っていれば、先に1枚ずつ学習へ案内する） */}
       {allRated && (
-        <div className="mt-6">
+        <div className="mt-6 space-y-3">
+          {prodCount > 0 && (
+            <button type="button" onClick={onSwitchView} className="btn-primary min-h-11 w-full">
+              ✍ 残りの産出カード {prodCount}枚へ（1枚ずつ）
+            </button>
+          )}
           <ListDone
             st={st}
             againWords={againWords}
@@ -715,7 +749,7 @@ function ListDone({
         newWords: st.fresh,
         firstCorrect: firsts.filter((r) => r !== "again").length,
       }}
-      againWords={againWords}
+      againItems={againWords.map(recogItem)}
       forecast={fc}
       onAgainRound={againWords.length ? () => onAgainRound(againWords) : undefined}
       onExtra={onExtra}

@@ -8,6 +8,7 @@ import dictRaw from "../../data/dict-words.json";
 import examplesRaw from "../../data/examples.json";
 import overridesRaw from "../../data/pronunciation-overrides.json";
 import coreOrderRaw from "../../data/core-order.json";
+import capoeiraCategoryMapRaw from "../../data/capoeira-category-map.json";
 import type { RawWord, Word, WordExtra, WordSource } from "./types";
 import { cleanForSpeech } from "../services/audio";
 import { registerOverrides, toKana, transliterate } from "../services/pronunciation";
@@ -48,6 +49,27 @@ export function splitKanaGloss(ja: string): { ja: string; note?: string } {
   return { ja: inner, note: ja };
 }
 
+/**
+ * カポエイラ語のカテゴリの付け替え（data/capoeira-category-map.json。"_" で始まるメタキーは除く）。
+ * 細かく分かれすぎたカテゴリを表示用にまとめる。単語データと ID は変えない
+ */
+function readCategoryMap(raw: unknown): ReadonlyMap<string, string> {
+  const m = new Map<string, string>();
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return m;
+  for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+    if (k.startsWith("_") || typeof v !== "string" || v.trim() === "") continue;
+    m.set(k, v.trim());
+  }
+  return m;
+}
+
+export const CAPOEIRA_CATEGORY_MAP: ReadonlyMap<string, string> = readCategoryMap(capoeiraCategoryMapRaw as unknown);
+
+/** カポエイラ語の表示するカテゴリ（付け替えが無ければ元のまま） */
+export function capoeiraCategory(raw: string): string {
+  return CAPOEIRA_CATEGORY_MAP.get(raw) ?? raw;
+}
+
 /** 生データ1件を正規化済みの単語にする（id 省略時はソース内インデックス基準） */
 export function makeWord(r: RawWord, source: WordSource, index: number, id = `${source}:${pad(index)}`): Word {
   const pt = r.ポルトガル語;
@@ -58,7 +80,8 @@ export function makeWord(r: RawWord, source: WordSource, index: number, id = `${
     id,
     source,
     index,
-    category: r.カテゴリ,
+    // カポエイラ語のカテゴリは表示用にまとめる（デッキ・新しい語の巡回・クイズの誤答に使う）
+    category: source === "capoeira" ? capoeiraCategory(r.カテゴリ) : r.カテゴリ,
     pt,
     ja: gloss.ja,
     ...(gloss.note !== undefined ? { note: gloss.note } : {}),

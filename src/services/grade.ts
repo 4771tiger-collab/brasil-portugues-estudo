@@ -5,6 +5,8 @@
 //     ただし入力が「別の実在語」（avó/avô、esta/está、e/é …）なら wrong（isKnownForm で判定）
 // - alignTokens: 文を語単位の DP で対応付けて採点する（ディクテーション用。1語抜けても後ろがずれない）
 // - charDiff: 文字単位の差分（LCS）。答え合わせで「どこが違ったか」を見せる
+// - scoreSpeechWord / scoreSpeechSentence: 音声認識（🎤 言ってみる）の結果の採点
+//     アクセント記号だけの違いは正解、数字は読み方に展開（"2" → dois/duas）、認識の候補のうち最も合うもの
 // 辞書（isKnownForm・和訳が同じ別見出し）は gradeLexicon.ts が遅延構築して注入する。
 // このファイル自体はデータを読み込まない（scripts/check-grade から固定データで検証する）。
 // ============================================================================
@@ -40,6 +42,11 @@ export interface GradeOptions {
   isKnownForm?: (s: string) => boolean;
   /** 正解の長さ（アクセントを除いた文字数）ごとの、typo とみなす編集距離の上限 */
   typoBudget?: (len: number) => number;
+  /**
+   * アクセント記号（とセディーユ）だけの違いを exact にする（最小対の判定もしない）。
+   * 音声認識の採点用: 認識結果の綴りは認識エンジンが決めたもので、学習者が書いたものではないため
+   */
+  accentInsensitive?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -187,13 +194,17 @@ interface Judged {
   note?: string;
 }
 
-/** 正規化済みの入力 u と正解 e を比べる（diff は作らない。alignTokens の DP でも使う） */
-function judge(u: string, e: string, known: boolean, budget: (len: number) => number): Judged {
+/**
+ * 正規化済みの入力 u と正解 e を比べる（diff は作らない。alignTokens の DP でも使う）。
+ * accentFree なら、アクセント記号だけの違いは exact（音声認識の採点）
+ */
+function judge(u: string, e: string, known: boolean, budget: (len: number) => number, accentFree = false): Judged {
   const distance = levenshtein(u, e);
   if (u === e) return { grade: "exact", distance };
   const fu = fold(u);
   const fe = fold(e);
   if (fu === fe) {
+    if (accentFree) return { grade: "exact", distance };
     // アクセントだけが違う。ただし入力が別の実在語（最小対）なら不正解
     if (known) return { grade: "wrong", distance, note: `${u} は別の語（${accentHint(u, e)}）` };
     return { grade: "accent", distance, note: accentHint(u, e) };
@@ -223,7 +234,7 @@ export function gradeWord(input: string, expected: string | readonly string[], o
     const e = normalizeAnswer(raw);
     if (!e || seen.has(e)) continue;
     seen.add(e);
-    const j = judge(u, e, known, budget);
+    const j = judge(u, e, known, budget, !!o.accentInsensitive);
     if (
       !best ||
       GRADE_RANK[j.grade] < GRADE_RANK[best.j.grade] ||
@@ -367,6 +378,271 @@ export function alignTokens(input: string, answer: string, o: GradeOptions = {})
     partial: tokens.filter((t) => t.grade === "accent" || t.grade === "typo").length,
     total: n,
   };
+}
+
+// ---------------------------------------------------------------------------
+// 音声認識（🎤 言ってみる）の採点
+// 認識結果の綴りは認識エンジンが決めたもので、学習者が書いたものではない。そのため
+// - アクセント記号だけの違いは正解にする（accentInsensitive）
+// - 数字は読み方に展開して比べる（認識エンジンは "dois" を "2" と書くことが多い。2 は dois/duas のどちらでも可）
+// - 認識エンジンが記号で書く読み方も語にする（"10%" → dez por cento、"R$ 60" → sessenta reais、"5º" → quinto、"38°" → graus）
+// - 大文字・句読点は normalizeAnswer で無視する
+// 認識の候補（maxAlternatives）が複数あれば、いちばん良く合う候補で採点する。
+// ---------------------------------------------------------------------------
+
+/** 0〜20 の読み方（読み方が複数ある数は男性形・よく使う綴りを先に） */
+const NUM_0_20: readonly (readonly string[])[] = [
+  ["zero"], ["um", "uma"], ["dois", "duas"], ["três"], ["quatro"], ["cinco"], ["seis"], ["sete"], ["oito"], ["nove"],
+  ["dez"], ["onze"], ["doze"], ["treze"], ["catorze", "quatorze"], ["quinze"], ["dezesseis"], ["dezessete"], ["dezoito"],
+  ["dezenove"], ["vinte"],
+];
+/** 20〜90 の十の位 */
+const TENS: Readonly<Record<number, string>> = {
+  2: "vinte", 3: "trinta", 4: "quarenta", 5: "cinquenta", 6: "sessenta", 7: "setenta", 8: "oitenta", 9: "noventa",
+};
+
+/** 100〜900 の百の位（男性形・女性形。100 ちょうどは cem） */
+const HUNDREDS: Readonly<Record<number, readonly string[]>> = {
+  1: ["cento"], 2: ["duzentos", "duzentas"], 3: ["trezentos", "trezentas"], 4: ["quatrocentos", "quatrocentas"],
+  5: ["quinhentos", "quinhentas"], 6: ["seiscentos", "seiscentas"], 7: ["setecentos", "setecentas"],
+  8: ["oitocentos", "oitocentas"], 9: ["novecentos", "novecentas"],
+};
+/** 1つの数の読み方の上限（男性形・女性形の組み合わせが増えすぎないように） */
+const NUMBER_FORMS_MAX = 8;
+
+/**
+ * 数の読み方（0〜999 999）。読み方が複数あれば全部（1 → um/uma、2 → dois/duas、14 → catorze/quatorze、
+ * 21 → vinte e um/vinte e uma、504 → quinhentos e quatro/quinhentas e quatro）。先頭ほど男性形・重複なし・
+ * NUMBER_FORMS_MAX 通りまで。対応しない数（100万以上・負・小数）は []（数字のまま比べる）
+ */
+export function numberWords(n: number): string[] {
+  if (!Number.isInteger(n) || n < 0) return [];
+  if (n <= 20) return [...NUM_0_20[n]];
+  if (n < 100) {
+    const t = TENS[Math.floor(n / 10)];
+    const u = n % 10;
+    return u === 0 ? [t] : NUM_0_20[u].map((w) => `${t} e ${w}`);
+  }
+  if (n === 100) return ["cem"];
+  if (n < 1000) {
+    const h = HUNDREDS[Math.floor(n / 100)];
+    const r = n % 100;
+    return r ? uniq(h.flatMap((a) => numberWords(r).map((b) => `${a} e ${b}`))).slice(0, NUMBER_FORMS_MAX) : [...h];
+  }
+  if (n < 1_000_000) {
+    const k = Math.floor(n / 1000);
+    const r = n % 1000;
+    const ks = k === 1 ? ["mil"] : numberWords(k).map((w) => `${w} mil`);
+    if (!r) return ks.slice(0, NUMBER_FORMS_MAX);
+    // 1100 → mil e cem、1250 → mil duzentos e cinquenta（下3桁が100未満か百の倍数なら e でつなぐ）
+    const j = r < 100 || r % 100 === 0 ? " e " : " ";
+    return uniq(ks.flatMap((a) => numberWords(r).map((b) => a + j + b))).slice(0, NUMBER_FORMS_MAX);
+  }
+  return [];
+}
+
+/** 序数 1〜10（男性形。女性形は語末の o を a に） */
+const ORDINALS = ["primeiro", "segundo", "terceiro", "quarto", "quinto", "sexto", "sétimo", "oitavo", "nono", "décimo"];
+/** 数（3桁区切りの点も可）を1つ取り出すパターン */
+const NUM_SRC = String.raw`\d{1,3}(?:\.\d{3})+(?!\d)|\d+`;
+const MONEY_RE = new RegExp(String.raw`R\$\s?(${NUM_SRC})(?:,(\d{2}))?(?!\d)`, "g");
+const PERCENT_RE = new RegExp(String.raw`(${NUM_SRC})\s?%`, "g");
+const ORD_M_RE = /(\d+)\s?º/g;
+const ORD_F_RE = /(\d+)\s?ª/g;
+const DEGREE_RE = /(\d+)\s?°(?:\s?C(?![\p{L}\p{M}]))?/gu;
+
+const numOf = (d: string) => Number(d.replace(/\./g, ""));
+const ordinalOf = (d: string, fem: boolean): string | null => {
+  const w = ORDINALS[numOf(d) - 1];
+  return w ? (fem ? `${w.slice(0, -1)}a` : w) : null;
+};
+
+/**
+ * 認識エンジンが記号で書く読み方を語に置き換えた形（数字は残す。numberWords で読む）。
+ * "R$ 60" → "60 reais"（1 は um real、センタボは "e 50 centavos"）、"10%" → "10 por cento"、
+ * "5º" → "quinto"、"1ª" → "primeira"（1〜10 以外は記号だけ外す）、"38°" → "38 graus"（1〜10 なら序数の形も）。
+ * NFKC は º を o、ª を a にしてしまうので、その前に置き換える（全角の数字と ％ は先に半角にする）。
+ * 置き換える記号が無ければ [s]
+ */
+function rewriteSymbols(s: string): string[] {
+  const t = s
+    .replace(/[０-９]/g, (d) => String.fromCharCode(d.charCodeAt(0) - 0xfee0))
+    .replace(/％/g, "%")
+    .replace(MONEY_RE, (_m, n: string, c?: string) => {
+      const v = numOf(n);
+      const cents = c ? Number(c) : 0;
+      const centPart = cents ? `${c} centavo${cents === 1 ? "" : "s"}` : "";
+      if (v === 0 && cents) return centPart;
+      return (v === 1 ? "um real" : `${n} reais`) + (centPart ? ` e ${centPart}` : "");
+    })
+    .replace(PERCENT_RE, "$1 por cento")
+    .replace(ORD_M_RE, (_m, d: string) => ordinalOf(d, false) ?? d)
+    .replace(ORD_F_RE, (_m, d: string) => ordinalOf(d, true) ?? d);
+  if (!t.includes("°")) return t === s ? [s] : [t];
+  const graus = t.replace(DEGREE_RE, "$1 graus");
+  const ordinal = t.replace(DEGREE_RE, (_m, d: string) => ordinalOf(d, false) ?? `${d} graus`);
+  return ordinal === graus ? [graus] : [graus, ordinal];
+}
+
+/** 数字の並び（"1.000" のような3桁区切りも1つの数） */
+const DIGITS_RE = /\d{1,3}(?:\.\d{3})+(?!\d)|\d+/g;
+
+/** speechVariants が返す形の上限（読み方が複数ある数がいくつもある文で増えすぎないように） */
+export const SPEECH_VARIANTS_MAX = 8;
+
+/**
+ * 数字を読み方に置き換えた形の一覧（"2 cafés" → ["dois cafés", "duas cafés"]）。
+ * 読み方が複数ある数が並ぶときは組み合わせ（先頭ほど男性形。max 通りまで）。
+ * 記号で書いた読み方（R$・%・º/ª・°）も語にする（rewriteSymbols）。
+ * 数字も記号も無ければ [s]（全角数字は半角にしてから読む）
+ */
+export function speechVariants(s: string, max = SPEECH_VARIANTS_MAX): string[] {
+  const cap = Math.max(1, max);
+  const pres = rewriteSymbols(s);
+  const out: string[] = [];
+  for (const pre of pres) {
+    for (const v of numberVariants(pre, cap)) if (!out.includes(v)) out.push(v);
+  }
+  return out.slice(0, cap);
+}
+
+/** speechVariants の数字の部分（数字が無ければ [s]） */
+function numberVariants(s: string, max: number): string[] {
+  const text = s.normalize("NFKC");
+  let out = [""];
+  let at = 0;
+  const add = (forms: readonly string[]) => {
+    out = out.flatMap((p) => forms.map((f) => p + f)).slice(0, max);
+  };
+  for (const m of text.matchAll(DIGITS_RE)) {
+    const words = numberWords(numOf(m[0]));
+    add([text.slice(at, m.index)]);
+    add(words.length ? words.map((w) => ` ${w} `) : [m[0]]);
+    at = m.index! + m[0].length;
+  }
+  if (at === 0) return [s];
+  add([text.slice(at)]);
+  return out.map((v) => v.replace(/\s+/g, " ").trim());
+}
+
+/** 名詞の前に付けて言いがちな冠詞（「casa」を「a casa」と言っても正解にする） */
+const LEADING_ARTICLES = new Set(["o", "a", "os", "as", "um", "uma", "uns", "umas"]);
+
+/** 先頭の冠詞を外した形（冠詞で始まらない・冠詞だけなら null） */
+function withoutArticle(s: string): string | null {
+  const m = normalizeAnswer(s).match(/^(\S+) (.+)$/);
+  return m && LEADING_ARTICLES.has(m[1]) ? m[2] : null;
+}
+
+/** 重複と空を除く（順は保つ） */
+function uniq(list: readonly string[]): string[] {
+  return [...new Set(list.map((x) => x.trim()).filter(Boolean))];
+}
+
+/** 1語（1フレーズ）を言ってみた結果 */
+export interface SpeechWordScore {
+  kind: "word";
+  /** 採点（accent は出ない: アクセントだけの違いは exact） */
+  grade: Grade;
+  /** 採点に使った聞き取り（認識の候補の元の表記）。聞き取れていなければ "" */
+  heard: string;
+  /** 採点の詳細（差分・注記。expected は正解の元の表記） */
+  result: GradeResult;
+  /** 採点から勧める SRS の評価（exact → good、typo → hard、wrong → again） */
+  suggestedRating: Rating;
+}
+
+/** 1文を言ってみた結果 */
+export interface SpeechSentenceScore {
+  kind: "sentence";
+  /** 採点に使った聞き取り（認識の候補の元の表記） */
+  heard: string;
+  /** 正解の語と聞き取った語の対応（exp は正解の表記。数字は読み方に置き換えた形） */
+  alignment: Alignment;
+  /** 0〜100（下の speechPercent） */
+  percent: number;
+}
+
+export type SpeechScore = SpeechWordScore | SpeechSentenceScore;
+
+const betterGrade = (a: GradeResult, b: GradeResult) =>
+  GRADE_RANK[a.grade] < GRADE_RANK[b.grade] || (GRADE_RANK[a.grade] === GRADE_RANK[b.grade] && a.distance < b.distance);
+
+/**
+ * 1語（1フレーズ）の採点。認識の候補 × 正解の表記（"a/b" も展開）の組のうち、いちばん良い gradeWord。
+ * アクセント記号だけの違いは正解。数字は読み方に展開し、先頭の冠詞（o/a/um/uma…）は外した形でも比べる。
+ * 正解に届かない（wrong）ときは、いちばん確からしい候補（先頭）で採点を見せる。
+ * isKnownForm を渡すと、別の実在語に聞こえたとき（typo の範囲でも）wrong にする（入力式と同じ）。
+ */
+export function scoreSpeechWord(
+  transcripts: readonly string[],
+  expected: string | readonly string[],
+  o: GradeOptions = {}
+): SpeechWordScore {
+  const opts: GradeOptions = { ...o, accentInsensitive: true };
+  // 数字を読み方にした正解 → 元の表記（採点の expected を元の表記に戻すため）
+  const rawOf = new Map<string, string>();
+  for (const raw of (typeof expected === "string" ? [expected] : expected).flatMap(expandAlternatives)) {
+    for (const v of uniq(speechVariants(raw))) if (!rawOf.has(v)) rawOf.set(v, raw.trim());
+  }
+  const exps = [...rawOf.keys()];
+  const heardList = uniq(transcripts);
+  let best: { r: GradeResult; heard: string } | null = null;
+  for (const t of heardList) {
+    for (const v of speechVariants(t)) {
+      for (const cand of [v, withoutArticle(v)]) {
+        if (cand === null) continue;
+        const r = gradeWord(cand, exps, opts);
+        if (!best || betterGrade(r, best.r)) best = { r, heard: t };
+      }
+    }
+  }
+  if (!best || best.r.grade === "wrong") {
+    const top = heardList[0] ?? "";
+    best = { r: gradeWord(speechVariants(top)[0], exps, opts), heard: top };
+  }
+  const result: GradeResult = { ...best.r, expected: rawOf.get(best.r.expected) ?? best.r.expected };
+  return { kind: "word", grade: result.grade, heard: best.heard, result, suggestedRating: ratingForGrade(result.grade, false) };
+}
+
+/**
+ * 文の点数（0〜100）。正しい語は1、惜しい語（つづりが近い）は0.5。分母は正解の語数＋余分な語の数
+ * （聞き取れた語が多すぎても満点にならない）
+ */
+export function speechPercent(al: Alignment): number {
+  const extra = al.tokens.filter((t) => t.grade === "extra").length;
+  const denom = al.total + extra;
+  return denom ? Math.round((100 * (al.correct + 0.5 * al.partial)) / denom) : 0;
+}
+
+/**
+ * 1文の採点。認識の候補 × 正解の文（複数可）を alignTokens（アクセントの違いは正解）で対応付け、
+ * 点数のいちばん高い組を返す（同点なら余分な語の少ない組、それも同じなら先の候補）。
+ * 数字は両方とも読み方に展開して比べる。
+ */
+export function scoreSpeechSentence(
+  transcripts: readonly string[],
+  expected: string | readonly string[],
+  o: GradeOptions = {}
+): SpeechSentenceScore {
+  const opts: GradeOptions = { ...o, accentInsensitive: true };
+  const exps = uniq((typeof expected === "string" ? [expected] : expected).flatMap((e) => speechVariants(e)));
+  if (!exps.length) exps.push("");
+  let best: { al: Alignment; percent: number; extra: number; heard: string } | null = null;
+  for (const t of uniq(transcripts)) {
+    for (const v of speechVariants(t)) {
+      for (const e of exps) {
+        const al = alignTokens(v, e, opts);
+        const percent = speechPercent(al);
+        const extra = al.tokens.filter((x) => x.grade === "extra").length;
+        if (!best || percent > best.percent || (percent === best.percent && extra < best.extra)) {
+          best = { al, percent, extra, heard: t };
+        }
+      }
+    }
+  }
+  if (!best) return { kind: "sentence", heard: "", alignment: alignTokens("", exps[0], opts), percent: 0 };
+  return { kind: "sentence", heard: best.heard, alignment: best.al, percent: best.percent };
 }
 
 // ---------------------------------------------------------------------------

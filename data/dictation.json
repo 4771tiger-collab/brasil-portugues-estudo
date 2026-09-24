@@ -64,5 +64,371 @@
       { "pt": "nadar", "ja": "泳ぐ" },
       { "pt": "peixe fresco", "ja": "新鮮な魚" }
     ]
+  },
+  {
+    "id": "dct_s3",
+    "level": "short",
+    "text": "Quanto custa esta camiseta?",
+    "ja": "このTシャツはいくらですか？",
+    "keyVocab": [
+      { "pt": "quanto", "ja": "いくら・どれだけ" },
+      { "pt": "custar", "ja": "（値段が）〜する・かかる" },
+      { "pt": "camiseta", "ja": "Tシャツ" }
+    ]
+  },
+  {
+    "id": "dct_s4",
+    "level": "short",
+    "text": "Eu estou com muita fome.",
+    "ja": "私はとてもお腹が空いています。",
+    "keyVocab": [
+      { "pt": "estar com fome", "ja": "お腹が空いている" },
+      { "pt": "fome", "ja": "空腹" }
+    ]
+  },
+  {
+    "id": "dct_s5",
+    "level": "short",
+    "text": "A gente vai pegar o ônibus.",
+    "ja": "私たちはバスに乗ります。",
+    "keyVocab": [
+      { "pt": "a gente", "ja": "私たち（口語）" },
+      { "pt": "pegar", "ja": "（乗り物に）乗る・つかむ" },
+      { "pt": "ônibus", "ja": "バス" }
+    ]
+  },
+  {
+    "id": "dct_s6",
+    "level": "short",
+    "text": "Hoje está fazendo muito calor.",
+    "ja": "今日はとても暑いです。",
+    "keyVocab": [
+      { "pt": "hoje", "ja": "今日" },
+      { "pt": "fazer calor", "ja": "（天気が）暑い" },
+      { "pt": "muito", "ja": "とても・たくさんの" }
+    ]
+  },
+  {
+    "id": "dct_s7",
+    "level": "short",
+    "text": "Você pode falar mais devagar?",
+    "ja": "もっとゆっくり話してもらえますか？",
+    "keyVocab": [
+      { "pt": "poder", "ja": "〜できる・〜してもよい" },
+      { "pt": "falar", "ja": "話す" },
+      { "pt": "devagar", "ja": "ゆっくり" }
+    ]
+  },
+  {
+    "id": "dct_s8",
+    "level": "short",
+    "text": "Eu treino capoeira duas vezes por semana.",
+    "ja": "私は週に二回カポエイラの練習をしています。",
+    "keyVocab": [
+      { "pt": "treinar", "ja": "練習する・トレーニングする" },
+      { "pt": "vez", "ja": "回・度（duas vezes で「二回」）" },
+      { "pt": "semana", "ja": "週" }
+    ]
+  },
+  {
+    "id": "dct_s9",
+    "level": "short",
+    "text": "Meu irmão trabalha no hospital.",
+    "ja": "私の兄（弟）は病院で働いています。",
+    "keyVocab": [
+      { "pt": "irmão", "ja": "兄弟（兄・弟）" },
+      { "pt": "trabalhar", "ja": "働く" },
+      { "pt": "hospital", "ja": "病院" }
+    ]
+  },
+  {
+    "id": "dct_s10",
+    "level": "short",
+    "text": "Eu sempre esqueço a chave.",
+    "ja": "私はいつも鍵を忘れます。",
+    "keyVocab": [
+      { "pt": "sempre", "ja": "いつも" },
+      { "pt": "esquecer", "ja": "忘れる" },
+      { "pt": "chave", "ja": "鍵" }
+    ]
+  },
+  {
+    "id": "dct_s11",
+    "level": "short",
+    "text": "A farmácia abre às oito horas.",
+    "ja": "薬局は八時に開きます。",
+    "keyVocab": [
+      { "pt": "farmácia", "ja": "薬局" },
+      { "pt": "abrir", "ja": "開く・開ける" },
+      { "pt": "hora", "ja": "〜時・時間" }
+    ]
+  },
+  {
+    "id": "dct_s12",
+    "level": "short",
+    "text": "Eu adoro pão de queijo.",
+    "ja": "私はポン・デ・ケージョが大好きです。",
+    "keyVocab": [
+      { "pt": "adorar", "ja": "大好きだ" },
+      { "pt": "pão de queijo", "ja": "ポン・デ・ケージョ（チーズ入りの小さなパン）" },
+      { "pt": "queijo", "ja": "チーズ" }
+    ]
+  },
+  {
+    "id": "dct_m3",
+    "level": "medium",
+    "text": "Eu preciso comprar pão e leite antes de voltar para casa.",
+    "ja": "家に帰る前に、パンと牛乳を買わなければなりません。",
+    "keyVocab": [
+      { "pt": "precisar", "ja": "必要とする・〜しなければならない" },
+      { "pt": "comprar", "ja": "買う" },
+      { "pt": "leite", "ja": "牛乳" },
+      { "pt": "antes de", "ja": "〜の前に" },
+      { "pt": "voltar", "ja": "帰る・戻る" }
+    ]
+  },
+  {
+    "id": "dct_m4",
+    "level": "medium",
+    "text": "Com licença, como eu chego à estação de metrô mais próxima?",
+    "ja": "すみません、一番近い地下鉄の駅へはどうやって行けばいいですか？",
+    "keyVocab": [
+      { "pt": "com licença", "ja": "すみません（呼びかけ・通してもらうとき）" },
+      { "pt": "chegar", "ja": "着く・到着する" },
+      { "pt": "estação", "ja": "駅" },
+      { "pt": "próximo", "ja": "近い・次の" }
+    ]
+  },
+  {
+    "id": "dct_m5",
+    "level": "medium",
+    "text": "No almoço, eu costumo comer arroz, feijão, salada e um pedaço de frango.",
+    "ja": "昼食には、たいていご飯、豆、サラダ、そして鶏肉をひと切れ食べます。",
+    "keyVocab": [
+      { "pt": "almoço", "ja": "昼食" },
+      { "pt": "costumar", "ja": "（習慣的に）よく〜する" },
+      { "pt": "feijão", "ja": "豆（フェイジョン）" },
+      { "pt": "pedaço", "ja": "ひと切れ・かけら" },
+      { "pt": "frango", "ja": "鶏肉" }
+    ]
+  },
+  {
+    "id": "dct_m6",
+    "level": "medium",
+    "text": "Na roda de capoeira, duas pessoas jogam no centro, enquanto as outras tocam, cantam e batem palmas.",
+    "ja": "カポエイラのホーダでは、二人が中央でジョーゴ（ゲーム）をし、その間ほかの人たちは楽器を演奏し、歌い、手拍子をします。",
+    "keyVocab": [
+      { "pt": "jogar", "ja": "（カポエイラやゲームを）する・遊ぶ" },
+      { "pt": "centro", "ja": "中央・中心" },
+      { "pt": "enquanto", "ja": "〜する間" },
+      { "pt": "tocar", "ja": "（楽器を）演奏する・触る" },
+      { "pt": "bater palmas", "ja": "手をたたく・手拍子をする" }
+    ]
+  },
+  {
+    "id": "dct_m7",
+    "level": "medium",
+    "text": "Ontem eu fiquei em casa porque estava com dor de cabeça.",
+    "ja": "昨日は頭が痛かったので、家にいました。",
+    "keyVocab": [
+      { "pt": "ontem", "ja": "昨日" },
+      { "pt": "ficar em casa", "ja": "家にいる" },
+      { "pt": "porque", "ja": "なぜなら・〜なので" },
+      { "pt": "dor de cabeça", "ja": "頭痛" }
+    ]
+  },
+  {
+    "id": "dct_m8",
+    "level": "medium",
+    "text": "Se chover no sábado, a gente pode ir ao cinema em vez de ir à praia.",
+    "ja": "土曜日に雨が降ったら、ビーチに行く代わりに映画館に行ってもいいですね。",
+    "keyVocab": [
+      { "pt": "chover", "ja": "雨が降る" },
+      { "pt": "sábado", "ja": "土曜日" },
+      { "pt": "cinema", "ja": "映画館・映画" },
+      { "pt": "em vez de", "ja": "〜の代わりに" }
+    ]
+  },
+  {
+    "id": "dct_m9",
+    "level": "medium",
+    "text": "Meu celular está sem bateria. Posso carregar aqui na tomada?",
+    "ja": "携帯のバッテリーが切れています。ここのコンセントで充電してもいいですか？",
+    "keyVocab": [
+      { "pt": "celular", "ja": "携帯電話" },
+      { "pt": "sem", "ja": "〜なしで" },
+      { "pt": "carregar", "ja": "充電する・運ぶ" },
+      { "pt": "tomada", "ja": "コンセント" }
+    ]
+  },
+  {
+    "id": "dct_m10",
+    "level": "medium",
+    "text": "O Carnaval é uma das festas mais populares do Brasil, com muita música e dança nas ruas.",
+    "ja": "カーニバルはブラジルで最も人気のあるお祭りの一つで、通りには音楽と踊りがあふれます。",
+    "keyVocab": [
+      { "pt": "festa", "ja": "祭り・パーティー" },
+      { "pt": "popular", "ja": "人気のある・大衆的な" },
+      { "pt": "dança", "ja": "踊り・ダンス" },
+      { "pt": "rua", "ja": "通り・道" }
+    ]
+  },
+  {
+    "id": "dct_m11",
+    "level": "medium",
+    "text": "Eu estou aprendendo a tocar violão, mas ainda erro muitas notas.",
+    "ja": "私はギターを習っていますが、まだたくさん音を間違えます。",
+    "keyVocab": [
+      { "pt": "aprender", "ja": "学ぶ・習う" },
+      { "pt": "violão", "ja": "（アコースティック）ギター" },
+      { "pt": "ainda", "ja": "まだ" },
+      { "pt": "errar", "ja": "間違える" },
+      { "pt": "nota", "ja": "音・音符（成績の意味も）" }
+    ]
+  },
+  {
+    "id": "dct_m12",
+    "level": "medium",
+    "text": "Você quer vir jantar lá em casa na sexta? Vou fazer uma moqueca.",
+    "ja": "金曜日にうちへ夕食を食べに来ませんか？ムケッカを作ります。",
+    "keyVocab": [
+      { "pt": "vir", "ja": "来る" },
+      { "pt": "jantar", "ja": "夕食をとる・夕食" },
+      { "pt": "sexta-feira", "ja": "金曜日（口語では sexta）" },
+      { "pt": "moqueca", "ja": "ムケッカ（魚介の煮込み料理）" }
+    ]
+  },
+  {
+    "id": "dct_l3",
+    "level": "long",
+    "text": "Eu acordo às seis e meia e tomo um banho rápido. Depois, faço café e como uma fruta. Saio de casa às sete e meia e vou de metrô para o trabalho. À noite, gosto de cozinhar e ver uma série antes de dormir.",
+    "ja": "私は六時半に起きて、さっとシャワーを浴びます。そのあと、コーヒーをいれて果物を食べます。七時半に家を出て、地下鉄で仕事に行きます。夜は料理をして、寝る前にドラマを見るのが好きです。",
+    "keyVocab": [
+      { "pt": "acordar", "ja": "目を覚ます・起きる" },
+      { "pt": "tomar banho", "ja": "シャワーを浴びる・入浴する" },
+      { "pt": "sair", "ja": "出る・出かける" },
+      { "pt": "cozinhar", "ja": "料理する" },
+      { "pt": "dormir", "ja": "眠る・寝る" }
+    ]
+  },
+  {
+    "id": "dct_l4",
+    "level": "long",
+    "isDialogue": true,
+    "text": "— Boa noite, você já escolheu o que vai pedir? — Ainda não, o que você recomenda? — O peixe grelhado com legumes está ótimo hoje. — Então vou querer o peixe e, para beber, uma água com gás, por favor. — Perfeito, já volto com a sua bebida.",
+    "ja": "「こんばんは。ご注文はもうお決まりですか？」「まだです。おすすめは何ですか？」「今日は焼き魚の野菜添えがとてもおいしいですよ。」「では、その魚と、飲み物は炭酸水をお願いします。」「かしこまりました。すぐにお飲み物をお持ちします。」",
+    "keyVocab": [
+      { "pt": "escolher", "ja": "選ぶ" },
+      { "pt": "pedir", "ja": "注文する・頼む" },
+      { "pt": "recomendar", "ja": "勧める" },
+      { "pt": "grelhado", "ja": "グリルした・焼いた" },
+      { "pt": "água com gás", "ja": "炭酸水" }
+    ]
+  },
+  {
+    "id": "dct_l5",
+    "level": "long",
+    "text": "A capoeira se desenvolveu no Brasil, com raízes africanas, e mistura luta, dança e música. Em Salvador, Mestre Bimba criou a Capoeira Regional. Mestre Pastinha ficou conhecido como um grande mestre da Capoeira Angola. Em dois mil e quatorze, a UNESCO reconheceu a roda de capoeira como patrimônio cultural imaterial da humanidade.",
+    "ja": "カポエイラはアフリカにルーツを持ちながらブラジルで発展し、格闘技・踊り・音楽が一つになったものです。サルヴァドールで、メストリ・ビンバがカポエイラ・ヘジョナウを生み出しました。メストリ・パスチーニャは、カポエイラ・アンゴラの偉大なメストリとして知られるようになりました。二〇一四年、ユネスコはカポエイラのホーダを人類の無形文化遺産として認めました。",
+    "keyVocab": [
+      { "pt": "desenvolver-se", "ja": "発展する" },
+      { "pt": "raiz", "ja": "根・ルーツ" },
+      { "pt": "luta", "ja": "格闘・戦い" },
+      { "pt": "criar", "ja": "創る・生み出す" },
+      { "pt": "patrimônio", "ja": "遺産・財産" }
+    ]
+  },
+  {
+    "id": "dct_l6",
+    "level": "long",
+    "isDialogue": true,
+    "text": "— Você vai à festa de aniversário do nosso professor no sábado? — Vou, sim, mas ainda não comprei um presente para ele. — Que tal a gente ir ao shopping amanhã depois do trabalho? — Boa ideia! A gente se encontra na entrada às seis horas.",
+    "ja": "「土曜日の先生の誕生日パーティーに行きますか？」「はい、行きます。でも、まだ先生へのプレゼントを買っていないんです。」「明日、仕事のあとで一緒にショッピングモールに行くのはどうですか？」「いいですね！六時に入り口で会いましょう。」",
+    "keyVocab": [
+      { "pt": "festa de aniversário", "ja": "誕生日パーティー" },
+      { "pt": "presente", "ja": "プレゼント・贈り物" },
+      { "pt": "que tal", "ja": "〜はどうですか" },
+      { "pt": "shopping", "ja": "ショッピングモール" },
+      { "pt": "encontrar-se", "ja": "（待ち合わせて）会う" }
+    ]
+  },
+  {
+    "id": "dct_l7",
+    "level": "long",
+    "text": "No ano passado, eu viajei para o Nordeste com dois amigos. A gente alugou um carro e visitou várias praias lindas. A comida era deliciosa, principalmente a tapioca e o peixe frito. Foi uma viagem inesquecível, e eu quero voltar lá no ano que vem.",
+    "ja": "去年、私は友人二人とブラジル北東部へ旅行しました。私たちは車を借りて、美しいビーチをいくつも訪れました。料理はとてもおいしく、特にタピオカ（キャッサバのでんぷんで作るクレープ）と魚のフライがおいしかったです。忘れられない旅で、来年またそこへ行きたいと思っています。",
+    "keyVocab": [
+      { "pt": "viajar", "ja": "旅行する" },
+      { "pt": "alugar", "ja": "（お金を払って）借りる" },
+      { "pt": "principalmente", "ja": "特に・主に" },
+      { "pt": "inesquecível", "ja": "忘れられない" },
+      { "pt": "ano que vem", "ja": "来年" }
+    ]
+  },
+  {
+    "id": "dct_l8",
+    "level": "long",
+    "isDialogue": true,
+    "text": "— Boa tarde, estou com dor de garganta e um pouco de febre. — Desde quando você está assim? — Desde ontem à noite, e também estou muito cansado. — Você pode tomar este remédio três vezes por dia e descansar bastante. Se não melhorar em dois dias, procure um médico.",
+    "ja": "「こんにちは。のどが痛くて、少し熱があります。」「いつからそのような状態ですか？」「昨日の夜からです。それに、とても疲れています。」「この薬を一日三回飲んで、しっかり休むといいですよ。二日たってもよくならなければ、お医者さんに診てもらってください。」",
+    "keyVocab": [
+      { "pt": "dor de garganta", "ja": "のどの痛み" },
+      { "pt": "febre", "ja": "熱" },
+      { "pt": "cansado", "ja": "疲れた" },
+      { "pt": "remédio", "ja": "薬" },
+      { "pt": "melhorar", "ja": "良くなる・改善する" }
+    ]
+  },
+  {
+    "id": "dct_l9",
+    "level": "long",
+    "text": "A feijoada é um prato muito tradicional no Brasil. Ela é feita com feijão preto e vários tipos de carne, principalmente de porco. Muitas pessoas comem feijoada aos sábados, com arroz, couve e laranja. É uma refeição pesada, então muita gente gosta de descansar depois do almoço.",
+    "ja": "フェイジョアーダはブラジルのとても伝統的な料理です。黒インゲン豆と、豚肉を中心にいろいろな種類の肉で作られます。多くの人が土曜日に、ご飯、ケール（コウヴィ）、オレンジと一緒にフェイジョアーダを食べます。ボリュームのある食事なので、昼食のあとにひと休みしたがる人がたくさんいます。",
+    "keyVocab": [
+      { "pt": "prato", "ja": "料理・皿" },
+      { "pt": "feijão preto", "ja": "黒インゲン豆" },
+      { "pt": "carne", "ja": "肉（carne de porco で「豚肉」）" },
+      { "pt": "refeição", "ja": "食事" },
+      { "pt": "pesado", "ja": "重い・（食事が）重たい" }
+    ]
+  },
+  {
+    "id": "dct_l10",
+    "level": "long",
+    "text": "Na minha primeira aula de capoeira, eu fiquei um pouco nervoso. O professor nos ensinou a ginga, que é o movimento básico do jogo. Depois, todo mundo fez uma roda, e eu tentei tocar o berimbau pela primeira vez. Foi difícil, mas eu me diverti muito.",
+    "ja": "初めてのカポエイラの授業で、私は少し緊張しました。先生は、ジョーゴ（ゲーム）の基本の動きであるジンガを教えてくれました。そのあと、みんなでホーダを作り、私は初めてビリンバウを演奏してみました。難しかったけれど、とても楽しかったです。",
+    "keyVocab": [
+      { "pt": "nervoso", "ja": "緊張した・神経質な" },
+      { "pt": "ensinar", "ja": "教える" },
+      { "pt": "ginga", "ja": "ジンガ（カポエイラの基本のステップ）" },
+      { "pt": "tentar", "ja": "試みる・やってみる" },
+      { "pt": "divertir-se", "ja": "楽しむ" }
+    ]
+  },
+  {
+    "id": "dct_l11",
+    "level": "long",
+    "text": "Eu estou procurando um apartamento novo, porque o meu é pequeno e fica longe do trabalho. Ontem eu visitei um lugar perto do metrô, com dois quartos e uma varanda. O aluguel é um pouco caro, mas o bairro é tranquilo e seguro. Acho que vou fechar o contrato na semana que vem.",
+    "ja": "今の部屋は狭くて職場から遠いので、新しいアパートを探しています。昨日、地下鉄の近くにある、寝室が二つあってベランダも付いている物件を見に行きました。家賃は少し高いですが、地域は静かで安全です。来週、契約しようと思います。",
+    "keyVocab": [
+      { "pt": "procurar", "ja": "探す" },
+      { "pt": "longe", "ja": "遠い・遠くに" },
+      { "pt": "aluguel", "ja": "家賃・賃貸" },
+      { "pt": "bairro", "ja": "地区・界隈" },
+      { "pt": "contrato", "ja": "契約" }
+    ]
+  },
+  {
+    "id": "dct_l12",
+    "level": "long",
+    "text": "Em junho, muitas cidades brasileiras celebram as festas juninas. As pessoas se vestem de caipira e dançam quadrilha. Também há muitas comidas típicas feitas de milho, como pipoca e bolo de milho. As crianças adoram as brincadeiras, e os adultos gostam de conversar perto da fogueira.",
+    "ja": "六月には、ブラジルの多くの町でフェスタ・ジュニーナ（六月祭り）が祝われます。人々は田舎風（カイピーラ）の服装をして、クアドリーリャという踊りを踊ります。ポップコーンやトウモロコシのケーキなど、トウモロコシで作る郷土料理もたくさんあります。子どもたちは遊びが大好きで、大人たちはたき火のそばでおしゃべりを楽しみます。",
+    "keyVocab": [
+      { "pt": "celebrar", "ja": "祝う" },
+      { "pt": "vestir-se de", "ja": "〜の格好をする" },
+      { "pt": "milho", "ja": "トウモロコシ" },
+      { "pt": "brincadeira", "ja": "遊び・冗談" },
+      { "pt": "fogueira", "ja": "たき火" }
+    ]
   }
 ]

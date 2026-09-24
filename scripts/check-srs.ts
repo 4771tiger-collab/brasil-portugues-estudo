@@ -20,22 +20,42 @@ import {
   todayStr,
 } from "../src/srs/scheduler";
 import {
+  PROD_MIN_INTERVAL,
   REVIEWS_PER_NEW,
+  SAME_WORD_GAP,
   buildSession,
   countDueOn,
   dueWords,
   forecast,
+  glossRevealsAnswer,
   interleave,
+  isProdEligible,
   masteryBreakdown,
   orderNew,
   pickForQuiz,
+  prodCandidates,
+  prodMastery,
   relativeOverdue,
   seededShuffle,
+  separateSameWord,
   spreadCategories,
+  spreadEvenly,
   WEAK_EASE,
   WEAK_MIN,
   weakWords,
 } from "../src/srs/queue";
+import {
+  PROD_SUFFIX,
+  baseOfKey,
+  canHaveProd,
+  cardKey,
+  isProdKey,
+  prodItem,
+  prodKey,
+  recogItem,
+  toStudyItem,
+  type StudyItem,
+} from "../src/srs/cardKey";
 import { ALIAS_IDS, ALIAS_KEEP, siblingKey } from "../src/data/siblings";
 import {
   askableByJa,
@@ -50,7 +70,7 @@ import {
 import capoeiraRaw from "../data/capoeira-words.json";
 import irregularRaw from "../data/verb-irregular.json";
 import colloquialRaw from "../data/colloquial.json";
-import { createLemmatizer, type ColloquialTable, type LexRef } from "../src/services/lemmatize";
+import { createLemmatizer, tokenize, type ColloquialTable, type LexRef } from "../src/services/lemmatize";
 import type { IrregularTable } from "../src/services/conjugate";
 import {
   addTargetId,
@@ -100,6 +120,7 @@ import {
   AGAIN_GAP,
   INTRO_GAP,
   MAX_REQUEUE,
+  againItems,
   currentItem,
   initSession,
   isDone,
@@ -951,13 +972,13 @@ console.log("=== session.step（§2b） ===");
   ok(isDone(one), "上限後は完了");
 
   // 完了後「again の語をもう1周」
-  const r2 = step(one, { t: "append", words: [w(0)] });
+  const r2 = step(one, { t: "append", items: [w(0)] });
   eq([isDone(r2), r2.round, r2.again, r2.requeued, currentItem(r2)?.kind], [false, 2, [], {}, "test"], "append: 末尾に test・again と再挿入回数は数え直し");
   eq(r2.first, one.first, "append: first は変えない");
   eq(new Set(r2.queue.map((q) => q.key)).size, 5, "append の key も一意");
   const r3 = step(step(r2, { t: "reveal" }), { t: "rate", r: "again" });
   eq([r3.queue.length, r3.again], [6, ["words:0000"]], "2周目も again で再挿入できる");
-  ok(step(one, { t: "append", words: [] }) === one, "append 空 → 変更なし");
+  ok(step(one, { t: "append", items: [] }) === one, "append 空 → 変更なし");
 
   // 出題方向
   eq(testDirection("words:0001", T, "pt2ja"), "pt2ja", "testDirection pt2ja");
@@ -989,6 +1010,284 @@ console.log("=== forecast ===");
   eq(forecast(words, cards, T, 3), [3, 0, 1], "days=3");
   eq(forecast(words, {}, T), [0, 0, 0, 0, 0, 0, 0], "カード無し → 0");
   eq(forecast(words, cards, T, 0), [], "days=0 → []");
+}
+
+// ---------------------------------------------------------------------------
+console.log("=== 産出カード（T2-1）: カードキー ===");
+{
+  eq(PROD_SUFFIX, "@p", "産出カードのキーの末尾は @p");
+  eq([prodKey("words:0042"), prodKey("dict:12"), prodKey("user:saudade")], ["words:0042@p", "dict:12@p", "user:saudade@p"], "prodKey = 語の ID + @p");
+  eq(
+    [isProdKey("words:0042@p"), isProdKey("words:0042"), isProdKey("@p"), isProdKey("user:a@b@p"), isProdKey("dict:12@p"), isProdKey("words:0042@P")],
+    [true, false, false, false, true, false],
+    "isProdKey: @p で終わり、その前に @ が無いキーだけ"
+  );
+  eq(
+    [baseOfKey("words:0042@p"), baseOfKey("words:0042"), baseOfKey("user:a@b@p")],
+    ["words:0042", "words:0042", "user:a@b@p"],
+    "baseOfKey: 産出カードのキー → 語の ID（それ以外はそのまま）"
+  );
+  eq([cardKey("words:0001", "recog"), cardKey("words:0001", "prod")], ["words:0001", "words:0001@p"], "cardKey(id, dir)");
+  eq([canHaveProd("words:0001"), canHaveProd("user:a@b"), canHaveProd("")], [true, false, false], "canHaveProd: @ を含む ID・空は産出カードを作らない");
+  // user: の語の ID は歌詞のトークン（文字・ハイフン・アポストロフィ）から作るので @ を含まない
+  ok(tokenize("mail@dominio.com d'água bem-te-vi @p").every((t) => !t.key.includes("@")), "歌詞のトークンに @ は入らない（user: の ID に @ が現れない）");
+  const X = w(40);
+  eq(recogItem(X), { word: X, dir: "recog", key: X.id }, "recogItem");
+  eq(prodItem(X), { word: X, dir: "prod", key: "words:0040@p" }, "prodItem");
+  eq([toStudyItem(X), toStudyItem(prodItem(X))], [recogItem(X), prodItem(X)], "toStudyItem: Word は理解カード、StudyItem はそのまま");
+}
+
+console.log("=== 産出カード（T2-1）: 対象・候補の順・並べ方 ===");
+{
+  /** 評価済みで間隔 i 日（期限前）。lastOff = 最後に評価した日（今日からの日数） */
+  const learned = (i: number, lastOff = -2) =>
+    card({ ease: 2.5, intervalDays: i, reps: 3, level: levelFor(i, 3), last: D(lastOff), due: D(lastOff + i) });
+  eq(PROD_MIN_INTERVAL, 7, "産出カードは理解カードの間隔7日以上から");
+  const E = fx("words", "PE");
+  eq(isProdEligible(E, {}, T), false, "isProdEligible: 理解カードが無い → 対象外");
+  eq(isProdEligible(E, { [E.id]: card({ last: null, intervalDays: 10 }) }, T), false, "isProdEligible: 未評価（曲から追加しただけ）→ 対象外");
+  eq(isProdEligible(E, { [E.id]: learned(6) }, T), false, "isProdEligible: 間隔6日 → 対象外");
+  eq(isProdEligible(E, { [E.id]: learned(7) }, T), true, "isProdEligible: 間隔7日 → 対象");
+  eq(isProdEligible(E, { [E.id]: learned(10, 0) }, T), false, "isProdEligible: 理解カードを今日評価 → 今日は対象外（翌日から）");
+  eq(isProdEligible(E, { [E.id]: learned(10), [prodKey(E.id)]: learned(3) }, T), true, "isProdEligible: 産出カードの有無は見ない");
+  const PN = fx("capoeira", "PE", { pos: "固有名詞（人名）" });
+  eq(isProdEligible(PN, { [PN.id]: learned(10) }, T), false, "isProdEligible: 固有名詞 → 対象外");
+  const AL: Word = { ...fx("words", "PE"), id: [...ALIAS_IDS][0] };
+  eq(isProdEligible(AL, { [AL.id]: learned(10) }, T), false, "isProdEligible: 別名（alias 側）→ 対象外");
+  const AT: Word = { ...fx("words", "PE"), id: "user:a@b" };
+  eq(isProdEligible(AT, { [AT.id]: learned(10) }, T), false, "isProdEligible: @ を含む ID → 対象外");
+
+  // 候補の順: 理解カードの間隔の長い順 → コア語の順 → 元の並び
+  const C = range(5).map(() => fx("words", "PC"));
+  const cc = {
+    [C[0].id]: learned(8),
+    [C[1].id]: learned(20),
+    [C[2].id]: learned(8),
+    [C[3].id]: learned(8),
+    [C[4].id]: learned(30),
+    [prodKey(C[4].id)]: learned(3), // 産出カードがもうある
+  };
+  eq(
+    idsOf(prodCandidates([...C, C[0]], cc, T, [C[3].id, C[2].id])),
+    [C[1].id, C[3].id, C[2].id, C[0].id],
+    "prodCandidates: 間隔の長い順 → コア語の順 → 元の順・産出カードのある語と重複は除く"
+  );
+  eq(prodCandidates(C, {}, T), [], "prodCandidates: カード無し → []");
+
+  // 均等に散らす
+  const b8 = ["1", "2", "3", "4", "5", "6", "7", "8"];
+  const frozen = JSON.stringify(b8);
+  eq(spreadEvenly(b8, ["a", "b", "c"]).join(""), "12a34b56c78", "spreadEvenly: 8枚に3枚 → 2・4・6枚目の後ろ");
+  eq(JSON.stringify(b8), frozen, "spreadEvenly: 入力を変更しない");
+  eq(spreadEvenly(["1", "2"], ["a", "b", "c", "d", "e"]).join(""), "1abc2de", "spreadEvenly: 少ない base に多い extra → 先頭は base");
+  eq(spreadEvenly(["1"], ["a"]).join(""), "1a", "spreadEvenly: 1枚と1枚");
+  eq([spreadEvenly([], ["a"]), spreadEvenly(["1"], [])], [["a"], ["1"]], "spreadEvenly: 片方が空");
+
+  // 同じ語を離す
+  const L = range(6).map(() => fx("words", "PL"));
+  const sig = (xs: StudyItem[]) => xs.map((x) => (x.dir === "prod" ? "p" : "r") + L.indexOf(x.word)).join(" ");
+  const seq1 = [recogItem(L[0]), prodItem(L[0]), ...L.slice(1).map(recogItem)];
+  eq(SAME_WORD_GAP, 4, "同じ語の2枚の間は4枚以上");
+  eq(sig(separateSameWord(seq1)), "r0 r1 r2 r3 r4 p0 r5", "separateSameWord: 隣の同じ語を4枚後ろへ");
+  eq(sig(separateSameWord([recogItem(L[0]), prodItem(L[0]), recogItem(L[1])])), "r0 r1 p0", "separateSameWord: 離しきれなければ末尾へ");
+  const plain = [...L.map(recogItem), prodItem(L[5])];
+  eq(sig(separateSameWord(plain.slice(0, 5))), sig(plain.slice(0, 5)), "separateSameWord: 同じ語が無ければそのまま");
+  eq(sig(separateSameWord(seq1, 0)), sig(seq1), "separateSameWord: gap 0 → そのまま");
+}
+
+console.log("=== 産出カード（T2-1）: buildSession ===");
+{
+  const rv = (dueOff: number, i: number) => card({ ease: 2.5, intervalDays: i, reps: 2, last: D(dueOff - i), due: D(dueOff) });
+  const learned = (i: number, lastOff = -2) =>
+    card({ ease: 2.5, intervalDays: i, reps: 3, level: levelFor(i, 3), last: D(lastOff), due: D(lastOff + i) });
+  const RR = range(4).map(() => fx("words", "PR")); // 理解カードの復習（期限）
+  const KN = range(3).map(() => fx("words", "PK")); // 覚えた語（間隔7日以上・期限前）→ 産出カードの候補
+  const NN = range(3).map(() => fx("words", "PN")); // 新しい語
+  const cardsP: Record<string, SrsCard> = {
+    [RR[0].id]: rv(0, 10), // 相対延滞度 0.1
+    [RR[1].id]: rv(-5, 2), // 3
+    [RR[2].id]: rv(-1, 1), // 2
+    [RR[3].id]: rv(0, 1), // 1
+    [KN[0].id]: learned(10),
+    [KN[1].id]: learned(25),
+    [KN[2].id]: learned(7),
+  };
+  const poolP = [...RR, ...KN, ...NN];
+  const baseP = { newLimit: 2, introducedToday: 0, today: T, coreOrder: [] as string[], capoeiraShare: 0 };
+  const dirs = (xs: StudyItem[]) => xs.map((x) => (x.dir === "prod" ? "p" : "r")).join("");
+
+  const off = buildSession(poolP, cardsP, baseP);
+  eq([off.prodReview, off.prodFresh], [[], []], "production 省略 → 産出カードなし（これまでと同じ）");
+  eq(off.items, off.all.map(recogItem), "production 省略 → items は all の理解カード");
+
+  const on = buildSession(poolP, cardsP, { ...baseP, production: true, prodNewLimit: 2 });
+  eq(idsOf(on.prodFresh), [KN[1].id, KN[0].id], "新しく始める産出カード: 理解カードの間隔の長い順に上限まで");
+  eq(idsOf(on.all), idsOf(off.all), "産出カードがあっても理解カードの出題は変わらない");
+  eq(on.items.filter((x) => x.dir === "recog").map((x) => x.word), on.all, "items の理解カードは all の並び");
+  eq(on.items.filter((x) => x.dir === "prod").map((x) => x.key), [prodKey(KN[1].id), prodKey(KN[0].id)], "items の産出カードのキーは id@p");
+  eq(dirs(on.items), "rrprrprr", "産出カードは理解カードの間に均等に散らす（先頭は理解カード）");
+  eq(new Set(on.items.map((x) => x.key)).size, on.items.length, "items のカードキーは重複しない");
+  eq(buildSession(poolP, cardsP, { ...baseP, production: true, prodNewLimit: 2, prodIntroducedToday: 1 }).prodFresh.length, 1, "今日始めた産出カードの数を引く");
+  eq(buildSession(poolP, cardsP, { ...baseP, production: true, prodNewLimit: 2, prodIntroducedToday: 3 }).prodFresh, [], "産出カードの新規枠を使い切った → 始めない");
+  eq(buildSession(poolP, cardsP, { ...baseP, production: true, prodNewLimit: 0 }).prodFresh, [], "上限 0 → 始めない");
+  eq(buildSession(poolP, cardsP, { ...baseP, production: false, prodNewLimit: 5 }).prodFresh, [], "production false → 始めない");
+  const onlyProd = buildSession(KN, cardsP, { ...baseP, production: true, prodNewLimit: 5 });
+  eq([onlyProd.all, dirs(onlyProd.items)], [[], "ppp"], "理解カードが無い日は産出カードだけ");
+  const bl = buildSession(poolP, cardsP, { ...baseP, production: true, prodNewLimit: 2, reviewLimit: 3 });
+  eq([bl.reason, bl.prodFresh, bl.fresh], ["backlog", [], []], "backlog の日は産出カードも新しく始めない");
+
+  // 期限の来た産出カード: 理解カードの復習と合わせて1日の上限まで（相対延滞度の降順）
+  const withProd: Record<string, SrsCard> = {
+    ...cardsP,
+    [prodKey(KN[0].id)]: rv(-4, 2), // 2.5
+    [prodKey(KN[2].id)]: rv(0, 5), // 0.2
+  };
+  const cmb = buildSession(poolP, withProd, { ...baseP, production: true, prodNewLimit: 5, reviewLimit: 4 });
+  eq(idsOf(cmb.review), [RR[1].id, RR[2].id, RR[3].id], "上限4: 理解 3・2・1（延滞の大きい順）");
+  eq(idsOf(cmb.prodReview), [KN[0].id], "上限4: 産出 2.5（理解と合わせて延滞の大きい4枚）");
+  eq([cmb.dueTotal, cmb.reason, cmb.fresh, cmb.prodFresh], [6, "backlog", [], []], "dueTotal は理解＋産出・超えたら backlog");
+  const cmbAll = buildSession(poolP, withProd, { ...baseP, production: true, prodNewLimit: 5 });
+  eq(idsOf(cmbAll.prodReview), [KN[0].id, KN[2].id], "上限なし: 期限の産出カードは延滞の大きい順");
+  eq(idsOf(cmbAll.prodFresh), [KN[1].id], "産出カードのある語は新しく始めない");
+  const used = buildSession(poolP, withProd, { ...baseP, production: true, reviewLimit: 6, reviewedToday: 3 });
+  eq(used.review.length + used.prodReview.length, 3, "今日評価した復習（dueReviewed。産出を含む）を上限から引く");
+  const offDue = buildSession(poolP, withProd, { ...baseP, reviewLimit: 4 });
+  eq([offDue.dueTotal, offDue.prodReview, offDue.review.length, offDue.reason], [4, [], 4, undefined], "産出カードを止めているとき: 期限の産出カードも出さず、上限にも数えない");
+  // 今日 again にした産出カードは上限の外
+  const rl = buildSession(poolP, { ...withProd, [prodKey(KN[2].id)]: card({ lapses: 1, last: T, due: T }) }, { ...baseP, production: true, reviewLimit: 1 });
+  eq([idsOf(rl.review), idsOf(rl.prodReview)], [[RR[1].id], [KN[2].id]], "今日 again にした産出カードは上限の外で出す");
+
+  // 理解カードを今日評価した語は、産出カードを翌日から
+  const TD = fx("words", "PT");
+  eq(buildSession([TD], { [TD.id]: learned(10, 0) }, { ...baseP, production: true, prodNewLimit: 5 }).prodFresh, [], "理解カードを今日評価した語 → 今日は始めない");
+  eq(idsOf(buildSession([TD], { [TD.id]: learned(10, -1) }, { ...baseP, production: true, prodNewLimit: 5 }).prodFresh), [TD.id], "前日に評価した語 → 始める");
+
+  // 同じ語の理解カードと産出カードがどちらも期限 → 理解カードだけ出し、産出カードは明日へ
+  // （答えのポルトガル語を見た直後に言わせない。一覧表示・耳だけ復習でも先に答えを見せない。出題方向の設定にもよらない）
+  const B = fx("words", "PB");
+  const MM = range(6).map(() => fx("words", "PM")); // 延滞の小さい復習（B の後ろに並ぶ）
+  const mmCards = Object.fromEntries(MM.map((x) => [x.id, rv(0, 20)]));
+  const bothCards = { ...cardsP, ...mmCards, [B.id]: rv(-3, 10), [prodKey(B.id)]: rv(-1, 3) };
+  const both = buildSession([...poolP, B, ...MM], bothCards, { ...baseP, production: true, prodNewLimit: 0 });
+  ok(idsOf(both.review).includes(B.id), "同じ語の理解・産出がどちらも期限 → 理解カードは出す");
+  ok(!idsOf(both.prodReview).includes(B.id), "同じ語の理解カードが今日ある → 産出カードは明日へ");
+  eq(both.items.filter((x) => x.word.id === B.id).map((x) => x.dir), ["recog"], "items に同じ語の2枚は入らない");
+  eq(both.dueTotal, both.review.length + both.prodReview.length, "明日に回した同じ語の産出カードは dueTotal に数えない");
+  eq(
+    idsOf(buildSession([B], { [B.id]: learned(10, 0), [prodKey(B.id)]: rv(-1, 3) }, { ...baseP, production: true }).prodReview),
+    [],
+    "理解カードを今日評価した語 → 期限の産出カードも明日へ"
+  );
+  eq(
+    idsOf(buildSession([B], { [B.id]: learned(10), [prodKey(B.id)]: rv(-1, 3) }, { ...baseP, production: true }).prodReview),
+    [B.id],
+    "理解カードが今日無い語 → 期限の産出カードを出す"
+  );
+  eq(
+    idsOf(buildSession([B], { [B.id]: learned(10, 0), [prodKey(B.id)]: card({ lapses: 1, last: T, due: T }) }, { ...baseP, production: true }).prodReview),
+    [],
+    "今日 again にした産出カードでも、理解カードを今日評価した語なら明日へ"
+  );
+
+  // 同じ綴り（兄弟グループ）: 理解・産出を通して1日1枚（同じ語の両方が期限のときだけ例外）
+  const S1 = fx("words", "PS", { pt: "xablau" }); // 理解カードが期限
+  const S2 = fx("capoeira", "PS", { pt: "Xablau" }); // 同じ綴りの別の語。産出カードが期限
+  const sb = buildSession([S1, S2], { [S1.id]: rv(0, 3), [S2.id]: learned(10), [prodKey(S2.id)]: rv(-2, 3) }, { ...baseP, production: true, prodNewLimit: 5 });
+  eq([idsOf(sb.review), sb.prodReview, sb.prodFresh, sb.dueTotal], [[S1.id], [], [], 1], "同じ綴りの別の語の理解カードが期限 → 産出カードは明日へ（dueTotal にも数えない）");
+  const S3 = fx("words", "PS", { pt: "Xablau!" }); // 同じ綴りの新しい語
+  const sb2 = buildSession([S3, S2], { [S2.id]: learned(10), [prodKey(S2.id)]: rv(-2, 3) }, { ...baseP, production: true, coreOrder: [S3.id] });
+  eq([idsOf(sb2.prodReview), sb2.fresh], [[S2.id], []], "今日の産出カードと同じ綴りの新しい語は出さない");
+  const S4 = fx("capoeira", "PS", { pt: "xablau" }); // 覚えた語（産出カードの候補）
+  const sb3 = buildSession([S1, S4], { [S1.id]: rv(0, 3), [S4.id]: learned(12) }, { ...baseP, production: true, prodNewLimit: 5 });
+  eq([idsOf(sb3.review), sb3.prodFresh], [[S1.id], []], "理解カードで使う綴りの語は、産出カードを始めない");
+  const S5 = fx("words", "PS", { pt: "blimbau" });
+  const S6 = fx("capoeira", "PS", { pt: "Blimbau" });
+  const sb4 = buildSession(
+    [S5, S6],
+    { [S5.id]: learned(10), [S6.id]: learned(10), [prodKey(S5.id)]: rv(0, 3), [prodKey(S6.id)]: rv(-3, 3) },
+    { ...baseP, production: true, prodNewLimit: 5 }
+  );
+  eq([idsOf(sb4.prodReview), sb4.prodFresh], [[S6.id], []], "同じ綴りの産出カードは1日1枚（延滞の大きい方）");
+  const S7 = fx("words", "PS", { pt: "gronga" });
+  const S8 = fx("capoeira", "PS", { pt: "Gronga" });
+  const sb5 = buildSession(
+    [S7, S8],
+    { [S7.id]: learned(10), [S8.id]: learned(10), [prodKey(S7.id)]: learned(3, 0) },
+    { ...baseP, production: true, prodNewLimit: 5 }
+  );
+  eq(sb5.prodFresh, [], "今日評価した産出カードと同じ綴りの語は、産出カードを始めない");
+}
+
+console.log("=== 産出カード（T2-1）: 予報・集計 ===");
+{
+  const fw = [w(0), w(1), w(0)];
+  const fc = {
+    "words:0000": card({ last: D(-1), due: D(1) }),
+    "words:0000@p": card({ last: D(-1), intervalDays: 2, reps: 1, due: D(2) }),
+    "words:0001@p": card({ last: null, due: T }), // 未評価は数えない
+  };
+  eq(forecast(fw, fc, T, 3), [1, 0, 0], "forecast: production 省略 → 産出カードは数えない");
+  eq(forecast(fw, fc, T, 3, { production: true }), [1, 1, 0], "forecast: production → 産出カードも数える（同じ語でも別の1枚）");
+  eq([countDueOn(fw, fc, D(2)), countDueOn(fw, fc, D(2), { production: true })], [1, 2], "countDueOn: production で産出カードも数える");
+  eq(
+    prodMastery({
+      "words:0001": card({ last: T, intervalDays: 30, reps: 5 }), // 理解カードは数えない
+      "words:0001@p": card({ last: T, intervalDays: 3, reps: 1 }),
+      "words:0002@p": card({ last: D(-1), intervalDays: 10, reps: 2 }),
+      "words:0003@p": card({ last: D(-1), intervalDays: 25, reps: 4 }),
+      "words:0004@p": card({ last: null }), // 未評価
+    }),
+    { started: 3, learning: 1, young: 1, mature: 1, canSay: 2 },
+    "prodMastery: ポルトガル語で言える語 = 産出カードの定着中＋習得"
+  );
+  eq(prodMastery({}), { started: 0, learning: 0, young: 0, mature: 0, canSay: 0 }, "prodMastery: カード無し");
+}
+
+console.log("=== 産出カード（T2-1）: 1枚ずつ学習（同じ語の理解・産出） ===");
+{
+  const seen = card({ intervalDays: 10, reps: 3, last: D(-10), due: T });
+  const [X, Y, Z, V, U] = [70, 71, 72, 73, 74].map(w);
+  const cards = { [X.id]: seen, [Y.id]: seen, [Z.id]: seen, [V.id]: seen, [U.id]: seen, [prodKey(Y.id)]: seen };
+  const items = [recogItem(X), prodItem(X), recogItem(Y), prodItem(Y), recogItem(Z), recogItem(V), recogItem(U)];
+  const s0 = initSession(items, cards);
+  eq(s0.queue.map((q) => `${q.dir}:${q.kind}`), ["recog:test", "prod:test", "recog:test", "prod:test", "recog:test", "recog:test", "recog:test"], "産出カードは紹介しない（カードが無くても test）");
+  eq(s0.queue.map((q) => q.cardKey), items.map((x) => x.key), "QItem.cardKey = カードキー");
+  eq(s0.queue.map((q) => !!q.newCard), [false, true, false, false, false, false, false], "カードの無い産出カードに newCard の印");
+  eq(new Set(s0.queue.map((q) => q.key)).size, 7, "キューの key は一意（同じ語の理解・産出でも）");
+  const sig = (s: SessionState) => s.queue.map((q) => `${q.dir[0]}${q.word.id.slice(-2)}`);
+
+  // X の理解 → again、X の産出 → again
+  let s = step(step(s0, { t: "reveal" }), { t: "rate", r: "again" });
+  s = step(step(s, { t: "reveal" }), { t: "rate", r: "again" });
+  eq(s.requeued, { [X.id]: 1, [prodKey(X.id)]: 1 }, "再挿入の回数はカードキーごと（理解と産出が混ざらない）");
+  eq(s.again, [X.id, prodKey(X.id)], "again の記録もカードキーごと");
+  eq(s.first, { [X.id]: "again", [prodKey(X.id)]: "again" }, "最初の評価もカードキーごと");
+  eq(sig(s), ["r70", "p70", "r71", "p71", "r70", "p70", "r72", "r73", "r74"], "同じ語の理解・産出をそれぞれ3枚後に再挿入");
+  eq(s.queue.slice(4, 6).map((q) => [q.dir, q.cardKey, q.kind]), [["recog", X.id, "test"], ["prod", prodKey(X.id), "test"]], "再挿入したカードも出題方向とカードキーを保つ");
+  // 評価できないカード（紹介になってしまった産出カードなど）があっても止まらないよう、回数を区切る
+  for (let guard = 0; !isDone(s) && guard < 50; guard++) s = step(step(s, { t: "reveal" }), { t: "rate", r: "good" });
+  ok(isDone(s), "すべて評価して完了（産出カードも表→裏→評価で進む）");
+  eq(s.first[X.id], "again", "再出題で合格しても最初の評価は again のまま");
+  eq(
+    sessionStats(s),
+    { reviews: 6, words: 5, newWords: 0, firstCorrect: 4, prod: { reviews: 3, words: 2, firstCorrect: 1, newCards: 1 } },
+    "sessionStats: 理解と産出を分けて数える（新しく始めた産出カード1枚）"
+  );
+  eq(againItems(s).map((x) => [x.dir, x.key]), [["recog", X.id], ["prod", prodKey(X.id)]], "againItems: again だったカード（出題方向つき）");
+  const r2 = step(s, { t: "append", items: againItems(s) });
+  eq(r2.queue.slice(-2).map((q) => [q.dir, q.cardKey, q.kind]), [["recog", X.id, "test"], ["prod", prodKey(X.id), "test"]], "もう1周: 産出カードは産出カードのまま");
+  eq([r2.round, r2.again, r2.requeued], [2, [], {}], "もう1周: again と再挿入回数を数え直す");
+  eq(new Set(r2.queue.map((q) => q.key)).size, r2.queue.length, "もう1周の key も一意");
+
+  // 再挿入の上限もカードキーごと
+  let m = initSession([recogItem(X), prodItem(X)], cards);
+  let n = 0;
+  while (!isDone(m) && n < 30) {
+    m = step(step(m, { t: "reveal" }), { t: "rate", r: "again" });
+    n++;
+  }
+  eq([n, m.requeued], [8, { [X.id]: MAX_REQUEUE, [prodKey(X.id)]: MAX_REQUEUE }], "再挿入の上限は理解・産出それぞれ3回（計8回出題）");
+  ok(!("prod" in sessionStats(initSession([X, Y], cards))), "産出カードが無ければ sessionStats に prod は無い");
 }
 
 // ---------------------------------------------------------------------------
@@ -1128,7 +1427,7 @@ ok(!studiedToday({ lastStudyDate: D(-1) }, T), "studiedToday 昨日 → false");
   const frozen = JSON.stringify(s0);
   const a = applyRating(s0, "words:0009", "good", T);
   eq(norm(a.cards!["words:0009"]), norm(review(card({}), "good", T)), "applyRating 新規語 → カード作成");
-  eq(a.daily, { date: T, newIntroduced: 1, reviewsDone: 1, studied: 1, musicIntroduced: 0, dueReviewed: 0 }, "applyRating 日付が変われば daily を作り直して加算");
+  eq(a.daily, { date: T, newIntroduced: 1, reviewsDone: 1, studied: 1, musicIntroduced: 0, dueReviewed: 0, prodIntroduced: 0 }, "applyRating 日付が変われば daily を作り直して加算");
   eq([a.totalReviews, a.streak, a.bestStreak, a.lastStudyDate], [51, 4, 4, T], "applyRating totalReviews と連続記録");
   eq(a.pinnedNew, ["words:0005"], "applyRating 評価した語を pinnedNew から外す");
   eq(JSON.stringify(s0), frozen, "applyRating は入力を変更しない");
@@ -1164,6 +1463,49 @@ ok(!studiedToday({ lastStudyDate: D(-1) }, T), "studiedToday 昨日 → false");
     1,
     "dueReviewed 日付が変われば数え直す"
   );
+}
+
+console.log("=== useProgress（産出カードの評価・純関数） ===");
+{
+  const K = "words:0003";
+  const PK = prodKey(K);
+  const s0 = {
+    cards: { [K]: DUE } as Record<string, SrsCard>,
+    daily: { date: T, newIntroduced: 2, reviewsDone: 5, studied: 5, musicIntroduced: 1, dueReviewed: 3 },
+    streak: 1,
+    bestStreak: 1,
+    lastStudyDate: T,
+    totalReviews: 10,
+    pinnedNew: [K],
+  };
+  const frozen = JSON.stringify(s0);
+  const a = applyRating(s0, PK, "good", T);
+  eq(norm(a.cards![PK]), norm(review(card({}), "good", T)), "新しい産出カード → カードを作る（新規カードと同じ規則）");
+  ok(a.cards![K] === s0.cards[K], "理解カードは変えない");
+  eq(
+    [a.daily!.newIntroduced, a.daily!.prodIntroduced, a.daily!.musicIntroduced, a.daily!.dueReviewed, a.daily!.reviewsDone, a.daily!.studied],
+    [2, 1, 1, 3, 6, 6],
+    "新しい産出カード → prodIntroduced +1（新規語の枠・曲の枠・dueReviewed は変えない。評価回数は数える）"
+  );
+  eq(a.history?.[T], { reviews: 1, newWords: 0, again: 0, act: {} }, "新しい産出カード → history の reviews だけ +1（newWords には数えない）");
+  eq(a.totalReviews, 11, "totalReviews +1");
+  ok(!("pinnedNew" in a), "産出カードの評価で pinnedNew（理解カードの新規指定）は変えない");
+  eq(JSON.stringify(s0), frozen, "入力を変更しない");
+
+  const b = applyRating({ ...s0, cards: { ...s0.cards, [PK]: DUE } }, PK, "again", T);
+  eq([b.daily!.prodIntroduced, b.daily!.dueReviewed, b.history?.[T]?.again], [0, 4, 1], "期限の来た産出カードの again → dueReviewed・again を数える（prodIntroduced は数えない）");
+  eq([b.cards![PK].lapses, b.cards![PK].intervalDays], [1, 0], "産出カードも同じ scheduler（合格済みから落とすと lapses+1）");
+  const c = applyRating({ ...s0, cards: { ...s0.cards, [PK]: EARLY } }, PK, "good", T);
+  ok(c.cards === s0.cards || c.cards![PK] === EARLY, "期限前の産出カード → 据え置き");
+  eq(c.daily!.dueReviewed, 3, "期限前の産出カードは dueReviewed に数えない");
+  const d = applyRating({ ...s0, daily: { date: T, newIntroduced: 0, reviewsDone: 0, studied: 0 } }, PK, "hard", T);
+  eq(d.daily!.prodIntroduced, 1, "保存済みの daily に prodIntroduced が無い → 0 から数える");
+  const e = applyRating({ ...s0, daily: { ...s0.daily, date: D(-1), prodIntroduced: 4 } }, PK, "good", T);
+  eq(e.daily!.prodIntroduced, 1, "日付が変われば prodIntroduced も数え直す");
+  const f = applyRating({ ...s0, cards: { ...s0.cards, [PK]: card({ last: null, due: T }) } }, PK, "good", T);
+  eq([f.daily!.prodIntroduced, f.daily!.musicIntroduced, f.history?.[T]?.newWords], [1, 1, 0], "未評価の産出カード（取り込みなど）→ 新しく始めた扱い（曲の枠は使わない）");
+  const g = applyRating(s0, "user:a@b@p", "good", T);
+  eq([g.daily!.newIntroduced, g.daily!.prodIntroduced], [3, 0], "@ を含む ID は産出カードのキーとみなさない");
 }
 
 console.log("=== useProgress（学習ログ history・純関数） ===");
@@ -1680,6 +2022,27 @@ console.log("=== useProgress（ストア・移行・取り消し） ===");
   eq(JSON.parse(mem.get("bp-progress-v1") ?? "{}").version, 1, "保存時の version は 1");
 }
 
+console.log("=== useProgress（産出カードの評価と取り消し・ストア） ===");
+{
+  const S = () => useProgress.getState();
+  S().resetAll();
+  const K = "words:0020";
+  const known = card({ ease: 2.5, intervalDays: 10, reps: 3, level: "young", last: addDays(TODAY, -2), due: addDays(TODAY, 8) });
+  useProgress.setState({ cards: { [K]: known } });
+  S().rate(prodKey(K), "good");
+  ok(!!S().cards[prodKey(K)] && S().cards[K] === known, "rate(産出カードのキー) → 産出カードだけ作る");
+  eq([S().daily.prodIntroduced, S().daily.newIntroduced], [1, 0], "rate 新しい産出カード → prodIntroduced（新規語の枠は使わない）");
+  ok(S().canUndo(prodKey(K)) && !S().canUndo(K), "canUndo はカードキーで判定（理解カードのキーでは取り消せない）");
+  eq(S().undo(), prodKey(K), "undo はカードキーを返す");
+  ok(!S().cards[prodKey(K)] && S().cards[K] === known, "undo → 産出カードだけ消え、理解カードは残る");
+  eq(S().daily.prodIntroduced ?? 0, 0, "undo → prodIntroduced も戻る");
+  S().rate(K, "good");
+  S().rate(prodKey(K), "again");
+  eq(S().undo(), prodKey(K), "理解カード → 産出カードの順に評価 → 取り消しは産出カードの1段だけ");
+  ok(!S().cards[prodKey(K)] && S().cards[K] === known && S().totalReviews === 1, "理解カードの評価（期限前なので据え置き）は残る（評価回数 1）");
+  S().resetAll();
+}
+
 // ---------------------------------------------------------------------------
 // 曲の単語の記録（B1-10）。「この曲から外す」が他の曲で追加した記録と学習履歴を消さないこと
 console.log("=== useMusic.removeWord（曲ごとの記録） ===");
@@ -1719,6 +2082,19 @@ console.log("=== useMusic.removeWord（曲ごとの記録） ===");
   M().removeWord("words:0603");
   ok(!M().addedWords.some((a) => a.id === "words:0603") && !S().cards["words:0603"], "videoId 省略 → その語の全記録を外し、未評価のカードも消す");
   eq(entries(), ["0601@vidA*"], "他の語の記録は残る");
+  S().resetAll();
+  useMusic.setState({ addedWords: [] });
+
+  // T2-1: 取り込みなどで残った未評価の産出カードも一緒に消す（評価済みの産出カードは残す）
+  M().addWord("words:0610", "vidA", "q");
+  useProgress.setState({ cards: { ...S().cards, "words:0610@p": card({ last: null, due: TODAY }) } });
+  M().removeWord("words:0610", "vidA");
+  ok(!S().cards["words:0610"] && !S().cards["words:0610@p"], "removeWord: 未評価のカードと一緒に、未評価の産出カードも消す");
+  M().addWord("words:0611", "vidA", "q");
+  const ratedProd = card({ intervalDays: 3, reps: 1, last: addDays(TODAY, -1), due: addDays(TODAY, 2) });
+  useProgress.setState({ cards: { ...S().cards, "words:0611@p": ratedProd } });
+  M().removeWord("words:0611", "vidA");
+  ok(!S().cards["words:0611"] && S().cards["words:0611@p"] === ratedProd, "removeWord: 評価済みの産出カードは消さない");
   S().resetAll();
   useMusic.setState({ addedWords: [] });
 
@@ -1804,9 +2180,35 @@ console.log("=== useSettings（移行・既定値） ===");
   eq([st.capoeiraShare, st.dailyReviewLimit], [0.25, 100], "B2 の新しいキー（capoeiraShare・dailyReviewLimit）も既定値");
   eq([st.handsfreeGapSec, st.handsfreeDirection], [3, "pt2ja"], "B3-07 の新しいキー（耳だけ復習の考える間・向き）も既定値");
   eq(st.replayAfterLookup, true, "B3-08 の新しいキー（調べた後は行の頭から再開）も既定値 true");
+  eq(
+    [st.productionEnabled, st.dailyProductionNewLimit, st.productionAnswerMode],
+    [true, 5, "self"],
+    "T2-1 の新しいキー（産出カード: 出す・1日5語・言ってから答えを見る）も既定値"
+  );
+  eq(st.speechInputEnabled, false, "T2-8 の新しいキー（音声認識の「言ってみる」）は既定でオフ（オプトイン）");
   st.set({ studyView: "list" });
   const saved = JSON.parse(mem.get("bp-settings-v1") ?? "{}");
   eq([saved.version, saved.state?.studyView, saved.state?.rate, saved.state?.futureKey], [0, "list", 0.8, "x"], "書き戻しても既存の値と未知の項目が残る");
+}
+
+// ---------------------------------------------------------------------------
+// 実データ: 和訳に答えのポルトガル語が書かれている語は産出カードにしない（F1）
+console.log("=== 実データ: 産出カードの問いに答えが見える語（glossRevealsAnswer） ===");
+{
+  const L = await import("../src/data/loadWords");
+  const learnedR = (i: number) => card({ ease: 2.5, intervalDays: i, reps: 3, level: levelFor(i, 3), last: D(-2), due: D(i - 2) });
+  const capHits = L.WORDS_CAPOEIRA.filter(glossRevealsAnswer).map((x) => x.id);
+  for (const id of ["capoeira:0150", "capoeira:0171", "capoeira:0235", "capoeira:0237"])
+    ok(capHits.includes(id), `glossRevealsAnswer: ${id}（${L.WORD_BY_ID.get(id)?.pt}）の和訳に答えが書かれている`);
+  eq(L.WORDS_GENERAL.filter(glossRevealsAnswer).map((x) => x.id), [], "glossRevealsAnswer: 一般語彙には無い");
+  const hino = L.WORD_BY_ID.get("capoeira:0237")!;
+  eq(isProdEligible(hino, { [hino.id]: learnedR(10) }, T), false, "isProdEligible: 和訳に答えが見える語（hino）→ 対象外");
+  const bad = L.ALL_WORDS.filter((x) => isProdEligible(x, { [x.id]: learnedR(10) }, T) && glossRevealsAnswer(x));
+  eq(bad.map((x) => x.id), [], "産出カードの対象語の和訳に答えは書かれていない");
+  const plainW = fx("words", "PG", { pt: "casa" });
+  eq(glossRevealsAnswer({ ...plainW, ja: "家" }), false, "glossRevealsAnswer: 和訳にラテン文字が無い → false");
+  eq(glossRevealsAnswer({ ...plainW, ja: "家（Casa Grande などの Casa）" }), true, "glossRevealsAnswer: 大文字・アクセント違いも答えとみなす");
+  eq(glossRevealsAnswer({ ...plainW, ja: "家（英語の house）" }), false, "glossRevealsAnswer: 答えと違うラテン文字は見ない");
 }
 
 // ---------------------------------------------------------------------------
@@ -1858,6 +2260,42 @@ console.log("=== 実データ: CORE_ORDER・reviewPool・導入順 ===");
   ok(introducedCore >= 140, `12日でコア語をほぼ導入（${introducedCore}/${CORE_ORDER.length}）`);
   const opts = { limit: 15, capoeiraShare: 0.25, coreOrder: CORE_ORDER, seed: T };
   eq(idsOf(orderNew(pool0, {}, opts)), idsOf(orderNew(pool0, {}, opts)), "実データ: 同じ日は同じ並び");
+}
+
+// ---------------------------------------------------------------------------
+// 実データ: 産出カード（T2-1）。ID に @ が無いこと・対象と今日の学習の組み立て
+console.log("=== 実データ: 産出カード ===");
+{
+  const L = await import("../src/data/loadWords");
+  const { ALL_WORDS, CORE_ORDER, reviewPool } = L;
+  ok(ALL_WORDS.every((x) => canHaveProd(x.id)) && CORE_ORDER.every(canHaveProd), "単語帳・コア語の ID に @ が無い（産出カードのキーと紛れない）");
+  ok(ALL_WORDS.every((x) => !isProdKey(x.id)), "単語帳の ID は産出カードのキーに見えない");
+  const pool = reviewPool([]);
+  // 最初の200語を「間隔10日・2日前に評価」にして、産出カードの候補と今日の学習を作る
+  const cards: Record<string, SrsCard> = {};
+  const known = () => card({ ease: 2.5, intervalDays: 10, reps: 3, level: "young", last: D(-2), due: D(8) });
+  const proper = pool.filter((x) => /固有名詞/.test(x.pos)).slice(0, 10);
+  const aliases = pool.filter((x) => ALIAS_IDS.has(x.id)).slice(0, 10);
+  for (const x of [...pool.slice(0, 200), ...proper, ...aliases]) cards[x.id] = known();
+  ok(proper.length > 0 && aliases.length > 0, `前提: 学習済みの固有名詞 ${proper.length}語・別名 ${aliases.length}語`);
+  const cand = prodCandidates(pool, cards, T, CORE_ORDER);
+  ok(cand.length > 0 && cand.every((x) => cards[x.id] && !/固有名詞/.test(x.pos) && !ALIAS_IDS.has(x.id)), `候補（${cand.length}語）に固有名詞・別名・未学習の語が無い`);
+  ok([...proper, ...aliases].every((x) => !isProdEligible(x, cards, T)), "学習済みでも固有名詞・別名は産出カードの対象外");
+  const plan = buildSession(pool, cards, {
+    newLimit: 15,
+    introducedToday: 0,
+    today: T,
+    coreOrder: CORE_ORDER,
+    capoeiraShare: 0.25,
+    reviewLimit: 100,
+    production: true,
+    prodNewLimit: 5,
+  });
+  eq(plan.prodFresh.length, 5, "実データ: 産出カードを1日5語始める");
+  eq(plan.items.length, plan.all.length + plan.prodReview.length + plan.prodFresh.length, "items = 理解カード＋産出カード");
+  const wordIds = new Set(plan.items.map((x) => x.word.id));
+  eq(new Set(plan.items.map((x) => siblingKey(x.word))).size, wordIds.size, "実データ: 理解・産出を通して、同じ綴りの別の語は1日1枚");
+  ok(plan.items.slice(0, 1).every((x) => x.dir === "recog"), "実データ: 先頭は理解カード");
 }
 
 // ---------------------------------------------------------------------------
@@ -1972,6 +2410,65 @@ console.log("=== 実データ: 曲の単語タブ（辞書とカポエイラ単�
     return statusId(i, cards) !== other || addTargetId(i, cards) !== other || bulkAddCandidates([i], cards, new Set()).length !== 0;
   });
   eq(bad.map((i) => i.lemma).slice(0, 5), [], "別の見出しで学習中 → どの行でも学習中と判定し、そのカードに追加し、一括追加から除く");
+}
+
+// ---------------------------------------------------------------------------
+// 実データ: カポエイラ語のカテゴリの付け替え（data/capoeira-category-map.json。語と ID は変えない）
+console.log("=== 実データ: カポエイラのカテゴリの付け替え ===");
+{
+  const L = await import("../src/data/loadWords");
+  const { WORDS_CAPOEIRA, WORDS_GENERAL, DECKS_CAPOEIRA, CAPOEIRA_CATEGORY_MAP, capoeiraCategory, categoriesOf, makeWord, resolveWord, CORE_ORDER, reviewPool } = L;
+  const capRaw = capoeiraRaw as { カテゴリ: string; ポルトガル語: string }[];
+  eq(WORDS_CAPOEIRA.length, capRaw.length, "カポエイラ語の数は変わらない");
+  ok(
+    WORDS_CAPOEIRA.every((x, i) => x.id === `capoeira:${String(i).padStart(4, "0")}` && x.index === i && x.pt === capRaw[i].ポルトガル語),
+    "ID・並び・綴りは変わらない（ソース内インデックス基準のまま）"
+  );
+  ok(WORDS_CAPOEIRA.every((x, i) => x.category === (CAPOEIRA_CATEGORY_MAP.get(capRaw[i].カテゴリ) ?? capRaw[i].カテゴリ)), "カテゴリは付け替え表どおり（表に無いカテゴリはそのまま）");
+  eq(CAPOEIRA_CATEGORY_MAP.size, 7, "付け替え表は7件（_comment は読まない）");
+  eq(
+    [...CAPOEIRA_CATEGORY_MAP.keys()].filter((k) => !capRaw.some((w) => w.カテゴリ === k)),
+    [],
+    "付け替え表のキーはすべて実在するカテゴリ"
+  );
+  const cats = categoriesOf("capoeira");
+  ok(!cats.some((c) => CAPOEIRA_CATEGORY_MAP.has(c)), `付け替え元のカテゴリはもう出ない（${cats.length} カテゴリ）`);
+  eq(cats.length, new Set(capRaw.map((w) => capoeiraCategory(w.カテゴリ))).size, "カテゴリ一覧 = 付け替え後のカテゴリ（出現順・重複なし）");
+  const count = (c: string) => WORDS_CAPOEIRA.filter((x) => x.category === c).length;
+  eq(
+    ["基本動作・技術", "状態・方向・評価", "日常・その他", "カポエイラ基本・文化・制度", "動作を表す動詞"].map(count),
+    [15, 17, 5, 22, 13],
+    "まとめたカテゴリの語数（14+1・12+5・2+3・15+7・13）"
+  );
+  // デッキ: どの語もちょうど1つのデッキに入り、デッキは50語まで、ID は重複しない
+  const inDecks = DECKS_CAPOEIRA.flatMap((d) => d.words.map((x) => x.id));
+  eq([inDecks.length, new Set(inDecks).size], [WORDS_CAPOEIRA.length, WORDS_CAPOEIRA.length], "カポエイラのデッキ: 全語がちょうど1回");
+  ok(DECKS_CAPOEIRA.every((d) => d.words.length <= 50 && d.words.every((x) => x.category === d.category)), "カポエイラのデッキ: 50語まで・同じカテゴリの語だけ");
+  eq(new Set(DECKS_CAPOEIRA.map((d) => d.id)).size, DECKS_CAPOEIRA.length, "カポエイラのデッキ: ID に重複なし");
+  eq(
+    DECKS_CAPOEIRA.map((d) => d.category).filter((c, i, a) => a.indexOf(c) === i),
+    cats,
+    "カポエイラのデッキの並び = カテゴリの出現順"
+  );
+  // 一般語彙・ユーザー語には効かない
+  const raw = { カテゴリ: "基本動作", ポルトガル語: "x", 日本語: "j", 品詞: "名詞" };
+  eq([makeWord(raw, "words", 0).category, makeWord(raw, "dict", 0).category, makeWord(raw, "capoeira", 0).category], ["基本動作", "基本動作", "基本動作・技術"], "付け替えはカポエイラ語だけ");
+  eq(capoeiraCategory("未知のカテゴリ"), "未知のカテゴリ", "表に無いカテゴリはそのまま");
+  const genRaw = (await import("../data/words.json")).default as { カテゴリ: string }[];
+  ok(WORDS_GENERAL.length === genRaw.length && WORDS_GENERAL.every((x, i) => x.category === genRaw[i].カテゴリ), "一般語彙のカテゴリはそのまま");
+  eq(resolveWord("capoeira:0158")?.category, "基本動作・技術", "capoeira:0158（元は「基本動作」）は「基本動作・技術」のデッキへ");
+  // 導入順: カポエイラ語のカテゴリの巡回は、まとめた後のカテゴリで数える（1回の選出で1カテゴリ4語まで）
+  const pool = reviewPool([]);
+  const picks = orderNew(pool, {}, { limit: 24, capoeiraShare: 1, coreOrder: [], seed: T });
+  const perCat = new Map<string, number>();
+  for (const x of picks) perCat.set(x.category, (perCat.get(x.category) ?? 0) + 1);
+  ok(
+    picks.length === 24 && picks.every(isCapW) && [...perCat.values()].every((n) => n <= 4) && [...perCat.keys()].every((c) => cats.includes(c)),
+    `導入順: カポエイラ語だけ24語 → まとめたカテゴリごとに4語まで（${[...perCat].map(([c, n]) => `${c}:${n}`).join(" ")}）`
+  );
+  ok(maxRun(picks) <= 2, "導入順: 同じカテゴリの連続は2語まで");
+  const withCore = orderNew(pool, {}, { limit: 15, capoeiraShare: 0.25, coreOrder: CORE_ORDER, seed: T });
+  ok(withCore.filter(isCapW).length === 3 && withCore.filter(isCapW).every((x) => !CAPOEIRA_CATEGORY_MAP.has(x.category)), "導入順（実際の設定）: カポエイラ語3語・付け替え元のカテゴリは出ない");
 }
 
 console.log("=== 実データ: parseDeckId / resolveDeckWords / deckTitle ===");

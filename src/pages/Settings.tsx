@@ -5,7 +5,9 @@ import { useMeta } from "../store/useMeta";
 import { formatBytes, requestPersist, storageStatus, type StorageStatus } from "../services/platform";
 import { diffDays, todayStr } from "../srs/scheduler";
 import { audio, type VoiceInfo } from "../services/audio";
-import type { HandsfreeDirection, StudyDirection, StudyViewMode } from "../data/types";
+import { speechErrorMessage, speechInput } from "../services/speechInput";
+import { useSpeechInput } from "../hooks/useSpeechInput";
+import type { HandsfreeDirection, ProductionAnswerMode, StudyDirection, StudyViewMode } from "../data/types";
 import { HANDSFREE_GAPS_SEC } from "../services/handsfree";
 import UpdateBanner from "../components/UpdateBanner";
 import { checkForUpdate, type UpdateCheckResult } from "../pwa/usePwa";
@@ -28,6 +30,8 @@ const isBrVoice = (v: VoiceInfo) => /^pt[-_]br/i.test(v.lang);
 const REVIEW_LIMITS = [50, 100, 150, 200, 300];
 /** カポエイラ語の割合の選択肢 */
 const CAPOEIRA_SHARES = [0, 0.25, 0.33, 0.5];
+/** 産出カード（和→葡）を新しく始める1日の上限の選択肢（backupFormat の SETTINGS_SCHEMA と同じ） */
+const PROD_NEW_LIMITS = [0, 3, 5, 10];
 
 /** 選択肢に今の値が無ければ足す（バックアップや将来版で入った値も select に出す） */
 function withCurrent(options: number[], current: number): number[] {
@@ -226,6 +230,115 @@ function VoiceHelp({ open }: { open: boolean }) {
       </ol>
       <p className="mt-2 text-slate-400">PC（Windows）の場合: 設定 → 時刻と言語 → 音声 → 音声の追加 → ポルトガル語（ブラジル）。</p>
     </details>
+  );
+}
+
+/** 音声認識をオンにするときの確認（設定画面の説明の要点） */
+const SPEECH_CONSENT = [
+  "音声認識をオンにします。",
+  "",
+  "・🎤 を押して話した音声は、Chrome が Google の音声認識サービスに送って文字にします。",
+  "・このアプリは音声も認識結果（文字）も保存しません。",
+  "・ネットにつながっているときだけ使えます。",
+  "",
+  "よろしいですか？",
+].join("\n");
+
+/** 音声認識のテスト: 話した言葉をそのまま文字で見せる（候補が複数あれば全部） */
+function SpeechTest() {
+  const sp = useSpeechInput();
+  const listening = sp.status === "listening";
+  return (
+    <div className="space-y-2 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-500">
+      <button
+        type="button"
+        onClick={() => (listening ? sp.stop() : void sp.start())}
+        aria-pressed={listening}
+        className={`btn min-h-11 w-full text-sm ring-1 ${
+          listening ? "animate-pulse bg-brand-blue text-white ring-brand-blue" : "bg-white text-brand-blue ring-brand-blue/30"
+        }`}
+      >
+        {listening ? "■ 聞き取り中…（押すと終える）" : "🎤 テスト（ポルトガル語で話して、文字を確かめる）"}
+      </button>
+      {listening && <p className="text-center text-sm italic text-slate-500">{sp.interim || "どうぞ、話してください…"}</p>}
+      {sp.status === "done" && sp.result && (
+        <div aria-live="polite">
+          <div className="text-[11px] text-slate-400">聞き取った文字{sp.result.transcripts.length > 1 ? "（候補）" : ""}</div>
+          <ol className="list-decimal pl-5 text-sm text-brand-ink">
+            {sp.result.transcripts.map((t, i) => (
+              <li key={i}>{t}</li>
+            ))}
+          </ol>
+        </div>
+      )}
+      {sp.status === "error" && sp.error && (
+        <p role="alert" className="rounded-lg bg-rose-50 p-2 leading-relaxed text-rose-600">
+          {speechErrorMessage(sp.error)}
+        </p>
+      )}
+      <p className="text-[11px] text-slate-400">テストの結果もこの画面に出すだけで、保存しません。</p>
+    </div>
+  );
+}
+
+/**
+ * 🎤 音声認識（言ってみる）の設定（T2-8。既定オフ）。
+ * 説明（音声は Google に送られる・保存しない・オンラインのみ）を読んでからオンにする（オンにするときも確認する）。
+ * 非対応のブラウザでは使えないことを示し、切り替えは押せない。テストはオンのときだけ出す
+ */
+function SpeechInputSettings() {
+  const enabled = useSettings((st) => st.speechInputEnabled);
+  const set = useSettings((st) => st.set);
+  const supported = speechInput.isSupported();
+
+  function toggle(on: boolean) {
+    if (on) {
+      if (!confirm(SPEECH_CONSENT)) return;
+      set({ speechInputEnabled: true });
+    } else {
+      // 聞き取り中なら取りやめる（マイクを閉じる）
+      speechInput.cancel();
+      set({ speechInputEnabled: false });
+    }
+  }
+
+  return (
+    <section className="card space-y-2 p-3">
+      <h2 className="px-1 text-sm font-bold text-slate-500">🎤 音声認識（言ってみる）</h2>
+      <div className="space-y-1.5 px-1 text-xs leading-relaxed text-slate-500">
+        <p>
+          ポルトガル語を声に出して言うと、文字にして正しく言えたかを判定します。オンにすると、✍
+          産出カード（和→葡）・シャドーイング（1文ずつ）・パターンプラクティス（発話ドリル）に「🎤 言ってみる」が出ます。
+        </p>
+        <ul className="list-disc space-y-1 pl-4">
+          <li>
+            <span className="font-bold text-slate-600">話した音声は、Chrome が Google の音声認識サービスに送って文字にします。</span>
+            音声が端末の外に出るのは、🎤 を押して聞き取っている間だけです。
+          </li>
+          <li>このアプリは音声も認識結果（文字）も保存しません（採点に使ったら捨てます。バックアップにも入りません）。</li>
+          <li>ネットにつながっているときだけ使えます（オフラインでは使えません）。</li>
+          <li>最初に使うとき、マイクの許可を求められます。</li>
+        </ul>
+      </div>
+      {!supported && (
+        <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">
+          このブラウザは音声認識に対応していないため、使えません（Android の Chrome で使えます）。
+        </p>
+      )}
+      <Row label="音声認識を使う" hint={supported ? "上の説明に同意してオンにする（既定はオフ）" : "このブラウザでは使えません"}>
+        <label className={`-m-3 flex min-h-11 min-w-11 items-center justify-center p-3 ${supported ? "cursor-pointer" : ""}`}>
+          <input
+            type="checkbox"
+            checked={enabled && supported}
+            disabled={!supported}
+            onChange={(e) => toggle(e.target.checked)}
+            className="h-5 w-5 accent-brand-green disabled:opacity-40"
+            aria-label="音声認識（言ってみる）を使う"
+          />
+        </label>
+      </Row>
+      {enabled && supported && <SpeechTest />}
+    </section>
   );
 }
 
@@ -429,6 +542,43 @@ export default function Settings() {
             className="h-5 w-5 accent-brand-green"
           />
         </Row>
+        {/* 和→葡の産出カード（T2-1）。理解カードとは別の SRS */}
+        <Row label="✍ 和→葡の産出カード" hint="定着中（復習間隔7日以上）の語を、日本語から言う練習カードとして今日の学習に出す。オフにすると一時停止（記録は残る）">
+          <label className="-m-3 flex min-h-11 min-w-11 cursor-pointer items-center justify-center p-3">
+            <input
+              type="checkbox"
+              checked={s.productionEnabled}
+              onChange={(e) => s.set({ productionEnabled: e.target.checked })}
+              className="h-5 w-5 accent-brand-green"
+              aria-label="和→葡の産出カードを出す"
+            />
+          </label>
+        </Row>
+        <Row label="✍ 産出カードの新規（1日）" hint="1日に新しく始める産出カードの数（新しい語の枠とは別）">
+          <select
+            value={s.dailyProductionNewLimit}
+            onChange={(e) => s.set({ dailyProductionNewLimit: Number(e.target.value) })}
+            disabled={!s.productionEnabled}
+            className="min-h-11 rounded-lg border border-slate-200 px-2 py-1.5 disabled:opacity-40"
+          >
+            {withCurrent(PROD_NEW_LIMITS, s.dailyProductionNewLimit).map((n) => (
+              <option key={n} value={n}>
+                {n === 0 ? "始めない" : `${n}語`}
+              </option>
+            ))}
+          </select>
+        </Row>
+        <Row label="✍ 産出カードの答え方" hint="どちらでも、カードの上で「入力して答える」に切り替えられます">
+          <select
+            value={s.productionAnswerMode}
+            onChange={(e) => s.set({ productionAnswerMode: e.target.value as ProductionAnswerMode })}
+            disabled={!s.productionEnabled}
+            className="min-h-11 rounded-lg border border-slate-200 px-2 py-1.5 disabled:opacity-40"
+          >
+            <option value="self">言ってから答えを見る</option>
+            <option value="type">入力して答え合わせ</option>
+          </select>
+        </Row>
         <Row label="🎧 耳だけ復習の向き" hint="単語帳の「耳だけ」で読み上げる順">
           <select
             value={s.handsfreeDirection}
@@ -528,12 +678,15 @@ export default function Settings() {
         <VoiceHelp open={voicesLoaded && !!audio.currentVoice && audio.isSupported() && (!current || !isBrVoice(current))} />
       </section>
 
+      {/* 音声認識（T2-8。オプトイン） */}
+      <SpeechInputSettings />
+
       {/* データ */}
       <section className="card space-y-2 p-3">
         <h2 className="px-1 text-sm font-bold text-slate-500">データとバックアップ</h2>
         <DataProtection onMessage={flash} />
         <p className="px-1 text-xs text-slate-400">
-          進捗（日ごとの学習ログ・活用ドリルの成績を含む）・曲の和訳・曲から追加した単語・設定を保存します（歌詞そのものと音声の選択は含みません）。スマホでは共有メニューから
+          進捗（産出カード・日ごとの学習ログ・活用ドリルの成績を含む）・曲の和訳・曲から追加した単語・設定を保存します（歌詞そのもの・音声の選択・音声認識のオン／オフは含みません）。スマホでは共有メニューから
           Google ドライブやメールに保存できます（ファイルは .txt ですが、そのままインポートできます）。PC ではファイル（.json）をダウンロードします。
         </p>
         <LastBackup />

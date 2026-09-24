@@ -3,6 +3,7 @@
 //   検証: scripts/check-backup.ts（npm run check:backup）
 // スマホと PC など、別の端末で学習した記録を1つに合わせる。どちらの端末の記録も消さない。
 // - cards: 語ごとに last が新しい方（null は最も古い）。同じなら reps、intervalDays が大きい方、それも同じなら端末側
+//   （産出カード "id@p"（T2-1）も普通のカードと同じく、キーごとに比べる）
 // - 連続記録: lastStudyDate は新しい方、bestStreak・totalReviews は大きい方。
 //   streak は「両方の連続区間」と「学習ログで学習日だった日」をつないで数え直す（mergeStreak）
 // - customPassages・pinnedNew・userWords: 和集合（同じ ID は端末側）。pinnedNew は評価済みになった語を外す
@@ -19,6 +20,7 @@ import type { ProgressPart } from "./backupFormat";
 import type { AddedWord, LineTranslation, MusicExport, SongState } from "./useMusic";
 import type { DrillExport, DrillStat } from "./useDrill";
 import { addDays, todayStr } from "../srs/scheduler";
+import { baseOfKey } from "../srs/cardKey";
 import { ACTIVITY_KINDS, isStudyDay, pruneHistory, type DayLog, type History } from "./history";
 
 /** インポートの方法: merge = 統合（推奨）、replace = 置き換え */
@@ -65,17 +67,43 @@ export interface CardDiff {
   removed: number;
 }
 
-/** 取り込みの前後でカードがどう変わったか（確認の表示用） */
+/** カードを語ごとにまとめる（理解カード "id" と産出カード "id@p" は同じ語。T2-1） */
+function cardsByWord(cards: Record<string, SrsCard>): Map<string, Map<string, SrsCard>> {
+  const m = new Map<string, Map<string, SrsCard>>();
+  for (const [key, c] of Object.entries(cards)) {
+    const id = baseOfKey(key);
+    const g = m.get(id);
+    if (g) g.set(key, c);
+    else m.set(id, new Map([[key, c]]));
+  }
+  return m;
+}
+
+/**
+ * 取り込みの前後でカードがどう変わったか（確認の表示用。語の数で数える）。
+ * 理解カードと産出カードは同じ語としてまとめる: 前にどちらも無かった語は added、
+ * 前にあった語でどれかのカードが増えた・変わった・消えたら updated、前にあった語のカードがすべて消えたら removed。
+ */
 export function cardDiff(before: Record<string, SrsCard>, after: Record<string, SrsCard>): CardDiff {
   let added = 0;
   let updated = 0;
   let removed = 0;
-  for (const [id, c] of Object.entries(after)) {
-    const b = before[id];
-    if (!b) added++;
-    else if (!sameSchedule(b, c)) updated++;
+  const b = cardsByWord(before);
+  const a = cardsByWord(after);
+  for (const [id, ac] of a) {
+    const bc = b.get(id);
+    if (!bc) {
+      added++;
+      continue;
+    }
+    const changed =
+      [...ac].some(([k, c]) => {
+        const x = bc.get(k);
+        return !x || !sameSchedule(x, c);
+      }) || [...bc.keys()].some((k) => !ac.has(k));
+    if (changed) updated++;
   }
-  for (const id of Object.keys(before)) if (!after[id]) removed++;
+  for (const id of b.keys()) if (!a.has(id)) removed++;
   return { added, updated, removed };
 }
 

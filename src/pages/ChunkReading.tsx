@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, Navigate, useParams, useSearchParams } from "react-router-dom";
 import { PASSAGES } from "../data/content";
-import type { Passage } from "../data/types";
+import type { Passage, PassageQuestion } from "../data/types";
 import { useProgress } from "../store/useProgress";
 import { useSettings } from "../store/useSettings";
 import { speedOptions, useSequencePlayer } from "../hooks/useSequencePlayer";
@@ -9,6 +9,23 @@ import { useVisibleStopwatch } from "../hooks/useActivityTimer";
 import { useBack } from "../hooks/useBack";
 import { elapsedSec } from "../services/activityClock";
 import { groupChunks, type SentenceGroup } from "../services/sentenceGroups";
+import {
+  LEVEL_FILTERS,
+  LEVEL_LABEL,
+  answerQuestion,
+  choiceOrders,
+  emptyAnswers,
+  filterPassages,
+  parseLevelFilter,
+  passageQuestions,
+  passageTopic,
+  quizSummary,
+  sentenceCount,
+  topicsOf,
+  type LevelFilter,
+  type QuizAnswers,
+} from "../services/materials";
+import FilterChips from "../components/FilterChips";
 
 /** 一覧の URL。詳細は /practice/chunk/:id（id は custom_… か psg_…） */
 const LIST_PATH = "/practice/chunk";
@@ -19,7 +36,11 @@ const LOG_CAP_SEC = 600;
 /** 全文再生の文と文の間（ms）。文の中はチャンクで区切らず1回の発話で読む */
 const SENTENCE_GAP_MS = 400;
 
-const LEVEL_LABEL: Record<Passage["level"], string> = { short: "短文", medium: "中文", long: "長文" };
+/** 内容チェック1周（最初の設問に答えてから全問に答えるまで）に記録する時間の上限（秒） */
+const QUIZ_CAP_SEC = 300;
+
+/** 一覧の話題の絞り込みで「すべて」を表す値（URL の ?topic= を付けない） */
+const ALL_TOPICS = "";
 
 /** いま声にしている範囲（チャンクの番号で [from, to)） */
 interface Voiced {
@@ -46,6 +67,103 @@ function voicedRange(
   const gi: number | undefined = playing ? spoken[activeIdx] : activeIdx - nChunks;
   const g: SentenceGroup | undefined = gi === undefined ? undefined : sentences[gi];
   return g && gi !== undefined ? { from: g.start, to: g.end, sentence: gi } : null;
+}
+
+/**
+ * 内容チェック（読み物の設問。本文の後に出す）。選択肢をタップすると正解／不正解と解説を出す（答え直しはしない）。
+ * 全問に答えたら学習ログに1回（時間は最初の設問に答えてから最後の設問まで）。「もう一度」で答えを消す。
+ * 選択肢は読み物の id と「もう一度」の回数でシャッフルして出す（正解の位置で当てられないように。答えは元の番号で持つ）
+ */
+function ContentCheck({ questions, seed }: { questions: PassageQuestion[]; seed: string }) {
+  const [answers, setAnswers] = useState<QuizAnswers>(() => emptyAnswers(questions.length));
+  const [attempt, setAttempt] = useState(0);
+  const orders = useMemo(() => choiceOrders(questions, `${seed}:${attempt}`), [questions, seed, attempt]);
+  const lap = useVisibleStopwatch();
+  const sum = quizSummary(questions, answers);
+
+  function choose(qi: number, ci: number) {
+    const next = answerQuestion(questions, answers, qi, ci);
+    if (next === answers) return;
+    // 1周の時間は最初の答えから数える（本文を読んでいた時間は全文再生・瞬間作文の側で数える）
+    const before = quizSummary(questions, answers);
+    if (before.answered === 0) lap(0);
+    setAnswers(next);
+    // 学習ログ: 全問に答えたら1回
+    if (quizSummary(questions, next).done) useProgress.getState().logActivity("chunk", 1, lap(QUIZ_CAP_SEC));
+  }
+
+  function reset() {
+    setAnswers(emptyAnswers(questions.length));
+    setAttempt((n) => n + 1);
+  }
+
+  return (
+    <section className="card space-y-4 p-4" aria-labelledby="content-check-title">
+      <div className="flex items-center justify-between gap-2">
+        <h2 id="content-check-title" className="font-bold text-brand-ink">
+          ❓ 内容チェック
+        </h2>
+        <span className="text-xs text-slate-400" aria-live="polite">
+          {sum.done ? `${sum.total}問中 ${sum.correct}問正解` : `回答 ${sum.answered}/${sum.total}`}
+        </span>
+      </div>
+      <ol className="space-y-5">
+        {questions.map((q, qi) => {
+          const chosen = answers[qi] ?? null;
+          const answered = chosen !== null;
+          const right = chosen === q.answer;
+          return (
+            <li key={qi} className="space-y-2">
+              <p className="text-[15px] font-medium leading-relaxed text-brand-ink">
+                <span className="mr-1 text-slate-400">Q{qi + 1}.</span>
+                {q.q}
+              </p>
+              <div className="grid gap-1.5" role="group" aria-label={`Q${qi + 1} の選択肢`}>
+                {orders[qi].map((ci, pos) => {
+                  const c = q.choices[ci];
+                  const isAnswer = ci === q.answer;
+                  const isChosen = ci === chosen;
+                  const tone = !answered
+                    ? "bg-white text-brand-ink ring-slate-200 active:bg-slate-50"
+                    : isAnswer
+                      ? "bg-emerald-50 text-emerald-700 ring-emerald-300"
+                      : isChosen
+                        ? "bg-rose-50 text-rose-600 ring-rose-300"
+                        : "bg-white text-slate-400 ring-slate-100";
+                  return (
+                    <button
+                      key={ci}
+                      type="button"
+                      onClick={() => choose(qi, ci)}
+                      disabled={answered}
+                      aria-pressed={isChosen}
+                      className={`flex min-h-11 w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm ring-1 transition disabled:cursor-default ${tone}`}
+                    >
+                      <span className="w-4 shrink-0 text-center font-bold">
+                        {answered ? (isAnswer ? "○" : isChosen ? "×" : "") : String.fromCharCode(65 + pos)}
+                      </span>
+                      <span className="flex-1">{c}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              {answered && (
+                <div className="animate-fade-in space-y-1 rounded-xl bg-slate-50 p-3" aria-live="polite">
+                  <p className={`text-sm font-bold ${right ? "text-emerald-600" : "text-rose-600"}`}>{right ? "✓ 正解！" : "✗ 不正解"}</p>
+                  {q.explain && <p className="text-xs leading-relaxed text-slate-500">💡 {q.explain}</p>}
+                </div>
+              )}
+            </li>
+          );
+        })}
+      </ol>
+      {sum.answered > 0 && (
+        <button type="button" onClick={reset} className="btn-ghost min-h-11 w-full text-sm">
+          ↺ もう一度
+        </button>
+      )}
+    </section>
+  );
 }
 
 function Reader({ passage, onBack }: { passage: Passage; onBack: () => void }) {
@@ -79,6 +197,9 @@ function Reader({ passage, onBack }: { passage: Passage; onBack: () => void }) {
   const spoken = useMemo(() => sentences.flatMap((g, gi) => (g.pt ? [gi] : [])), [sentences]);
   /** 瞬間作文で答えを隠すチャンクの番号（本文の無いチャンクは除く） */
   const answerable = useMemo(() => chunks.flatMap((c, i) => (c.pt.trim() ? [i] : [])), [chunks]);
+  /** 内容チェックの設問（崩れた設問は除く）と話題 */
+  const questions = useMemo(() => passageQuestions(passage), [passage]);
+  const topic = passageTopic(passage);
 
   const voiced = voicedRange(activeIdx, playing, sentences, spoken, nChunks);
   /** その文だけを通して読んでいる最中の文（全文再生中は null） */
@@ -168,9 +289,12 @@ function Reader({ passage, onBack }: { passage: Passage; onBack: () => void }) {
     <div className="animate-fade-in space-y-4">
       <button onClick={onBack} className="min-h-11 pr-2 text-sm text-brand-green">‹ 一覧</button>
       <div className="flex items-center gap-2">
-        <h1 className="text-lg font-bold text-brand-ink">{passage.title}</h1>
-        <span className="chip bg-slate-100 text-slate-500">{LEVEL_LABEL[passage.level]}</span>
-        {passage.source !== "original" && <span className="chip bg-amber-100 text-amber-600">取込</span>}
+        <h1 className="min-w-0 text-lg font-bold text-brand-ink">{passage.title}</h1>
+        <span className="chip shrink-0 bg-slate-100 text-slate-500">{LEVEL_LABEL[passage.level] ?? "—"}</span>
+        {topic && <span className="chip shrink-0 bg-brand-blue/10 text-brand-blue">{topic}</span>}
+        {passage.source !== "original" && (
+          <span className="chip shrink-0 bg-amber-100 text-amber-600">{passage.source === "custom" ? "自作" : "取込"}</span>
+        )}
       </div>
 
       {/* top はヘッダーの実高さ --hdr。ボタンは指で押せる 44px 以上 */}
@@ -335,6 +459,9 @@ function Reader({ passage, onBack }: { passage: Passage; onBack: () => void }) {
           })}
         </ol>
       </div>
+
+      {/* 内容チェック（設問のある読み物だけ） */}
+      {questions.length > 0 && <ContentCheck questions={questions} seed={passage.id} />}
     </div>
   );
 }
@@ -363,28 +490,65 @@ export function ChunkReadingDetail() {
 
 export default function ChunkReading() {
   const all = useAllPassages();
+  // 絞り込みは URL（?level= / ?topic=）に持つ。一覧は詳細を開くとアンマウントされるので、
+  // state だと戻ったときに「すべて」に戻ってしまう。履歴を増やさないよう replace で書き換える
+  const [params, setParams] = useSearchParams();
+  const level = parseLevelFilter(params.get("level"));
+  const topics = useMemo(() => topicsOf(all), [all]);
+  const qTopic = params.get("topic");
+  const topic = qTopic && topics.includes(qTopic) ? qTopic : null;
+  const list = useMemo(() => filterPassages(all, level, topic), [all, level, topic]);
+
+  function setFilter(lv: LevelFilter, tp: string | null) {
+    const next: Record<string, string> = {};
+    if (lv !== "all") next.level = lv;
+    if (tp) next.topic = tp;
+    setParams(next, { replace: true });
+  }
 
   return (
     <div className="animate-fade-in space-y-4">
-      <Link to="/practice" className="text-sm text-brand-green">‹ 練習に戻る</Link>
+      <Link to="/practice" className="inline-flex min-h-11 items-center pr-2 text-sm text-brand-green">‹ 練習に戻る</Link>
       <div>
         <h1 className="text-xl font-bold text-brand-ink">チャンクリーディング</h1>
-        <p className="text-sm text-slate-500">意味のカタマリ（/）ごとに、前から理解する練習。ポルトガル語を隠せば、訳からチャンクごとに言う瞬間作文にも。</p>
+        <p className="text-sm text-slate-500">意味のカタマリ（/）ごとに、前から理解する練習。ポルトガル語を隠せば、訳からチャンクごとに言う瞬間作文にも。❓のある読み物は、読んだ後に内容チェックの問題があります。</p>
       </div>
+      <FilterChips label="難易度" options={LEVEL_FILTERS} value={level} onChange={(v) => setFilter(v, topic)} />
+      {topics.length > 0 && (
+        <FilterChips
+          label="話題"
+          options={[{ v: ALL_TOPICS, label: "すべての話題" }, ...topics.map((t) => ({ v: t, label: t }))]}
+          value={topic ?? ALL_TOPICS}
+          onChange={(v) => setFilter(level, v || null)}
+        />
+      )}
       <div className="space-y-2">
-        {all.map((p) => (
-          <Link key={p.id} to={`${LIST_PATH}/${encodeURIComponent(p.id)}`} className="card flex w-full items-center gap-3 p-3 text-left transition hover:ring-brand-green/40">
-            <span className="text-xl">📖</span>
-            <div className="min-w-0 flex-1">
-              <div className="truncate font-medium text-brand-ink">{p.title}</div>
-              <div className="text-xs text-slate-400">{LEVEL_LABEL[p.level]} ・ {p.chunks.length}チャンク</div>
-            </div>
-            {p.source !== "original" && <span className="chip bg-amber-100 text-amber-600">取込</span>}
-            <span className="text-slate-300">›</span>
-          </Link>
-        ))}
+        {list.length === 0 && <p className="card p-4 text-center text-sm text-slate-400">この条件の読み物はありません。</p>}
+        {list.map((p) => {
+          const t = passageTopic(p);
+          const nq = passageQuestions(p).length;
+          return (
+            <Link key={p.id} to={`${LIST_PATH}/${encodeURIComponent(p.id)}`} className="card flex w-full items-center gap-3 p-3 text-left transition hover:ring-brand-green/40">
+              <span className="text-xl">📖</span>
+              <div className="min-w-0 flex-1">
+                <div className="truncate font-medium text-brand-ink">{p.title}</div>
+                <div className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-slate-400">
+                  {t && <span className="chip bg-brand-blue/10 px-2 text-brand-blue">{t}</span>}
+                  <span>
+                    {LEVEL_LABEL[p.level] ?? "—"} ・ {sentenceCount(p)}文
+                  </span>
+                  {nq > 0 && <span>・ ❓{nq}問</span>}
+                </div>
+              </div>
+              {p.source !== "original" && (
+                <span className="chip shrink-0 bg-amber-100 text-amber-600">{p.source === "custom" ? "自作" : "取込"}</span>
+              )}
+              <span className="text-slate-300">›</span>
+            </Link>
+          );
+        })}
       </div>
-      <Link to="/practice/add" className="btn-ghost w-full">➕ 教材を追加する</Link>
+      <Link to="/practice/add" className="btn-ghost min-h-11 w-full">➕ 教材を追加する</Link>
     </div>
   );
 }
