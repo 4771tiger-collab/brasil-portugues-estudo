@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { FileText } from "lucide-react";
+import { IconBadge } from "../components/icons";
 import type { Chunk, Passage } from "../data/types";
 import { useProgress } from "../store/useProgress";
 import { toKana } from "../services/pronunciation";
@@ -134,7 +136,7 @@ export default function AddMaterial() {
           <h2 className="px-1 text-sm font-bold text-slate-500">追加済みの教材</h2>
           {customPassages.map((p) => (
             <div key={p.id} className="card flex items-center gap-3 p-3">
-              <span className="text-lg">📄</span>
+              <IconBadge icon={FileText} tone="sky" size="sm" />
               <div className="min-w-0 flex-1">
                 <div className="truncate font-medium text-brand-ink">{p.title}</div>
                 <div className="text-xs text-slate-400">{p.chunks.length}チャンク</div>

@@ -119,8 +119,9 @@ function lastTimestamp(lrc: string): number {
 
 /**
  * 候補から動画に合う版を選ぶ。LRCLIB の duration は同一歌詞でもばらつくため信用しすぎない:
- * 同期歌詞あり → 本文で同一版をグループ化 → 最終行が動画長+2秒を超える版を除外
- * → 登録件数の多い版（合意）→ 動画長−最終行 が小さい版 → duration の近さ
+ * 同期歌詞あり → 本文で同一版をグループ化 → 長さが動画から大きく外れた版（同名のリプライズ・別の曲）を除外
+ * → 最終行が動画長+2秒を超える版を除外（全部外れるなら前段の候補のまま）→ 登録件数の多い版（合意）
+ * → 動画長−最終行 が小さい版 → duration の近さ
  */
 export function pickBest(cands: LrclibRecord[], videoDurationSec?: number): LrclibRecord | undefined {
   const synced = cands.filter((c) => c.syncedLyrics && !c.instrumental);
@@ -134,10 +135,17 @@ export function pickBest(cands: LrclibRecord[], videoDurationSec?: number): Lrcl
     else groups.set(key, [c]);
   }
   const vd = videoDurationSec ?? 0;
-  const ranked = [...groups.values()]
-    .map((g) => ({ g, last: lastTimestamp(g[0].syncedLyrics!) }))
-    .filter((x) => !vd || x.last <= vd + 2);
-  const pool = ranked.length ? ranked : [...groups.values()].map((g) => ({ g, last: lastTimestamp(g[0].syncedLyrics!) }));
+  let all = [...groups.values()].map((g) => ({ g, last: lastTimestamp(g[0].syncedLyrics!) }));
+  if (vd) {
+    // 同名のリプライズ（短い版）や曲名の似た別の曲が登録件数で勝たないように、版ごとの「duration と動画長の差の最小値」が
+    // いちばん近い版より 15 秒以上大きい版は外す（動画の前奏などで全体がずれていても相対比較なので残る）
+    const gapOf = (g: LrclibRecord[]) =>
+      Math.min(...g.map((c) => (Number.isFinite(c.duration) ? Math.abs(c.duration - vd) : Infinity)));
+    const nearest = Math.min(...all.map((x) => gapOf(x.g)));
+    if (Number.isFinite(nearest)) all = all.filter((x) => gapOf(x.g) <= nearest + 15);
+  }
+  const ranked = all.filter((x) => !vd || x.last <= vd + 2);
+  const pool = ranked.length ? ranked : all;
   pool.sort((a, b) => {
     if (b.g.length !== a.g.length) return b.g.length - a.g.length;
     if (vd) return vd - a.last - (vd - b.last);

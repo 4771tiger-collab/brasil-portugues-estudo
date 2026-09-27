@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { usePwa } from "../pwa/usePwa";
+import { IconBadge } from "./icons";
 
 /**
  * 新しい版が待機中のときだけ出す「更新」バナー。ホームと設定にだけ置く
@@ -21,9 +22,7 @@ export default function UpdateBanner() {
 
   return (
     <div className="card flex animate-fade-in items-center gap-3 p-3 ring-brand-blue/30" role="status">
-      <span className="text-xl" aria-hidden="true">
-        ✨
-      </span>
+      <IconBadge feature="update" size="sm" />
       <div className="min-w-0 flex-1">
         <div className="text-sm font-bold text-brand-ink">新しいバージョンがあります</div>
         <div className="text-xs text-slate-500">更新すると画面を読み直します。学習の記録は消えません。</div>

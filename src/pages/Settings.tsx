@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
+import { Download, Mic, Upload, Volume2 } from "lucide-react";
 import { useSettings } from "../store/useSettings";
 import { applyBackup, describeBackup, parseBackup, resetAllProgress, saveBackupFile, type ImportMode } from "../store/backup";
 import { useMeta } from "../store/useMeta";
@@ -22,12 +23,17 @@ import { createClaudeProvider } from "../services/ai/claude";
 import { abortTeacherRun } from "../services/ai/teacherContext";
 import { clearTeacherHistory } from "../services/ai/teacherChat";
 import { useTeacher } from "../store/useTeacher";
+import { FEATURES, MediaIcon, SectionTitle, TONES, type FeatureKey } from "../components/icons";
 
-function Row({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
+function Row({ label, hint, feature, children }: { label: string; hint?: string; feature?: FeatureKey; children: React.ReactNode }) {
+  const f = feature ? FEATURES[feature] : null;
   return (
     <div className="flex items-center justify-between gap-3 px-1 py-3">
       <div className="min-w-0">
-        <div className="font-medium text-brand-ink">{label}</div>
+        <div className="flex items-center gap-1.5 font-medium text-brand-ink">
+          {f && <f.icon size={16} className={`shrink-0 ${TONES[f.tone].text}`} aria-hidden />}
+          <span className="min-w-0">{label}</span>
+        </div>
         {hint && <div className="text-xs text-slate-400">{hint}</div>}
       </div>
       <div className="shrink-0">{children}</div>
@@ -269,7 +275,17 @@ function SpeechTest() {
           listening ? "animate-pulse bg-brand-blue text-white ring-brand-blue" : "bg-white text-brand-blue ring-brand-blue/30"
         }`}
       >
-        {listening ? "■ 聞き取り中…（押すと終える）" : "🎤 テスト（ポルトガル語で話して、文字を確かめる）"}
+        {listening ? (
+          <>
+            <MediaIcon kind="stop" />
+            聞き取り中…（押すと終える）
+          </>
+        ) : (
+          <>
+            <Mic size={16} className="shrink-0" aria-hidden />
+            テスト（ポルトガル語で話して、文字を確かめる）
+          </>
+        )}
       </button>
       {listening && <p className="text-center text-sm italic text-slate-500">{sp.interim || "どうぞ、話してください…"}</p>}
       {sp.status === "done" && sp.result && (
@@ -315,7 +331,7 @@ function SpeechInputSettings() {
 
   return (
     <section className="card space-y-2 p-3">
-      <h2 className="px-1 text-sm font-bold text-slate-500">🎤 音声認識（言ってみる）</h2>
+      <SectionTitle feature="speechInput">音声認識（言ってみる）</SectionTitle>
       <div className="space-y-1.5 px-1 text-xs leading-relaxed text-slate-500">
         <p>
           ポルトガル語を声に出して言うと、文字にして正しく言えたかを判定します。オンにすると、✍
@@ -556,7 +572,7 @@ function GeminiSettings({ online }: { online: boolean }) {
           回数の上限はプロジェクトごとに決まっていて、AI Studio で確認できます。3.8 Flash が上限のときは、その回だけ 3.5 Flash-Lite
           で答えます。
         </li>
-        <li>送るのは、AI 先生に質問したとき・曲の画面で「🤖 AIで訳す」を押して確認したときだけです。</li>
+        <li>送るのは、AI 先生に質問したとき・曲の画面で「AIで訳す」を押して確認したときだけです。</li>
       </ul>
       <details className="rounded-lg bg-slate-50 px-3 py-1 text-xs text-slate-500">
         <summary className="flex min-h-11 cursor-pointer items-center font-medium text-slate-600">キーの作り方</summary>
@@ -641,7 +657,7 @@ function ClaudeSettings({ online }: { online: boolean }) {
       <ul className="list-disc space-y-1 pl-4 text-xs leading-relaxed text-slate-500">
         <li>
           <span className="font-bold text-slate-600">質問・歌詞の行・曲名・アーティスト名が Anthropic に送られます。</span>
-          送るのは、AI 先生に質問したとき・曲の画面で「🤖 AIで訳す」を押して確認したときだけです。
+          送るのは、AI 先生に質問したとき・曲の画面で「AIで訳す」を押して確認したときだけです。
         </li>
         <li>
           利用料はあなたの Anthropic アカウントに請求されます。歌詞の翻訳1曲あたりの目安（40行の曲）:{" "}
@@ -721,10 +737,12 @@ function TeacherHistorySettings() {
   const [note, setNote] = useState<string | null>(null);
   return (
     <div className="space-y-2 rounded-xl border border-slate-200 p-3">
-      <h3 className="text-sm font-bold text-brand-ink">🧑‍🏫 AI先生</h3>
+      <SectionTitle feature="teacher" as="h3" className="text-sm font-bold text-brand-ink">
+        AI先生
+      </SectionTitle>
       <ul className="list-disc space-y-1 pl-4 text-xs leading-relaxed text-slate-500">
         <li>
-          どの画面でも右下の 🧑‍🏫 から質問できます。歌詞の行・単語・文型・教材の文の「🧑‍🏫 先生に聞く」からは、いま見ている内容を付けて聞けます。
+          どの画面でも右下の紫の丸いボタン（角帽）から質問できます。歌詞の行・単語・文型・教材の文の「先生に聞く」（角帽のアイコン）からは、いま見ている内容を付けて聞けます。
         </li>
         <li>
           送るのは、質問を送ったときだけです（質問と会話の続き・いま見ている内容（歌詞の行なら前後2行と今の訳）・学習した語の数と習得の数・最近つまずいた語（最大5語）と今日復習した語（最大8語。意味つき。歌から足した語は自分で付けた意味）。この学習のようすは、文脈のチップを外しても送ります）。
@@ -769,7 +787,7 @@ function AiSettings() {
   return (
     // id: 先生のシートの「設定を開く」で、この見出しまで送る（上はヘッダーの高さ --hdr の分をあける）
     <section id="ai-settings" className="card scroll-mt-[calc(var(--hdr,53px)+0.5rem)] space-y-3 p-3">
-      <h2 className="px-1 text-sm font-bold text-slate-500">🤖 AI（先生・歌詞のAI翻訳）</h2>
+      <SectionTitle feature="ai">AI（先生・歌詞のAI翻訳）</SectionTitle>
       <div className="space-y-1.5 px-1 text-xs leading-relaxed text-slate-500">
         <p>
           AI 先生（どの画面からでも質問できるチャット）と、曲の歌詞の AI 翻訳（曲全体の流れ・口語・比喩をくみ取った訳。💡
@@ -932,6 +950,9 @@ export default function Settings() {
 
       {/* 学習 */}
       <section className="card divide-y divide-slate-100 p-3">
+        <SectionTitle feature="study" className="px-1 pb-2 text-sm font-bold text-slate-500">
+          学習
+        </SectionTitle>
         <Row label="再生速度" hint="音声のデフォルト速度">
           <select
             value={s.rate}
@@ -1057,7 +1078,7 @@ export default function Settings() {
             <option value="type">入力して答え合わせ</option>
           </select>
         </Row>
-        <Row label="🎧 耳だけ復習の向き" hint="単語帳の「耳だけ」で読み上げる順">
+        <Row feature="handsfree" label="耳だけ復習の向き" hint="単語帳の「耳だけ」で読み上げる順">
           <select
             value={s.handsfreeDirection}
             onChange={(e) => s.set({ handsfreeDirection: e.target.value as HandsfreeDirection })}
@@ -1067,7 +1088,7 @@ export default function Settings() {
             <option value="ja2pt">和 → 葡</option>
           </select>
         </Row>
-        <Row label="🎧 耳だけ復習の考える間" hint="問いを読んでから答えを読むまでの時間">
+        <Row feature="handsfree" label="耳だけ復習の考える間" hint="問いを読んでから答えを読むまでの時間">
           <select
             value={s.handsfreeGapSec}
             onChange={(e) => s.set({ handsfreeGapSec: Number(e.target.value) })}
@@ -1090,7 +1111,10 @@ export default function Settings() {
 
       {/* 音楽 */}
       <section className="card divide-y divide-slate-100 p-3">
-        <Row label="🎵 曲の単語（1日の上限）" hint="曲から追加した語を今日の学習に出す数">
+        <SectionTitle feature="music" className="px-1 pb-2 text-sm font-bold text-slate-500">
+          音楽
+        </SectionTitle>
+        <Row feature="songWords" label="曲の単語（1日の上限）" hint="曲から追加した語を今日の学習に出す数">
           <input
             type="number"
             min={0}
@@ -1131,6 +1155,9 @@ export default function Settings() {
 
       {/* 音声 */}
       <section className="card p-3">
+        <SectionTitle feature="voice" className="px-1 pb-1 text-sm font-bold text-slate-500">
+          音声（読み上げ）
+        </SectionTitle>
         <Row
           label="音声(ボイス)"
           hint={!voicesLoaded ? "音声を確認中…" : voices.length ? `${voices.length}件のpt系音声` : "pt系の音声が見つかりません"}
@@ -1154,7 +1181,8 @@ export default function Settings() {
           onClick={() => audio.speak("Olá! Tudo bem? Eu estou aprendendo português.", { rate: s.rate, voiceURI: s.voiceURI })}
           className="btn-ghost w-full"
         >
-          🔊 テスト再生
+          <Volume2 size={18} aria-hidden />
+          テスト再生
         </button>
         <VoiceHelp open={voicesLoaded && !!audio.currentVoice && audio.isSupported() && (!current || !isBrVoice(current))} />
       </section>
@@ -1164,7 +1192,7 @@ export default function Settings() {
 
       {/* データ */}
       <section className="card space-y-2 p-3">
-        <h2 className="px-1 text-sm font-bold text-slate-500">データとバックアップ</h2>
+        <SectionTitle feature="backup">データとバックアップ</SectionTitle>
         <DataProtection onMessage={flash} />
         <p className="px-1 text-xs text-slate-400">
           進捗（産出カード・日ごとの学習ログ・活用ドリルの成績を含む）・曲の和訳・曲から追加した単語・設定を保存します（歌詞そのもの・音声の選択・音声認識のオン／オフ・AI の API キー・AI先生との会話は含みません）。スマホでは共有メニューから
@@ -1196,10 +1224,18 @@ export default function Settings() {
         </div>
         <div className="flex gap-2">
           <button type="button" onClick={() => void doExport()} disabled={saving} className="btn-ghost min-h-11 flex-1">
-            {saving ? "準備中…" : "⬇ バックアップを保存"}
+            {saving ? (
+              "準備中…"
+            ) : (
+              <>
+                <Download size={18} aria-hidden />
+                バックアップを保存
+              </>
+            )}
           </button>
           <button type="button" onClick={() => fileRef.current?.click()} className="btn-ghost min-h-11 flex-1">
-            ⬆ インポート
+            <Upload size={18} aria-hidden />
+            インポート
           </button>
           <input
             ref={fileRef}

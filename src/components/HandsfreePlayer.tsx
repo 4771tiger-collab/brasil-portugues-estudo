@@ -10,6 +10,8 @@
 // ============================================================================
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Headphones, Pause, Play, RotateCcw, SkipForward } from "lucide-react";
+import { IconBadge, MediaIcon } from "./icons";
 import type { HandsfreeDirection, Word } from "../data/types";
 import { audio, delay } from "../services/audio";
 import { clockRun, clockTake, newClock } from "../services/activityClock";
@@ -350,7 +352,10 @@ export default function HandsfreePlayer({ words, title, onClose, onReview }: Pro
         </div>
 
         <div className="card space-y-2 p-4">
-          <h1 className="text-lg font-bold text-brand-ink">🎧 耳だけ復習</h1>
+          <h1 className="flex items-center gap-2 text-lg font-bold text-brand-ink">
+            <IconBadge feature="handsfree" size="sm" />
+            耳だけ復習
+          </h1>
           <p className="text-sm leading-relaxed text-slate-600">{flowText(dir, gapSec)}</p>
           <p className="text-xs text-slate-400">
             {words.length}語 ・ 約{min}分 ・ 評価はしません（覚えた記録は変わりません）
@@ -410,7 +415,8 @@ export default function HandsfreePlayer({ words, title, onClose, onReview }: Pro
         )}
 
         <button type="button" onClick={() => startRun(words)} disabled={!supported} className="btn-primary h-14 w-full text-base">
-          ▶ スタート
+          <MediaIcon kind="play" size={18} />
+          スタート
         </button>
         <p className="text-xs leading-relaxed text-slate-400">
           再生中は画面が消えません。別のアプリに切り替えたり画面を消したりすると一時停止します。向き・考える間の変更は次の語から効きます。
@@ -433,7 +439,7 @@ export default function HandsfreePlayer({ words, title, onClose, onReview }: Pro
         </div>
 
         <div className="card space-y-1 p-4 text-center">
-          <div className="text-2xl">🎧</div>
+          <IconBadge feature="handsfree" />
           <div className="text-lg font-bold text-brand-ink">{run.finished ? "おつかれさま！" : "ここまで聴きました"}</div>
           <p className="text-xs text-slate-500">
             この回 {listed.length}/{run.words.length}語{heard > 0 && ` ・ 聴き終えた語 のべ${heard}`}
@@ -481,7 +487,8 @@ export default function HandsfreePlayer({ words, title, onClose, onReview }: Pro
           </button>
           {!run.finished && (
             <button type="button" onClick={() => play(run.words, posRef.current)} className="btn-ghost min-h-11 w-full text-sm">
-              ▶ 続きから聴く（{Math.min(posRef.current + 1, run.words.length)}語目から）
+              <MediaIcon kind="play" />
+              続きから聴く（{Math.min(posRef.current + 1, run.words.length)}語目から）
             </button>
           )}
           <div className="grid grid-cols-2 gap-2">
@@ -491,10 +498,12 @@ export default function HandsfreePlayer({ words, title, onClose, onReview }: Pro
               disabled={markedWords.length === 0}
               className="btn-ghost min-h-11 px-2 text-sm"
             >
-              🎧 印の語だけ聴く
+              <Headphones size={16} className="shrink-0" aria-hidden />
+              印の語だけ聴く
             </button>
             <button type="button" onClick={() => startRun(words)} className="btn-ghost min-h-11 px-2 text-sm">
-              🎧 最初から聴く
+              <Headphones size={16} className="shrink-0" aria-hidden />
+              最初から聴く
             </button>
           </div>
           <button type="button" onClick={onClose} className="min-h-11 w-full text-sm text-slate-500">
@@ -552,12 +561,20 @@ export default function HandsfreePlayer({ words, title, onClose, onReview }: Pro
       <div className="animate-fade-in space-y-3">
         <div className="space-y-2">
           <div className="flex items-center gap-2">
-            <div className="min-w-0 flex-1 truncate text-sm font-bold text-brand-ink">🎧 {title}</div>
+            <div className="flex min-w-0 flex-1 items-center gap-1.5 text-sm font-bold text-brand-ink">
+              <Headphones size={16} className="shrink-0 text-teal-600" aria-hidden />
+              <span className="truncate">{title}</span>
+            </div>
             <span className="text-xs tabular-nums text-slate-400">
               {pos}/{total}
             </span>
-            <button type="button" onClick={() => finish(false)} className="min-h-11 px-2 text-xs font-medium text-rose-500">
-              ■ 終了
+            <button
+              type="button"
+              onClick={() => finish(false)}
+              className="inline-flex min-h-11 items-center gap-1 px-2 text-xs font-medium text-rose-500"
+            >
+              <MediaIcon kind="stop" size={12} />
+              終了
             </button>
           </div>
           <div
@@ -576,7 +593,16 @@ export default function HandsfreePlayer({ words, title, onClose, onReview }: Pro
             <>
               <div className="flex items-center justify-between gap-2 text-xs text-slate-400">
                 <span className="truncate">{w.category}</span>
-                <span className="shrink-0 font-medium text-slate-500">{stage === "paused" ? "⏸ 一時停止中" : PHASE_LABEL[cur.phase]}</span>
+                <span className="inline-flex shrink-0 items-center gap-1 font-medium text-slate-500">
+                  {stage === "paused" ? (
+                    <>
+                      <MediaIcon kind="pause" size={12} />
+                      一時停止中
+                    </>
+                  ) : (
+                    PHASE_LABEL[cur.phase]
+                  )}
+                </span>
               </div>
               <div className="flex flex-1 flex-col justify-center gap-4">
                 {cur.dir === "ja2pt" ? [jaBlock, ptBlock] : [ptBlock, jaBlock]}
@@ -616,7 +642,7 @@ export default function HandsfreePlayer({ words, title, onClose, onReview }: Pro
       <ActionBar>
         <div className="grid grid-cols-4 gap-2">
           <button type="button" onClick={replay} className="btn-ghost h-14 flex-col gap-0 px-1 text-xs" aria-label="この語をもう一度">
-            <span className="text-lg leading-none">↺</span>
+            <RotateCcw size={18} aria-hidden />
             もう一度
           </button>
           <button
@@ -624,10 +650,20 @@ export default function HandsfreePlayer({ words, title, onClose, onReview }: Pro
             onClick={stage === "paused" ? resume : pause}
             className={`btn col-span-2 h-14 text-base ${stage === "paused" ? "btn-primary" : "bg-slate-700 text-white"}`}
           >
-            {stage === "paused" ? "▶ 再開" : "⏸ 一時停止"}
+            {stage === "paused" ? (
+              <>
+                <Play size={20} className="fill-current" aria-hidden />
+                再開
+              </>
+            ) : (
+              <>
+                <Pause size={20} className="fill-current" aria-hidden />
+                一時停止
+              </>
+            )}
           </button>
           <button type="button" onClick={next} className="btn-ghost h-14 flex-col gap-0 px-1 text-xs" aria-label="次の語へ">
-            <span className="text-lg leading-none">⏭</span>
+            <SkipForward size={18} aria-hidden />
             次へ
           </button>
         </div>

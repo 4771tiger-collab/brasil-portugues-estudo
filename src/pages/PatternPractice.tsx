@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
+import { ChevronRight, Play, Shuffle, Speech, Square, Turtle } from "lucide-react";
+import { MediaIcon } from "../components/icons";
 import { PATTERNS } from "../data/content";
 import type { Pattern } from "../data/types";
 import SayItButton from "../components/SayItButton";
@@ -154,7 +156,7 @@ function CountdownRing({ ms, onDone }: { ms: number; onDone?: () => void }) {
         />
       </svg>
       <span aria-hidden className="absolute inset-0 flex items-center justify-center text-2xl font-bold text-brand-ink">
-        {left > 0 ? sec : "🗣️"}
+        {left > 0 ? sec : <Speech size={28} className="text-brand-green" />}
       </span>
     </div>
   );
@@ -199,8 +201,9 @@ function PatternCard({ pattern, onSentence }: { pattern: Pattern; onSentence: ()
         <div className="-my-2 flex shrink-0 items-center gap-1">
           {/* 🧑‍🏫 この文型を AI 先生に聞く（例文をもっと・場面での言い方・丁寧／くだけた言い方） */}
           <AskTeacherButton context={() => askContext(pattern, sentence, sentenceJa)} />
-          <button onClick={shuffleOne} className="min-h-11 px-2 text-xs text-slate-400">
-            🔀 ランダム
+          <button onClick={shuffleOne} className="inline-flex min-h-11 items-center gap-1 px-2 text-xs text-slate-500">
+            <Shuffle size={14} aria-hidden />
+            ランダム
           </button>
         </div>
       </div>
@@ -283,9 +286,7 @@ function PatternBrowser({ onSentence }: { onSentence: () => void }) {
                     <div className="truncate font-medium text-brand-ink">{frameBlank(pattern.frame)}</div>
                     <div className="truncate text-xs text-slate-400">{frameBlank(pattern.ja)}</div>
                   </div>
-                  <span className={`inline-block text-slate-300 transition ${open ? "rotate-90" : ""}`} aria-hidden>
-                    ›
-                  </span>
+                  <ChevronRight size={20} className={`shrink-0 text-slate-300 transition ${open ? "rotate-90" : ""}`} aria-hidden />
                 </button>
                 {open && <PatternCard pattern={pattern} onSentence={onSentence} />}
               </div>
@@ -496,10 +497,30 @@ function Drill({ onBrowse }: { onBrowse: () => void }) {
             {showKana && <p className="text-xs text-slate-400">{kana}</p>}
             <div className="flex justify-center gap-2 pt-1">
               <button onClick={() => replay(false)} aria-pressed={player.activeIdx === 0} className="btn-ghost min-h-11 px-3 text-sm">
-                {player.activeIdx === 0 ? "■ 止める" : "▶ もう一度"}
+                {player.activeIdx === 0 ? (
+                  <>
+                    <Square size={12} className="fill-current" aria-hidden />
+                    止める
+                  </>
+                ) : (
+                  <>
+                    <Play size={14} className="fill-current" aria-hidden />
+                    もう一度
+                  </>
+                )}
               </button>
               <button onClick={() => replay(true)} aria-pressed={player.activeIdx === 1} className="btn-ghost min-h-11 px-3 text-sm">
-                {player.activeIdx === 1 ? "■ 止める" : "🐢 ゆっくり"}
+                {player.activeIdx === 1 ? (
+                  <>
+                    <Square size={12} className="fill-current" aria-hidden />
+                    止める
+                  </>
+                ) : (
+                  <>
+                    <Turtle size={18} aria-hidden />
+                    ゆっくり
+                  </>
+                )}
               </button>
             </div>
             {item.pattern.note && <p className="pt-1 text-left text-xs text-slate-400">💡 {item.pattern.note}</p>}
@@ -682,7 +703,8 @@ function AutoDrill() {
           onClick={running ? stop : start}
           className={`btn ${running ? "bg-rose-500 text-white" : "btn-primary"} min-h-11 px-4 text-sm`}
         >
-          {running ? "■ 停止" : cur ? "▶ 再開" : "▶ スタート"}
+          <MediaIcon kind={running ? "stop" : "play"} />
+          {running ? "停止" : cur ? "再開" : "スタート"}
         </button>
         <div className="flex items-center rounded-lg bg-slate-100 p-0.5 text-xs" role="group" aria-label="考える時間">
           <span className="px-1.5 text-slate-400">考える時間</span>
@@ -721,7 +743,10 @@ function AutoDrill() {
                   <p className="text-xs text-slate-400">ポルトガル語で言ってみよう</p>
                 </div>
               ) : (
-                <p className="text-sm text-slate-400">⏸ 停止中（再開すると、この文から）</p>
+                <p className="flex items-center gap-1 text-sm text-slate-400">
+                  <MediaIcon kind="pause" />
+                  停止中（再開すると、この文から）
+                </p>
               )
             ) : (
               <div key={cur.key} className="w-full animate-fade-in space-y-1 rounded-xl bg-slate-50 p-4">
@@ -734,7 +759,7 @@ function AutoDrill() {
           </>
         ) : (
           <p className="text-sm leading-relaxed text-slate-500">
-            ▶ スタートで、全{ALL_ITEMS.length}文を文型を混ぜた順に出します。
+            「スタート」で、全{ALL_ITEMS.length}文を文型を混ぜた順に出します。
             <br />
             和文を見て言ってみる → 音声で答え合わせ、を止めるまでくり返します。
           </p>

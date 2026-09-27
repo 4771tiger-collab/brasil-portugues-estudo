@@ -10,6 +10,7 @@
 
 import { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
+import { GraduationCap } from "lucide-react";
 import { useScreenName } from "../../hooks/useScreenName";
 import { generalContext, openTeacher, useTeacherUi } from "../../services/ai/teacherContext";
 import { useUi } from "../../store/useUi";
@@ -63,16 +64,17 @@ export default function TeacherFab() {
       type="button"
       onClick={() => openTeacher(useTeacherUi.getState().activeId ? undefined : generalContext(screen))}
       aria-label="AI先生に質問する"
-      title="🧑‍🏫 AI先生に質問する"
-      className="fixed z-[25] flex h-12 w-12 items-center justify-center rounded-full bg-white text-2xl shadow-lg ring-1 ring-violet-200 transition active:scale-90"
+      title="AI先生に質問する"
+      className="fixed z-[25] flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 text-white shadow-lg shadow-violet-600/30 ring-2 ring-white transition active:scale-90"
       style={{
         bottom: onSong ? "calc(7.75rem + env(safe-area-inset-bottom))" : "calc(4.5rem + env(safe-area-inset-bottom))",
         right: "max(calc(1rem + env(safe-area-inset-right)), calc((100vw - 42rem) / 2 + 1rem))",
       }}
     >
-      <span aria-hidden>🧑‍🏫</span>
+      <GraduationCap size={24} strokeWidth={2} aria-hidden />
+      {/* 返事を受信中の点（紫の地の上でも見えるよう黄色に白の縁） */}
       {streaming && (
-        <span aria-hidden className="absolute right-0.5 top-0.5 h-3 w-3 animate-pulse rounded-full bg-violet-500 ring-2 ring-white" />
+        <span aria-hidden className="absolute -right-0.5 -top-0.5 h-3.5 w-3.5 animate-pulse rounded-full bg-brand-yellow ring-2 ring-white" />
       )}
     </button>
   );

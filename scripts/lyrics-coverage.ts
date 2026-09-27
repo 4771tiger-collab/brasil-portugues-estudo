@@ -43,6 +43,10 @@ let T = 0;
 let C = 0;
 for (const pl of playlists) {
   for (const s of pl.songs) {
+    if (s.lrcMissing) {
+      console.log(`${s.title.padEnd(24)}歌詞なし（lrcMissing）`);
+      continue;
+    }
     try {
       const rec =
         s.lrclibId != null ? await getLyricsById(s.lrclibId) : pickBest(await searchLyrics(s.lrcArtist, s.lrcTrack), s.durationSec);

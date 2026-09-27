@@ -194,5 +194,217 @@
         "lrclibId": 36124102
       }
     ]
+  },
+  {
+    "id": "disney-princesas-ptbr",
+    "title": "ディズニー（ポルトガル語吹替）",
+    "url": "https://www.youtube.com/watch_videos?video_ids=ilv7ZbZEn2M,5ZuhwC5tdbQ,mjOyC3DK7u0,KPQBCmKU_6M,JepSMPBN9wY,c3Ze1JjNtNY,-x20Is3HiFI,hfDKMTAconw,sP47iA0tJ-0,BUsut3Yt5hY,sRITrFmTT3s,nbbH6f4D_dk,LwX5_UpejvU,fPcVwUZa7yg,3TkIR4U4seA,mUVUmG9vOFw,wUX_4mNn22c,u-VMMQA-d5U,SF6WTbUKYlY,xF_-YWS3rC0",
+    "songs": [
+      {
+        "videoId": "ilv7ZbZEn2M",
+        "title": "Sonhar É Desejar",
+        "artist": "Simone de Moraes",
+        "lrcArtist": "Simone de Moraes",
+        "lrcTrack": "Sonhar É Desejar",
+        "durationSec": 105,
+        "lrclibId": null,
+        "film": "シンデレラ",
+        "lrcMissing": true
+      },
+      {
+        "videoId": "5ZuhwC5tdbQ",
+        "title": "Era Uma Vez No Sonho",
+        "artist": "Norma Maria, Osny Silva",
+        "lrcArtist": "Norma Maria",
+        "lrcTrack": "Era Uma Vez No Sonho",
+        "durationSec": 157,
+        "lrclibId": null,
+        "film": "眠れる森の美女",
+        "lrcMissing": true
+      },
+      {
+        "videoId": "mjOyC3DK7u0",
+        "title": "Parte Do Seu Mundo",
+        "artist": "Laura Castro",
+        "lrcArtist": "Laura Castro",
+        "lrcTrack": "Parte Do Seu Mundo",
+        "durationSec": 218,
+        "lrclibId": 12140915,
+        "film": "リトル・マーメイド（実写・2023）"
+      },
+      {
+        "videoId": "KPQBCmKU_6M",
+        "title": "Bela",
+        "artist": "Ju Cassou e elenco",
+        "lrcArtist": "Ju Cassou",
+        "lrcTrack": "Bela",
+        "durationSec": 300,
+        "lrclibId": 12380502,
+        "film": "美女と野獣"
+      },
+      {
+        "videoId": "JepSMPBN9wY",
+        "title": "Um Mundo Ideal",
+        "artist": "Daniel Garcia, Lara Suleiman",
+        "lrcArtist": "Daniel Garcia",
+        "lrcTrack": "Um Mundo Ideal",
+        "durationSec": 177,
+        "lrclibId": 11623269,
+        "film": "アラジン（実写・2019）"
+      },
+      {
+        "videoId": "c3Ze1JjNtNY",
+        "title": "Ninguém Me Cala (Versão Completa)",
+        "artist": "Isabela Souza",
+        "lrcArtist": "Isabela Souza",
+        "lrcTrack": "Ninguém Me Cala (Versão Completa)",
+        "durationSec": 210,
+        "lrclibId": 11653299,
+        "film": "アラジン（実写・2019）"
+      },
+      {
+        "videoId": "-x20Is3HiFI",
+        "title": "Cores do Vento",
+        "artist": "Kika Tristão",
+        "lrcArtist": "Kika Tristão",
+        "lrcTrack": "Cores do Vento",
+        "durationSec": 197,
+        "lrclibId": null,
+        "film": "ポカホンタス",
+        "lrcMissing": true
+      },
+      {
+        "videoId": "hfDKMTAconw",
+        "title": "Imagem",
+        "artist": "Kacau Gomes",
+        "lrcArtist": "Kacau Gomes",
+        "lrcTrack": "Imagem",
+        "durationSec": 106,
+        "lrclibId": null,
+        "film": "ムーラン",
+        "lrcMissing": true
+      },
+      {
+        "videoId": "sP47iA0tJ-0",
+        "title": "Quase Lá",
+        "artist": "Kacau Gomes",
+        "lrcArtist": "Kacau Gomes",
+        "lrcTrack": "Quase Lá",
+        "durationSec": 147,
+        "lrclibId": 38381630,
+        "film": "プリンセスと魔法のキス"
+      },
+      {
+        "videoId": "BUsut3Yt5hY",
+        "title": "Quando a Minha Vida Vai Começar?",
+        "artist": "Sylvia Salustti",
+        "lrcArtist": "Sylvia Salustti",
+        "lrcTrack": "Quando a Minha Vida Vai Começar?",
+        "durationSec": 147,
+        "lrclibId": 35087671,
+        "film": "塔の上のラプンツェル"
+      },
+      {
+        "videoId": "sRITrFmTT3s",
+        "title": "Vejo Enfim a Luz Brilhar",
+        "artist": "Sylvia Salustti, Raphael Rossatto",
+        "lrcArtist": "Sylvia Salustti",
+        "lrcTrack": "Vejo Enfim a Luz Brilhar",
+        "durationSec": 218,
+        "lrclibId": 14536426,
+        "film": "塔の上のラプンツェル"
+      },
+      {
+        "videoId": "nbbH6f4D_dk",
+        "title": "O Céu Eu Vou Tocar",
+        "artist": "Manu Gavassi",
+        "lrcArtist": "Manu Gavassi",
+        "lrcTrack": "O Céu Eu Vou Tocar",
+        "durationSec": 117,
+        "lrclibId": 12199109,
+        "film": "メリダとおそろしの森"
+      },
+      {
+        "videoId": "LwX5_UpejvU",
+        "title": "Quer Brincar Na Neve?",
+        "artist": "Hannah Zeitoune, Gabi Guimarães, Gabi Porto",
+        "lrcArtist": "Hannah Zeitoune",
+        "lrcTrack": "Quer Brincar Na Neve?",
+        "durationSec": 206,
+        "lrclibId": 34081347,
+        "film": "アナと雪の女王"
+      },
+      {
+        "videoId": "fPcVwUZa7yg",
+        "title": "Uma Vez Na Eternidade",
+        "artist": "Gabi Porto, Taryn Szpilman",
+        "lrcArtist": "Gabi Porto",
+        "lrcTrack": "Uma Vez Na Eternidade",
+        "durationSec": 221,
+        "lrclibId": 32381543,
+        "film": "アナと雪の女王"
+      },
+      {
+        "videoId": "3TkIR4U4seA",
+        "title": "Livre Estou",
+        "artist": "Taryn Szpilman",
+        "lrcArtist": "Taryn Szpilman",
+        "lrcTrack": "Livre Estou",
+        "durationSec": 226,
+        "lrclibId": 32859792,
+        "film": "アナと雪の女王"
+      },
+      {
+        "videoId": "mUVUmG9vOFw",
+        "title": "Saber Quem Sou",
+        "artist": "Any Gabrielly",
+        "lrcArtist": "Any Gabrielly",
+        "lrcTrack": "Saber Quem Sou",
+        "durationSec": 160,
+        "lrclibId": 34396469,
+        "film": "モアナと伝説の海"
+      },
+      {
+        "videoId": "wUX_4mNn22c",
+        "title": "Minha Intuição",
+        "artist": "Taryn, AURORA",
+        "lrcArtist": "Taryn",
+        "lrcTrack": "Minha Intuição",
+        "durationSec": 209,
+        "lrclibId": 10693869,
+        "film": "アナと雪の女王2"
+      },
+      {
+        "videoId": "u-VMMQA-d5U",
+        "title": "Vem Mostrar",
+        "artist": "Taryn, Myra Ruiz",
+        "lrcArtist": "Taryn",
+        "lrcTrack": "Vem Mostrar",
+        "durationSec": 279,
+        "lrclibId": 34255358,
+        "film": "アナと雪の女王2"
+      },
+      {
+        "videoId": "SF6WTbUKYlY",
+        "title": "Um Desejo Só",
+        "artist": "Luci Salutes",
+        "lrcArtist": "Luci Salutes",
+        "lrcTrack": "Um Desejo Só",
+        "durationSec": 209,
+        "lrclibId": 8549536,
+        "film": "ウィッシュ"
+      },
+      {
+        "videoId": "xF_-YWS3rC0",
+        "title": "Além",
+        "artist": "Any Gabrielly ft. Rejani Humphreys",
+        "lrcArtist": "Any Gabrielly",
+        "lrcTrack": "Além",
+        "durationSec": 270,
+        "lrclibId": null,
+        "film": "モアナと伝説の海2",
+        "lrcMissing": true
+      }
+    ]
   }
 ]

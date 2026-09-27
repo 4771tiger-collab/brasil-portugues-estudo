@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
+import { Play, Square, Turtle } from "lucide-react";
 import PtInput from "../components/PtInput";
 import DiffView from "../components/DiffView";
 import SpeakerButton from "../components/SpeakerButton";
@@ -478,10 +479,30 @@ function Run({ initial, onDone, onQuit }: { initial: ConjEntry[]; onDone: (q: Co
               {showKana && <div className="text-xs text-slate-400">{kana}</div>}
               <div className="flex justify-center gap-2 pt-2">
                 <button onClick={() => replay(false)} aria-pressed={player.activeIdx === 0} className="btn-ghost min-h-11 px-3 text-sm">
-                  {player.activeIdx === 0 ? "■ 止める" : "▶ もう一度"}
+                  {player.activeIdx === 0 ? (
+                  <>
+                    <Square size={12} className="fill-current" aria-hidden />
+                    止める
+                  </>
+                ) : (
+                  <>
+                    <Play size={14} className="fill-current" aria-hidden />
+                    もう一度
+                  </>
+                )}
                 </button>
                 <button onClick={() => replay(true)} aria-pressed={player.activeIdx === 1} className="btn-ghost min-h-11 px-3 text-sm">
-                  {player.activeIdx === 1 ? "■ 止める" : "🐢 ゆっくり"}
+                  {player.activeIdx === 1 ? (
+                  <>
+                    <Square size={12} className="fill-current" aria-hidden />
+                    止める
+                  </>
+                ) : (
+                  <>
+                    <Turtle size={18} aria-hidden />
+                    ゆっくり
+                  </>
+                )}
                 </button>
               </div>
             </div>

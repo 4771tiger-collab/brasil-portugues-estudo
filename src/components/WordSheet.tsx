@@ -7,6 +7,7 @@
 // ============================================================================
 
 import { useEffect, useMemo, useState } from "react";
+import { ChevronLeft, ChevronRight, Globe, GraduationCap, Plus, X } from "lucide-react";
 import { resolveWord } from "../data/loadWords";
 import type { Word } from "../data/types";
 import { getLemmatizer } from "../data/music";
@@ -75,7 +76,8 @@ function AddButton({ ids, surface, videoId }: { ids: string[]; surface: string; 
   return (
     <div className="flex items-center gap-2">
       <button onClick={() => addWord(cardId ?? ids[0], videoId, surface)} className="btn-primary px-3 py-1.5 text-sm">
-        ＋ 単語帳に追加
+        <Plus size={16} aria-hidden />
+        単語帳に追加
       </button>
       {addedElsewhere ? (
         <span className="text-[11px] text-slate-400">別の曲で追加済み</span>
@@ -207,7 +209,8 @@ function UnknownWord({ surface, videoId }: { surface: string; videoId: string })
         </div>
       )}
       <button onClick={suggest} disabled={busy} className="btn-ghost w-full py-2 text-sm">
-        {busy ? "翻訳中…" : "🌐 機械翻訳で意味の候補を出す"}
+        <Globe size={16} className="shrink-0 text-brand-blue" aria-hidden />
+        {busy ? "翻訳中…" : "機械翻訳で意味の候補を出す"}
       </button>
       {err && <div className="text-xs text-rose-500">{err}</div>}
       <div className="flex gap-2">
@@ -224,7 +227,8 @@ function UnknownWord({ surface, videoId }: { surface: string; videoId: string })
         </select>
       </div>
       <button onClick={save} disabled={!ja.trim()} className="btn-primary w-full py-2 text-sm">
-        {existing ? "意味を更新して単語帳に追加" : "＋ この意味で単語帳に追加"}
+        {!existing && <Plus size={16} aria-hidden />}
+        {existing ? "意味を更新して単語帳に追加" : "この意味で単語帳に追加"}
       </button>
     </div>
   );
@@ -276,10 +280,10 @@ export default function WordSheet({ tokens, index, videoId, onClose, onMove, onA
           <button
             onClick={() => onMove?.(index - 1)}
             disabled={!onMove || index === 0}
-            className="rounded-full px-2 py-1 text-lg text-slate-400 disabled:opacity-20"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-slate-400 disabled:opacity-20"
             aria-label="前の単語"
           >
-            ‹
+            <ChevronLeft size={22} aria-hidden />
           </button>
           <div className="min-w-0 flex-1 text-center">
             <span className="text-xl font-extrabold text-brand-ink">{tok.text}</span>
@@ -288,10 +292,10 @@ export default function WordSheet({ tokens, index, videoId, onClose, onMove, onA
           <button
             onClick={() => onMove?.(index + 1)}
             disabled={!onMove || index >= tokens.length - 1}
-            className="rounded-full px-2 py-1 text-lg text-slate-400 disabled:opacity-20"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-slate-400 disabled:opacity-20"
             aria-label="次の単語"
           >
-            ›
+            <ChevronRight size={22} aria-hidden />
           </button>
           {/* 🧑‍🏫 この単語を AI 先生に聞く（原形・意味・品詞と、曲名・その行を渡す） */}
           {onAskTeacher && (
@@ -309,11 +313,12 @@ export default function WordSheet({ tokens, index, videoId, onClose, onMove, onA
               className="chip min-h-11 shrink-0 gap-1 bg-violet-50 px-2.5 text-violet-700 ring-1 ring-violet-200"
               aria-label="この単語を AI先生に聞く"
             >
-              <span aria-hidden>🧑‍🏫</span>聞く
+              <GraduationCap size={16} aria-hidden />
+              聞く
             </button>
           )}
-          <button onClick={onClose} className="rounded-full px-2 py-1 text-slate-400" aria-label="閉じる">
-            ✕
+          <button onClick={onClose} className="-mr-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-slate-500" aria-label="閉じる">
+            <X size={22} aria-hidden />
           </button>
         </div>
 

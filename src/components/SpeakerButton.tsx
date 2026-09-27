@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Volume1, Volume2 } from "lucide-react";
 import { audio } from "../services/audio";
 import { useSettings } from "../store/useSettings";
 
@@ -39,17 +40,8 @@ export default function SpeakerButton({ text, rate, className = "", title = "発
         speaking ? "animate-pulse bg-brand-green/10" : ""
       } ${className}`}
     >
-      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M11 5 6 9H2v6h4l5 4V5z" />
-        {speaking ? (
-          <>
-            <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
-            <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
-          </>
-        ) : (
-          <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
-        )}
-      </svg>
+      {/* 読み上げ中は音の波を2本に */}
+      {speaking ? <Volume2 size={size} strokeWidth={2} aria-hidden /> : <Volume1 size={size} strokeWidth={2} aria-hidden />}
     </button>
   );
 }

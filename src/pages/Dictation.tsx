@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, Navigate, useParams, useSearchParams } from "react-router-dom";
+import { ChevronRight } from "lucide-react";
+import { IconBadge, MediaIcon } from "../components/icons";
 import { DICTATIONS } from "../data/content";
 import type { DictationItem } from "../data/types";
 import { useSettings } from "../store/useSettings";
@@ -163,7 +165,7 @@ function usePlayer(text: string): Player {
 }
 
 /** 全文再生・停止と速さの切替 */
-function PlayControls({ p, label = "▶ 全文を再生" }: { p: Player; label?: string }) {
+function PlayControls({ p, label = "全文を再生" }: { p: Player; label?: string }) {
   return (
     <div className="flex flex-wrap items-center gap-2">
       <button
@@ -171,7 +173,8 @@ function PlayControls({ p, label = "▶ 全文を再生" }: { p: Player; label?:
         onClick={p.playingAll ? p.stop : p.playAll}
         className={`btn ${p.playingAll ? "bg-rose-500 text-white" : "btn-primary"} min-h-11 flex-1 px-3 py-2 text-sm`}
       >
-        {p.playingAll ? "■ 停止" : label}
+        <MediaIcon kind={p.playingAll ? "stop" : "play"} />
+        {p.playingAll ? "停止" : label}
       </button>
       <div className="flex items-center rounded-lg bg-slate-100 p-0.5 text-xs" role="group" aria-label="再生の速さ">
         {SPEEDS.map((s, i) => (
@@ -203,11 +206,12 @@ function SentenceButtons({ p }: { p: Player }) {
             type="button"
             onClick={() => p.playOne(i)}
             aria-label={`${i + 1}文目を再生`}
-            className={`min-h-11 min-w-11 rounded-xl px-3 text-sm font-medium ring-1 transition active:scale-95 ${
+            className={`inline-flex min-h-11 min-w-11 items-center justify-center gap-1 rounded-xl px-3 text-sm font-medium ring-1 transition active:scale-95 ${
               p.activeIdx === i ? "bg-emerald-100 text-emerald-700 ring-emerald-300" : "bg-white text-brand-ink ring-slate-200"
             }`}
           >
-            ▶ {i + 1}
+            <MediaIcon kind="play" size={12} className="text-brand-green" />
+            {i + 1}
           </button>
         ))}
       </div>
@@ -445,7 +449,7 @@ function Runner({ item, onBack }: { item: DictationItem; onBack: () => void }) {
                     aria-label={`${i + 1}文目を再生`}
                     className="flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-full text-brand-green transition hover:bg-brand-green/10 active:scale-90"
                   >
-                    ▶
+                    <MediaIcon kind="play" size={16} />
                   </button>
                   <div className="min-w-0 flex-1 py-1.5">
                     <div className="text-lg font-bold leading-snug text-brand-ink">{s}</div>
@@ -467,7 +471,7 @@ function Runner({ item, onBack }: { item: DictationItem; onBack: () => void }) {
               <p className="text-xs text-slate-500">
                 🔁 仕上げ：本文を見ながら、音声に<strong>合わせて同時に声に出して</strong>読みましょう（オーバーラッピング）。発音・リズムが定着します。
               </p>
-              <PlayControls p={player} label="▶ 音声に合わせて音読" />
+              <PlayControls p={player} label="音声に合わせて音読" />
             </div>
           </>
         )}
@@ -530,14 +534,14 @@ export default function Dictation() {
           <div className="space-y-2">
             {g.items.map((d, i) => (
               <Link key={d.id} to={`${LIST_PATH}/${encodeURIComponent(d.id)}`} className="card flex w-full items-center gap-3 p-3 text-left transition hover:ring-brand-green/40">
-                <span className="text-xl">{d.isDialogue ? "💬" : "✍️"}</span>
+                <IconBadge feature={d.isDialogue ? "dialogue" : "dictation"} size="sm" />
                 <div className="min-w-0 flex-1">
                   <div className="font-medium text-brand-ink">
                     {LEVEL_LABEL[g.level]} 第{i + 1}問{d.isDialogue ? "（会話）" : ""}
                   </div>
                   <div className="text-xs text-slate-400">音声を聴いて書き取り（約{d.text.split(/\s+/).length}語）</div>
                 </div>
-                <span className="text-slate-300">›</span>
+                <ChevronRight size={20} className="shrink-0 text-slate-300" aria-hidden />
               </Link>
             ))}
           </div>

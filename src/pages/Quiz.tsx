@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, Navigate, useParams } from "react-router-dom";
+import { BookA, Headphones, Keyboard, Languages, ListMusic, PenLine, type LucideIcon } from "lucide-react";
 import {
   ALL_WORDS,
   WORDS_CAPOEIRA,
@@ -36,6 +37,7 @@ import PtInput from "../components/PtInput";
 import DiffView from "../components/DiffView";
 import AskTeacherButton from "../components/teacher/AskTeacherButton";
 import { wordTeacherContext } from "../components/teacher/contexts";
+import { IconBadge, type Tone } from "../components/icons";
 
 /**
  * 出題モード。
@@ -565,23 +567,23 @@ function QuizRunner({ deckId, deckWords }: { deckId: string | null; deckWords: W
 
   // ---------- setup ----------
   if (phase === "setup") {
-    const modes: { v: Mode; label: string; desc: string }[] = [
-      { v: "pt2ja", label: "葡 → 和", desc: "単語を見て意味を選ぶ" },
-      { v: "ja2pt", label: "和 → 葡", desc: "意味を見て葡語を選ぶ" },
-      { v: "listen", label: "リスニング", desc: "音声を聴いて意味を選ぶ" },
-      { v: "ja2pt_type", label: "和 → 葡（入力）", desc: "意味を見てつづりを打つ" },
-      { v: "listen_type", label: "書き取り（入力）", desc: "音声を聴いてつづりを打つ" },
+    const modes: { v: Mode; label: string; desc: string; icon: LucideIcon; tone: Tone }[] = [
+      { v: "pt2ja", label: "葡 → 和", desc: "単語を見て意味を選ぶ", icon: BookA, tone: "green" },
+      { v: "ja2pt", label: "和 → 葡", desc: "意味を見て葡語を選ぶ", icon: Languages, tone: "blue" },
+      { v: "listen", label: "リスニング", desc: "音声を聴いて意味を選ぶ", icon: Headphones, tone: "teal" },
+      { v: "ja2pt_type", label: "和 → 葡（入力）", desc: "意味を見てつづりを打つ", icon: Keyboard, tone: "indigo" },
+      { v: "listen_type", label: "書き取り（入力）", desc: "音声を聴いてつづりを打つ", icon: PenLine, tone: "orange" },
     ];
     // 語数はそのモードで出題できる語の数（和→葡は固有名詞を除く）
     const nAsk = (ws: Word[]) => askable(mode, ws).length;
-    const scopes: { v: Scope; label: string; n: number }[] = [
+    const scopes: { v: Scope; label: string; n: number; icon?: LucideIcon }[] = [
       ...(deckWords ? [{ v: "deck" as const, label: "このデッキ", n: nAsk(deckWords) }] : []),
       { v: "studied", label: "学習済み", n: nAsk(studiedWords) },
       { v: "due", label: "今日の復習", n: nAsk(dueWordsNow) },
       { v: "weak", label: "苦手", n: nAsk(weakNow) },
       { v: "general", label: "一般語彙", n: nAsk(WORDS_GENERAL) },
       { v: "capoeira", label: "カポエイラ", n: nAsk(WORDS_CAPOEIRA) },
-      { v: "music", label: "🎵 曲の単語", n: nAsk(musicWords) },
+      { v: "music", label: "曲の単語", n: nAsk(musicWords), icon: ListMusic },
     ];
     const needsWords: readonly Scope[] = ["deck", "due", "studied", "weak", "music"];
     // 選んでいる範囲がこのモードでは0語（固有名詞だけのデッキを和→葡で、復習を終えた「今日の復習」など）→ 始められない
@@ -605,13 +607,20 @@ function QuizRunner({ deckId, deckWords }: { deckId: string | null; deckWords: W
             {modes.map((m) => (
               <button
                 key={m.v}
+                type="button"
                 onClick={() => setMode(m.v)}
+                aria-pressed={mode === m.v}
                 className={`card flex w-full items-center gap-3 p-3 text-left transition ${
                   mode === m.v ? "ring-2 ring-brand-green" : ""
                 }`}
               >
-                <span className="font-bold text-brand-ink">{m.label}</span>
-                <span className="text-xs text-slate-500">{m.desc}</span>
+                {/* 選んでいるモードはアイコンの地を濃くする */}
+                <IconBadge icon={m.icon} tone={m.tone} size="sm" variant={mode === m.v ? "solid" : "soft"} />
+                {/* 名前は折り返さない。狭い画面では説明だけが名前の下に回る */}
+                <span className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-3">
+                  <span className="whitespace-nowrap font-bold text-brand-ink">{m.label}</span>
+                  <span className="text-xs text-slate-500">{m.desc}</span>
+                </span>
               </button>
             ))}
           </div>
@@ -634,7 +643,10 @@ function QuizRunner({ deckId, deckWords }: { deckId: string | null; deckWords: W
                   scope === s.v ? "ring-2 ring-brand-green" : ""
                 } ${s.v === "deck" ? "col-span-2" : ""}`}
               >
-                <span className="text-sm font-bold text-brand-ink">{s.label}</span>
+                <span className="inline-flex items-center gap-1 text-sm font-bold text-brand-ink">
+                  {s.icon && <s.icon size={14} className="shrink-0 text-rose-500" aria-hidden />}
+                  {s.label}
+                </span>
                 <span className="text-xs text-slate-400">{s.n}語</span>
               </button>
             ))}

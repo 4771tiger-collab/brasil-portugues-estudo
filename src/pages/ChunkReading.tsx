@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, Navigate, useParams, useSearchParams } from "react-router-dom";
+import { ChevronRight, CircleHelp, Eye, EyeOff, Plus } from "lucide-react";
+import { IconBadge, MediaIcon } from "../components/icons";
 import { PASSAGES } from "../data/content";
 import type { Passage, PassageQuestion } from "../data/types";
 import { useProgress } from "../store/useProgress";
@@ -102,8 +104,9 @@ function ContentCheck({ questions, seed }: { questions: PassageQuestion[]; seed:
   return (
     <section className="card space-y-4 p-4" aria-labelledby="content-check-title">
       <div className="flex items-center justify-between gap-2">
-        <h2 id="content-check-title" className="font-bold text-brand-ink">
-          ❓ 内容チェック
+        <h2 id="content-check-title" className="flex items-center gap-1.5 font-bold text-brand-ink">
+          <CircleHelp size={18} className="shrink-0 text-sky-600" aria-hidden />
+          内容チェック
         </h2>
         <span className="text-xs text-slate-400" aria-live="polite">
           {sum.done ? `${sum.total}問中 ${sum.correct}問正解` : `回答 ${sum.answered}/${sum.total}`}
@@ -161,7 +164,8 @@ function ContentCheck({ questions, seed }: { questions: PassageQuestion[]; seed:
       </ol>
       {sum.answered > 0 && (
         <button type="button" onClick={reset} className="btn-ghost min-h-11 w-full text-sm">
-          ↺ もう一度
+          <MediaIcon kind="restart" />
+          もう一度
         </button>
       )}
     </section>
@@ -302,7 +306,8 @@ function Reader({ passage, onBack }: { passage: Passage; onBack: () => void }) {
       {/* top はヘッダーの実高さ --hdr。ボタンは指で押せる 44px 以上 */}
       <div className="sticky top-[var(--hdr,53px)] z-10 -mx-4 flex flex-wrap items-center gap-2 border-b border-slate-200 bg-white/95 px-4 py-1.5 backdrop-blur">
         <button onClick={playing ? player.stop : () => void playAll()} className={`btn ${playing ? "bg-rose-500 text-white" : "btn-primary"} min-h-11 px-3 py-1.5 text-sm`}>
-          {playing ? "■ 停止" : "▶ 全文再生"}
+          <MediaIcon kind={playing ? "stop" : "play"} />
+          {playing ? "停止" : "全文再生"}
         </button>
         <div className="flex items-center rounded-lg bg-slate-100 p-0.5 text-xs" role="group" aria-label="再生の速さ">
           {speeds.map((s) => {
@@ -333,9 +338,10 @@ function Reader({ passage, onBack }: { passage: Passage; onBack: () => void }) {
           type="button"
           onClick={() => setHidden(!ptHidden)}
           aria-pressed={ptHidden}
-          className={`chip min-h-11 px-3.5 ring-1 ${ptHidden ? "bg-brand-green text-white ring-brand-green" : "bg-white text-slate-600 ring-slate-200"}`}
+          className={`chip min-h-11 gap-1 px-3.5 ring-1 ${ptHidden ? "bg-brand-green text-white ring-brand-green" : "bg-white text-slate-600 ring-slate-200"}`}
         >
-          {ptHidden ? "👁 ポルトガル語を表示" : "🙈 ポルトガル語を隠す"}
+          {ptHidden ? <Eye size={16} aria-hidden /> : <EyeOff size={16} aria-hidden />}
+          {ptHidden ? "ポルトガル語を表示" : "ポルトガル語を隠す"}
         </button>
         {ptHidden && (
           <>
@@ -343,9 +349,10 @@ function Reader({ passage, onBack }: { passage: Passage; onBack: () => void }) {
               type="button"
               onClick={rehide}
               disabled={revealed.size === 0}
-              className="chip min-h-11 bg-white px-3.5 text-slate-600 ring-1 ring-slate-200 disabled:opacity-40"
+              className="chip min-h-11 gap-1 bg-white px-3.5 text-slate-600 ring-1 ring-slate-200 disabled:opacity-40"
             >
-              ↺ もう一度隠す
+              <MediaIcon kind="restart" />
+              もう一度隠す
             </button>
             <span className={`ml-auto pr-1 ${allRevealed ? "font-bold text-brand-green" : "text-slate-400"}`} aria-live="polite">
               {allRevealed ? "✓ " : ""}確認 {revealed.size}/{answerable.length}
@@ -389,7 +396,8 @@ function Reader({ passage, onBack }: { passage: Passage; onBack: () => void }) {
                     }`}
                   >
                     <span className={`text-[10px] font-bold leading-none ${solo ? "text-white/80" : "text-slate-400"}`}>{gi + 1}</span>
-                    <span className="text-sm leading-none">{solo ? "■" : "▶"}</span>
+                    <MediaIcon kind={solo ? "stop" : "play"} />
+
                   </button>
                   {/* 🧑‍🏫 この文を AI 先生に聞く（瞬間作文でポルトガル語を隠している間は、答えが分かるので出さない） */}
                   {!ptHidden && g.pt && (
@@ -527,7 +535,10 @@ export default function ChunkReading() {
       <Link to="/practice" className="inline-flex min-h-11 items-center pr-2 text-sm text-brand-green">‹ 練習に戻る</Link>
       <div>
         <h1 className="text-xl font-bold text-brand-ink">チャンクリーディング</h1>
-        <p className="text-sm text-slate-500">意味のカタマリ（/）ごとに、前から理解する練習。ポルトガル語を隠せば、訳からチャンクごとに言う瞬間作文にも。❓のある読み物は、読んだ後に内容チェックの問題があります。</p>
+        <p className="text-sm text-slate-500">意味のカタマリ（/）ごとに、前から理解する練習。ポルトガル語を隠せば、訳からチャンクごとに言う瞬間作文にも。
+          <CircleHelp size={14} className="mx-0.5 inline-block align-[-2px] text-sky-600" role="img" aria-label="内容チェック" />
+          のある読み物は、読んだ後に内容チェックの問題があります。
+        </p>
       </div>
       <FilterChips label="難易度" options={LEVEL_FILTERS} value={level} onChange={(v) => setFilter(v, topic)} />
       {topics.length > 0 && (
@@ -545,7 +556,7 @@ export default function ChunkReading() {
           const nq = passageQuestions(p).length;
           return (
             <Link key={p.id} to={`${LIST_PATH}/${encodeURIComponent(p.id)}`} className="card flex w-full items-center gap-3 p-3 text-left transition hover:ring-brand-green/40">
-              <span className="text-xl">📖</span>
+              <IconBadge feature="chunk" size="sm" />
               <div className="min-w-0 flex-1">
                 <div className="truncate font-medium text-brand-ink">{p.title}</div>
                 <div className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-slate-400">
@@ -553,18 +564,27 @@ export default function ChunkReading() {
                   <span>
                     {LEVEL_LABEL[p.level] ?? "—"} ・ {sentenceCount(p)}文
                   </span>
-                  {nq > 0 && <span>・ ❓{nq}問</span>}
+                  {nq > 0 && (
+                    <span className="inline-flex items-center gap-0.5">
+                      ・
+                      <CircleHelp size={12} className="shrink-0 text-sky-600" role="img" aria-label="内容チェック" />
+                      {nq}問
+                    </span>
+                  )}
                 </div>
               </div>
               {p.source !== "original" && (
                 <span className="chip shrink-0 bg-amber-100 text-amber-600">{p.source === "custom" ? "自作" : "取込"}</span>
               )}
-              <span className="text-slate-300">›</span>
+              <ChevronRight size={20} className="shrink-0 text-slate-300" aria-hidden />
             </Link>
           );
         })}
       </div>
-      <Link to="/practice/add" className="btn-ghost min-h-11 w-full">➕ 教材を追加する</Link>
+      <Link to="/practice/add" className="btn-ghost min-h-11 w-full">
+        <Plus size={18} aria-hidden />
+        教材を追加する
+      </Link>
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
+import { ChevronRight, Flame, ListMusic, Music } from "lucide-react";
 import { ALL_WORDS, STATS } from "../data/loadWords";
 import { currentStreak, studiedToday, todayCounters, useProgress } from "../store/useProgress";
 import { activitySeconds } from "../store/history";
@@ -11,6 +12,16 @@ import { useTodayPlan } from "../hooks/useTodayPlan";
 import UpdateBanner from "../components/UpdateBanner";
 import InstallCard from "../components/InstallCard";
 import BackupNudge from "../components/BackupNudge";
+import { IconBadge, type FeatureKey } from "../components/icons";
+
+/** ホームの機能のタイル（上の3つは2列、音楽・設定は横長） */
+const MODES: { to: string; feature: FeatureKey; title: string; desc: string; wide?: boolean }[] = [
+  { to: "/flashcards", feature: "flashcards", title: "単語帳", desc: "目隠し・音声・連続再生" },
+  { to: "/quiz", feature: "quiz", title: "クイズ", desc: "10問・3モード" },
+  { to: "/practice", feature: "practice", title: "練習", desc: "読解・発話・書取" },
+  { to: "/music", feature: "music", title: "音楽", desc: "YouTube・同期歌詞・和訳・歌詞の単語をSRSへ", wide: true },
+  { to: "/settings", feature: "settings", title: "設定", desc: "速度・音声・バックアップ", wide: true },
+];
 
 function Bar({ value, className = "" }: { value: number; className?: string }) {
   return (
@@ -80,7 +91,10 @@ export default function Home() {
                 <div className="mb-0.5 text-white/70">＋</div>
                 <div>
                   <div className="text-4xl font-extrabold leading-none">{musicNew}</div>
-                  <div className="mt-1 text-xs opacity-90">🎵 曲の単語</div>
+                  <div className="mt-1 flex items-center gap-1 text-xs opacity-90">
+                    <ListMusic size={12} className="shrink-0" aria-hidden />
+                    曲の単語
+                  </div>
                 </div>
               </>
             )}
@@ -123,7 +137,7 @@ export default function Home() {
             <div className="mt-2 text-xs text-slate-500">
               練習 <span className="font-bold text-brand-ink">{Math.floor(practiceSec / 60)}分</span>
               <span className="mx-1 text-slate-300">・</span>
-              <span aria-hidden="true">🎵</span>
+              <Music size={12} strokeWidth={2.25} className="inline-block align-[-1px] text-rose-500" aria-hidden />
               <span className="sr-only">音楽</span> <span className="font-bold text-brand-ink">{Math.floor(musicSec / 60)}分</span>
             </div>
           </div>
@@ -138,9 +152,7 @@ export default function Home() {
                 doneToday ? "text-orange-600" : "text-slate-500"
               }`}
             >
-              <span className={doneToday ? "" : "opacity-60 grayscale"} aria-hidden="true">
-                🔥
-              </span>
+              <Flame size={16} className={`self-center ${doneToday ? "fill-orange-400 text-orange-600" : "text-slate-400"}`} aria-hidden />
               <span>{streak}日</span>
               <span className="text-xs font-medium text-slate-400">
                 {doneToday ? "今日は達成" : streak > 0 ? "今日学習して継続" : "今日から始めよう"}
@@ -196,43 +208,34 @@ export default function Home() {
           </div>
         )}
         {addedIds.length > 0 && (
-          <Link to="/flashcards/music" className="mt-3 flex items-center justify-between rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">
-            <span>🎵 曲の単語 {addedIds.length}語（うち学習済み {musicLearned}）</span>
-            <span>›</span>
+          <Link to="/flashcards/music" className="mt-3 flex min-h-11 items-center gap-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
+            <ListMusic size={16} className="shrink-0" aria-hidden />
+            <span className="min-w-0 flex-1">曲の単語 {addedIds.length}語（うち学習済み {musicLearned}）</span>
+            <ChevronRight size={16} className="shrink-0 text-amber-600" aria-hidden />
           </Link>
         )}
       </section>
 
-      {/* モード */}
+      {/* モード（アイコンと色は components/icons/features.ts） */}
       <section className="grid grid-cols-2 gap-3">
-        <Link to="/flashcards" className="card flex flex-col gap-1 p-4 transition hover:ring-brand-green/40">
-          <span className="text-2xl">📇</span>
-          <span className="font-semibold text-brand-ink">単語帳</span>
-          <span className="text-xs text-slate-500">目隠し・音声・連続再生</span>
-        </Link>
-        <Link to="/quiz" className="card flex flex-col gap-1 p-4 transition hover:ring-brand-green/40">
-          <span className="text-2xl">🎯</span>
-          <span className="font-semibold text-brand-ink">クイズ</span>
-          <span className="text-xs text-slate-500">10問・3モード</span>
-        </Link>
-        <Link to="/practice" className="card flex flex-col gap-1 p-4 transition hover:ring-brand-green/40">
-          <span className="text-2xl">🎧</span>
-          <span className="font-semibold text-brand-ink">練習</span>
-          <span className="text-xs text-slate-500">読解・発話・書取</span>
-        </Link>
-        <Link to="/music" className="card col-span-2 flex items-center gap-3 p-4 transition hover:ring-brand-green/40">
-          <span className="text-2xl">🎵</span>
-          <div className="min-w-0 flex-1">
-            <div className="font-semibold text-brand-ink">音楽</div>
-            <div className="text-xs text-slate-500">YouTube・同期歌詞・和訳・歌詞の単語をSRSへ</div>
-          </div>
-          <span className="text-slate-300">›</span>
-        </Link>
-        <Link to="/settings" className="card col-span-2 flex flex-col gap-1 p-4 transition hover:ring-brand-green/40">
-          <span className="text-2xl">⚙️</span>
-          <span className="font-semibold text-brand-ink">設定</span>
-          <span className="text-xs text-slate-500">速度・音声・バックアップ</span>
-        </Link>
+        {MODES.map((m) =>
+          m.wide ? (
+            <Link key={m.to} to={m.to} className="card col-span-2 flex items-center gap-3 p-4 transition hover:ring-brand-green/40 active:scale-[0.99]">
+              <IconBadge feature={m.feature} />
+              <div className="min-w-0 flex-1">
+                <div className="font-semibold text-brand-ink">{m.title}</div>
+                <div className="text-xs text-slate-500">{m.desc}</div>
+              </div>
+              <ChevronRight size={20} className="shrink-0 text-slate-300" aria-hidden />
+            </Link>
+          ) : (
+            <Link key={m.to} to={m.to} className="card flex flex-col items-start gap-1 p-4 transition hover:ring-brand-green/40 active:scale-[0.99]">
+              <IconBadge feature={m.feature} className="mb-1.5" />
+              <span className="font-semibold text-brand-ink">{m.title}</span>
+              <span className="text-xs text-slate-500">{m.desc}</span>
+            </Link>
+          )
+        )}
       </section>
 
       <p className="px-1 text-center text-xs text-slate-400">

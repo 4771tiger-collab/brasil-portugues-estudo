@@ -10,6 +10,7 @@ import { aiModelLabel } from "../../services/ai";
 import { toKana } from "../../services/pronunciation";
 import { useSettings } from "../../store/useSettings";
 import SpeakerButton from "../SpeakerButton";
+import { MediaIcon, TeacherAvatar } from "../icons";
 
 function Spans({ spans }: { spans: Span[] }) {
   return (
@@ -126,14 +127,17 @@ const TeacherMessage = memo(function TeacherMessage({ role, text, model, stopped
   }
   return (
     <div className="flex gap-2">
-      <span aria-hidden className="mt-1 shrink-0 text-xl">
-        🧑‍🏫
-      </span>
+      <TeacherAvatar className="mt-1" />
       <div className="min-w-0 flex-1 rounded-2xl rounded-tl-md bg-slate-50 px-3.5 py-2.5 ring-1 ring-slate-100">
         <TeacherAnswer text={text} />
         {(stopped || model) && (
-          <div className="mt-1.5 text-[10px] text-slate-400">
-            {stopped ? "■ 途中で停止しました" : ""}
+          <div className="mt-1.5 flex flex-wrap items-center gap-x-0.5 text-[10px] text-slate-400">
+            {stopped && (
+              <>
+                <MediaIcon kind="stop" size={8} />
+                途中で停止しました
+              </>
+            )}
             {stopped && model ? "・" : ""}
             {model ? aiModelLabel(model) : ""}
           </div>

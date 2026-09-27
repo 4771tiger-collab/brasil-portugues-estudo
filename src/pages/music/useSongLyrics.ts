@@ -19,7 +19,7 @@ export interface SongLyricsState {
   retry: () => void;
 }
 
-/** 端末キャッシュ → 固定ID(/api/get/{id}) → 検索(pickBest) の順で歌詞を取得 */
+/** 端末キャッシュ → 固定ID(/api/get/{id}) → 検索(pickBest) の順で歌詞を取得（lrcMissing の曲は取得しない） */
 export function useSongLyrics(song: Song | undefined): SongLyricsState {
   const [status, setStatus] = useState<LyricsStatus>("loading");
   const [lyrics, setLyrics] = useState<LoadedLyrics | null>(null);
@@ -32,6 +32,13 @@ export function useSongLyrics(song: Song | undefined): SongLyricsState {
     if (!song) {
       setStatus("notfound");
       setLyrics(null);
+      return;
+    }
+    // LRCLIB に動画と合う正しい歌詞が無いと確認済みの曲は取りに行かない（別言語・別の版を出さない）
+    if (song.lrcMissing) {
+      setStatus("notfound");
+      setLyrics(null);
+      setError("この曲は歌詞データがありません（動画と合う歌詞が見つからないため）。動画で聴いてみてください。");
       return;
     }
     const ctrl = new AbortController();

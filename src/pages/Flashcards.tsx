@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { ChevronRight, Headphones, ListMusic, Target } from "lucide-react";
 import { ALL_DECKS, deckTitle, resolveDeckWords, reviewPool } from "../data/loadWords";
 import { SONG_BY_ID } from "../data/music";
 import type { Rating, StudyViewMode, Word } from "../data/types";
@@ -20,6 +21,7 @@ import HandsfreePlayer from "../components/HandsfreePlayer";
 import SessionComplete, { useForecast } from "../components/SessionComplete";
 import UndoToast from "../components/UndoToast";
 import { RATING_LABEL } from "../components/RatingButtons";
+import { MediaIcon, SectionTitle } from "../components/icons";
 
 const SPEEDS = [0.8, 1.0, 1.2];
 
@@ -42,6 +44,8 @@ function DeckPicker() {
     { source: "words", title: "一般語彙" },
     { source: "capoeira", title: "カポエイラ" },
   ];
+  // 見出しのアイコン（icons/features.ts）
+  const sectionFeature = { words: "general", capoeira: "capoeira" } as const;
 
   // 曲ごとの追加語
   const songDecks = useMemo(() => {
@@ -61,7 +65,11 @@ function DeckPicker() {
         <div className="text-sm opacity-90">今日の学習（おすすめ）</div>
         <div className="mt-1 text-2xl font-extrabold">
           復習 {due} ＋ 新規 {newCount}
-          {musicNew > 0 && <span> ＋ 🎵 {musicNew}</span>}
+          {musicNew > 0 && (
+            <span>
+              {" "}＋ <ListMusic size={20} strokeWidth={2.5} className="inline-block align-[-2px]" role="img" aria-label="曲の単語" /> {musicNew}
+            </span>
+          )}
           {prodCount > 0 && <span> ＋ ✍ {prodCount}</span>}
         </div>
         {prodCount > 0 && <div className="mt-0.5 text-xs opacity-90">✍ = 日本語からポルトガル語を言う産出カード</div>}
@@ -74,7 +82,7 @@ function DeckPicker() {
 
       {/* 曲の単語 */}
       <section className="space-y-2">
-        <h2 className="px-1 text-sm font-bold text-slate-500">🎵 曲の単語</h2>
+        <SectionTitle feature="songWords">曲の単語</SectionTitle>
         {addedIds.length === 0 ? (
           <Link to="/music" className="card block p-3 text-sm text-slate-500">
             音楽タブで歌詞の単語をタップして追加しましょう ›
@@ -88,7 +96,7 @@ function DeckPicker() {
                   {addedIds.length}語 ・ 学習済み {addedIds.filter((id) => cards[id]?.last).length}
                 </div>
               </div>
-              <span className="text-slate-300">›</span>
+              <ChevronRight size={20} className="shrink-0 text-slate-300" aria-hidden />
             </Link>
             {songDecks.map((d) => (
               <Link
@@ -103,7 +111,7 @@ function DeckPicker() {
                     {d.ids.length}語
                   </div>
                 </div>
-                <span className="text-slate-300">›</span>
+                <ChevronRight size={20} className="shrink-0 text-slate-300" aria-hidden />
               </Link>
             ))}
           </div>
@@ -112,7 +120,7 @@ function DeckPicker() {
 
       {sections.map((sec) => (
         <section key={sec.source} className="space-y-2">
-          <h2 className="px-1 text-sm font-bold text-slate-500">{sec.title}</h2>
+          <SectionTitle feature={sectionFeature[sec.source]}>{sec.title}</SectionTitle>
           <div className="space-y-2">
             {decks
               .filter((d) => d.source === sec.source)
@@ -137,7 +145,7 @@ function DeckPicker() {
                     {deckDue > 0 && (
                       <span className="chip bg-orange-100 font-bold text-orange-600">復習{deckDue}</span>
                     )}
-                    <span className="text-slate-300">›</span>
+                    <ChevronRight size={20} className="shrink-0 text-slate-300" aria-hidden />
                   </Link>
                 );
               })}
@@ -327,7 +335,8 @@ function StudyView({ deckId }: { deckId: string }) {
             <div>この単語帳の語は、すべて評価し終えました。</div>
             {quizPath && (
               <Link to={quizPath} className="btn-primary min-h-11 w-full">
-                🎯 このデッキでクイズ
+                <Target size={18} aria-hidden />
+                このデッキでクイズ
               </Link>
             )}
           </div>
@@ -595,10 +604,11 @@ function ListView({
               <button
                 type="button"
                 onClick={onHandsfree}
-                className="min-h-11 px-1 text-xs font-medium text-brand-green"
+                className="inline-flex min-h-11 items-center gap-1 px-1 text-xs font-medium text-brand-green"
                 title="耳だけ復習（葡 → 考える間 → 和 を読み上げ）"
               >
-                🎧 耳だけ
+                <Headphones size={16} aria-hidden />
+                耳だけ
               </button>
             )}
             <button type="button" onClick={onSwitchView} className="min-h-11 px-1 text-xs font-medium text-brand-green">
@@ -626,7 +636,8 @@ function ListView({
               onClick={playing ? stopAutoplay : startAutoplay}
               className={`btn ${playing ? "bg-rose-500 text-white" : "btn-primary"} min-h-11 px-3 py-1.5 text-sm`}
             >
-              {playing ? "■ 停止" : "▶ 連続再生"}
+              <MediaIcon kind={playing ? "stop" : "play"} />
+              {playing ? "停止" : "連続再生"}
             </button>
             <div className="flex items-center rounded-lg bg-slate-100 p-0.5 text-xs">
               {SPEEDS.map((s) => (
@@ -658,8 +669,11 @@ function ListView({
           to={quizPath}
           className="mb-3 flex min-h-11 items-center justify-between rounded-xl bg-brand-blue/5 px-3 text-sm font-medium text-brand-blue ring-1 ring-brand-blue/20"
         >
-          <span>🎯 このデッキでクイズ</span>
-          <span aria-hidden>›</span>
+          <span className="inline-flex items-center gap-1.5">
+            <Target size={16} aria-hidden />
+            このデッキでクイズ
+          </span>
+          <ChevronRight size={18} aria-hidden />
         </Link>
       )}
 

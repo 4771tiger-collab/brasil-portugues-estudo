@@ -29,7 +29,7 @@ import {
 } from "../src/services/lyricSentences";
 import { normalizeForMT } from "../src/services/mtNormalize";
 import { translateUnits } from "../src/services/translate";
-import { isLineHash, lineHash } from "../src/services/lyrics";
+import { isLineHash, lineHash, pickBest, type LrclibRecord } from "../src/services/lyrics";
 import Anthropic from "@anthropic-ai/sdk";
 import {
   AI_MODELS,
@@ -884,6 +884,38 @@ console.log("=== testClaudeConnection（接続テスト・偽のクライアン�
   const e = await aiError(() => testClaudeConnection({ apiKey: FAKE_KEY, model: "claude-haiku-4-5", client: c3 }));
   ok(e?.kind === "auth" && e.message.includes("キーが正しくありません"), "キーが正しくない → auth のメッセージ");
   eq((await aiError(() => testClaudeConnection({ apiKey: "", model: "claude-haiku-4-5", client: c3 })))?.kind, "no_key", "キーが空 → no_key");
+}
+
+console.log("=== pickBest（動画に合う歌詞の版。同名のリプライズ・別の曲を選ばない） ===");
+{
+  // 仮の LRC（本物の歌詞ではない）。n 行・step 秒ごと・5 秒から
+  const lrc = (n: number, step: number, tag: string) =>
+    Array.from({ length: n }, (_, i) => {
+      const t = 5 + i * step;
+      return `[${String(Math.floor(t / 60)).padStart(2, "0")}:${String(t % 60).padStart(2, "0")}.00] ${tag} ${i}`;
+    }).join("\n");
+  const rec = (id: number, duration: number, syncedLyrics: string | null): LrclibRecord => ({
+    id,
+    trackName: "t",
+    artistName: "a",
+    albumName: "",
+    duration,
+    instrumental: false,
+    plainLyrics: null,
+    syncedLyrics,
+  });
+  const main = lrc(30, 7, "linha"); // 最終行 208 秒
+  const reprise = lrc(12, 12, "bis"); // 最終行 137 秒
+  // 件数ではリプライズ（3件）が本編（2件）より多い
+  const cands = [rec(1, 214, main), rec(2, 215, main), rec(3, 150, reprise), rec(4, 151, reprise), rec(5, 149, reprise)];
+  eq(pickBest(cands, 218)?.id, 2, "本編の動画 → 件数の多いリプライズではなく本編（長さの近い登録）");
+  eq(pickBest(cands, 150)?.id, 3, "リプライズの動画 → リプライズ");
+  // 映画の場面の短い版: どの版も最終行が動画より後 → 候補なしにはせず、いちばん合う版
+  eq(pickBest([rec(6, 152, lrc(20, 7, "x")), rec(7, 60, lrc(5, 10, "y"))], 117)?.id, 6, "動画より長い版しか無い → 長さの近い版");
+  // 同じ曲の書き起こし違い: 長さが近ければ従来どおり件数（合意）で選ぶ
+  const other = lrc(30, 7, "outra");
+  eq(pickBest([rec(8, 210, main), rec(9, 211, main), rec(10, 212, main), rec(11, 218, other)], 218)?.id, 10, "長さの近い版どうしは件数の多い版");
+  eq(pickBest([rec(12, 200, main)])?.id, 12, "動画の長さなし → そのまま");
 }
 
 eq(fetchCalls, 0, "AI 翻訳の検証の間、fetch は一度も呼ばれない（実際に通信しない）");

@@ -9,6 +9,7 @@ import {
   type BackupNudgeReason,
 } from "../store/useMeta";
 import { saveBackupFile } from "../store/backup";
+import { IconBadge } from "./icons";
 
 /** 「あとで」を押したら、アプリを開き直すまで出さない（永続化しない） */
 let snoozedThisLaunch = false;
@@ -61,9 +62,7 @@ export default function BackupNudge() {
   return (
     <section className="card animate-fade-in p-4 ring-brand-yellow/60" aria-label="バックアップのおすすめ">
       <div className="flex items-start gap-3">
-        <span className="text-2xl" aria-hidden="true">
-          💾
-        </span>
+        <IconBadge feature="backup" />
         <div className="min-w-0 flex-1">
           <div className="font-bold text-brand-ink">学習データをバックアップ</div>
           <p className="mt-0.5 text-xs text-slate-500">{reasonText(reason)}</p>

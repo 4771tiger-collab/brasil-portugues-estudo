@@ -12,7 +12,8 @@
 // - 読み物 → シャドーイングの文（sentenceGroups.groupChunks）: チャンクをすき間なく覆い、本文が変わらないか
 // - 導入順（core-order.json）と別名（word-aliases.json）: ID が解決できるか、削除済みでないか、
 //   重複・連鎖・コア語との衝突が無いか（単語データは書き換えず、ID を参照するだけのファイル）
-// - 再生リスト（music-playlists.json）: videoId の重複と必須項目（メタデータだけで歌詞は持たない）
+// - 再生リスト（music-playlists.json）: 再生リストの id・videoId の重複（リストをまたいでも）と必須項目、
+//   任意の film（映画名）・lrcMissing（歌詞なしと確認済み。lrclibId は null）（メタデータだけで歌詞は持たない）
 // - examples.json: 形。どの見出しにも当たらないキーは警告
 // - 歌詞の本文が同梱されていないか: data/・src/・public/ の全 JSON を走査し、
 //   syncedLyrics / plainLyrics / lyrics など「lyric」を含む項目名と、LRC のタイムスタンプ（[01:23.45]）を探す
@@ -626,7 +627,7 @@ export function checkPlaylists(raw: unknown, r: Report) {
   }
   const pl = new Set<string>();
   const vids = new Map<string, string>();
-  const SONG_KEYS = ["videoId", "title", "artist", "lrcArtist", "lrcTrack", "durationSec", "lrclibId"];
+  const SONG_KEYS = ["videoId", "title", "artist", "lrcArtist", "lrcTrack", "durationSec", "lrclibId", "film", "lrcMissing"];
   raw.forEach((p, i) => {
     const where = `music-playlists[${i}]`;
     if (!isObj(p)) {
@@ -651,6 +652,10 @@ export function checkPlaylists(raw: unknown, r: Report) {
       for (const k of ["videoId", "title", "artist", "lrcArtist", "lrcTrack"]) if (!nonEmpty(s[k])) r.error(`${w}.${k}: 空でない文字列が必要`);
       if (typeof s.durationSec !== "number" || !(s.durationSec > 0)) r.error(`${w}.durationSec: 正の数が必要`);
       if (s.lrclibId !== null && !(typeof s.lrclibId === "number" && Number.isInteger(s.lrclibId))) r.error(`${w}.lrclibId: 整数か null`);
+      if (s.film !== undefined && !nonEmpty(s.film)) r.error(`${w}.film: 空でない文字列（省略可）`);
+      if (s.lrcMissing !== undefined && s.lrcMissing !== true) r.error(`${w}.lrcMissing: true（省略可）`);
+      // 歌詞なしと確認済みの曲に版IDが固定されていると、どちらが正しいか分からない
+      if (s.lrcMissing === true && s.lrclibId !== null) r.error(`${w}: lrcMissing の曲は lrclibId を null に`);
       for (const k of Object.keys(s)) if (!SONG_KEYS.includes(k)) r.warn(`${w}: 未知の項目 "${k}"`);
       if (nonEmpty(s.videoId)) {
         const prev = vids.get(s.videoId);
@@ -948,6 +953,12 @@ console.log("=== 自己テスト（壊したフィクスチャを見つけられ
   flags((r) => checkPlaylists([{ id: "p", title: "t", url: "u", songs: [song(), song({ videoId: "v2", lrclibId: 3 })] }], r), null, "正しい再生リスト");
   flags((r) => checkPlaylists([{ id: "p", title: "t", url: "u", songs: [song(), song()] }], r), /videoId .*重複/, "videoId の重複");
   flags((r) => checkPlaylists([{ id: "p", title: "t", url: "u", songs: [song({ lrclibId: "1" })] }], r), /lrclibId/, "lrclibId が数でない");
+  flags((r) => checkPlaylists([{ id: "p", title: "t", url: "u", songs: [song({ film: "映画", lrcMissing: true })] }], r), null, "film・lrcMissing つきの曲");
+  flags((r) => checkPlaylists([{ id: "p", title: "t", url: "u", songs: [song({ film: "" })] }], r), /film/, "film が空");
+  flags((r) => checkPlaylists([{ id: "p", title: "t", url: "u", songs: [song({ lrcMissing: "yes" })] }], r), /lrcMissing/, "lrcMissing が true でない");
+  flags((r) => checkPlaylists([{ id: "p", title: "t", url: "u", songs: [song({ lrcMissing: true, lrclibId: 5 })] }], r), /lrcMissing .*null/, "lrcMissing なのに版IDが固定");
+  flags((r) => checkPlaylists([{ id: "p", title: "t", url: "u", songs: [song()] }, { id: "p", title: "t2", url: "u", songs: [song({ videoId: "v2" })] }], r), /id .*重複/, "再生リストの id の重複");
+  flags((r) => checkPlaylists([{ id: "p", title: "t", url: "u", songs: [song()] }, { id: "q", title: "t2", url: "u", songs: [song()] }], r), /videoId .*重複/, "再生リストをまたいだ videoId の重複");
   flags((r) => checkExamples({ a: { examples: [{ pt: "x" }] } }, new Set(["a"]), r), /examples/, "例文に ja が無い");
   {
     const r = new Report();

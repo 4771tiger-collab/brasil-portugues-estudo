@@ -15,6 +15,7 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { History, Settings as SettingsIcon, Square, SquarePen, Trash2, X } from "lucide-react";
 import { resolveWord, userWordMap } from "../../data/loadWords";
 import { useAiProvider } from "../../hooks/useAiProvider";
 import { useOnline } from "../../hooks/useOnline";
@@ -28,6 +29,7 @@ import { useMusic } from "../../store/useMusic";
 import { useProgress } from "../../store/useProgress";
 import { useTeacher, type TeacherConversation } from "../../store/useTeacher";
 import TeacherMessage, { TeacherAnswer } from "./TeacherMessage";
+import { TeacherAvatar } from "../icons";
 
 /** 開いたときに積む履歴の state の印 */
 const MARK = "bpTeacherSheet";
@@ -92,9 +94,7 @@ function fmtWhen(iso: string): string {
 function Typing() {
   return (
     <div className="flex gap-2" aria-live="polite">
-      <span aria-hidden className="mt-1 shrink-0 text-xl">
-        🧑‍🏫
-      </span>
+      <TeacherAvatar className="mt-1" />
       <div className="flex items-center gap-1 rounded-2xl rounded-tl-md bg-slate-50 px-4 py-3 ring-1 ring-slate-100" aria-label="先生が考えています">
         {[0, 150, 300].map((ms) => (
           <span key={ms} className="h-2 w-2 animate-bounce rounded-full bg-slate-400" style={{ animationDelay: `${ms}ms` }} />
@@ -108,7 +108,10 @@ function Typing() {
 function SetupCard({ onSettings }: { onSettings: () => void }) {
   return (
     <div className="space-y-2.5 rounded-2xl bg-violet-50 p-4 text-sm leading-relaxed text-slate-600 ring-1 ring-violet-100">
-      <p className="font-bold text-violet-800">🧑‍🏫 AI先生を使うには、Gemini の APIキー（無料）が必要です</p>
+      <p className="flex items-start gap-2 font-bold text-violet-800">
+        <TeacherAvatar size="xs" className="mt-px" />
+        <span className="min-w-0">AI先生を使うには、Gemini の APIキー（無料）が必要です</span>
+      </p>
       <p>Google AI Studio のアカウントがあれば、数分で用意できます。課金（請求先アカウント）を設定しなければ、無料枠のまま 0円で使えます。</p>
       <ol className="list-decimal space-y-1 pl-5">
         <li>
@@ -118,13 +121,14 @@ function SetupCard({ onSettings }: { onSettings: () => void }) {
           を開いて、Google アカウントでログイン
         </li>
         <li>「Get API key」でキーを作り、コピー（AIza で始まる）</li>
-        <li>このアプリの設定「🤖 AI」の Gemini の欄に貼り付けて「保存」</li>
+        <li>このアプリの設定の「AI（先生・歌詞のAI翻訳）」の Gemini の欄に貼り付けて「保存」</li>
       </ol>
       <p className="rounded-lg bg-amber-50 px-2 py-1 text-xs text-amber-800">
         ⚠ 無料枠では、送った内容と返事が Google の製品改善に使われ、人が読むこともあります。個人情報は書かないでください。
       </p>
       <button type="button" onClick={onSettings} className="btn-primary min-h-11 w-full">
-        ⚙ 設定を開く
+        <SettingsIcon size={18} aria-hidden />
+        設定を開く
       </button>
     </div>
   );
@@ -156,7 +160,7 @@ function HistoryList({ conversations, activeId, onOpen }: { conversations: Teach
               aria-label={`会話「${c.title}」を削除`}
               className="flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-lg text-slate-400 hover:bg-rose-50 hover:text-rose-500"
             >
-              🗑
+              <Trash2 size={18} aria-hidden />
             </button>
           </li>
         ))}
@@ -285,7 +289,7 @@ export default function TeacherSheet() {
 
   function openSettings() {
     // 設定の画面から開いたときは履歴を積まない（置き換える。戻る操作が1回で設定の前の画面に戻るように）。
-    // location.key は変わるので、設定は「🤖 AI」の欄へスクロールする
+    // location.key は変わるので、設定は「AI（先生・歌詞のAI翻訳）」の欄へスクロールする
     const onSettings = location.pathname === "/settings";
     closeThen(() => navigate("/settings", { replace: onSettings, state: { focus: "ai" } }));
   }
@@ -368,10 +372,8 @@ export default function TeacherSheet() {
       >
         {/* 見出し */}
         <div className="flex items-center gap-1 border-b border-slate-200 py-1 pl-3 pr-1">
-          <div className="flex min-w-0 flex-1 items-center gap-1.5">
-            <span aria-hidden className="text-xl">
-              🧑‍🏫
-            </span>
+          <div className="flex min-w-0 flex-1 items-center gap-2">
+            <TeacherAvatar size="md" />
             <span className="font-bold text-brand-ink">先生</span>
             {streaming && run && run.convId !== activeId && <span className="truncate text-[11px] text-violet-600">別の会話で受信中…</span>}
           </div>
@@ -379,15 +381,17 @@ export default function TeacherSheet() {
             type="button"
             onClick={() => useTeacherUi.setState({ view: view === "history" ? "chat" : "history" })}
             aria-pressed={view === "history"}
-            className={`min-h-11 rounded-lg px-2 text-xs font-medium ${view === "history" ? "bg-slate-100 text-brand-ink" : "text-slate-500"}`}
+            className={`inline-flex min-h-11 items-center gap-1 rounded-lg px-2 text-xs font-medium ${view === "history" ? "bg-slate-100 text-brand-ink" : "text-slate-500"}`}
           >
-            🕘 履歴
+            <History size={16} aria-hidden />
+            履歴
           </button>
-          <button type="button" onClick={startNew} className="min-h-11 rounded-lg px-2 text-xs font-medium text-slate-500">
-            ＋ 新しい会話
+          <button type="button" onClick={startNew} className="inline-flex min-h-11 items-center gap-1 rounded-lg px-2 text-xs font-medium text-slate-500">
+            <SquarePen size={16} aria-hidden />
+            新しい会話
           </button>
-          <button type="button" onClick={closeTeacher} aria-label="閉じる" className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-lg text-slate-400">
-            ✕
+          <button type="button" onClick={closeTeacher} aria-label="閉じる" className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-slate-500">
+            <X size={22} aria-hidden />
           </button>
         </div>
         {view === "chat" && (
@@ -399,15 +403,15 @@ export default function TeacherSheet() {
                   type="button"
                   onClick={removeContext}
                   aria-label="文脈を外す（この内容を先生に渡さない）"
-                  className="-my-2 -mr-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-base text-brand-blue/70"
+                  className="-my-2 -mr-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-brand-blue/70"
                 >
-                  ×
+                  <X size={14} strokeWidth={2.5} aria-hidden />
                 </button>
               </span>
             ) : (
               <span className="py-2 text-[11px] text-slate-400">文脈なし（何でも聞けます）</span>
             )}
-            <span className="ml-auto truncate text-[11px] text-slate-400" title="使っている AI（設定の「🤖 AI」で変えられます）">
+            <span className="ml-auto truncate text-[11px] text-slate-400" title="使っている AI（設定の「AI（先生・歌詞のAI翻訳）」で変えられます）">
               {providerLabel}
             </span>
           </div>
@@ -431,10 +435,13 @@ export default function TeacherSheet() {
               ) : (
                 messages.length === 0 &&
                 !runHere && (
-                  <div className="rounded-2xl bg-slate-50 p-3 text-sm leading-relaxed text-slate-600">
-                    🧑‍🏫 なんでも聞いてください。
-                    {ctx && ctx.kind !== "general" ? "上のチップの内容（いま見ているもの）について答えます。" : ""}
-                    下の質問を押すか、入力して送ってください。例文には 🔊 と読みが付きます。
+                  <div className="flex gap-2">
+                    <TeacherAvatar className="mt-1" />
+                    <div className="min-w-0 flex-1 rounded-2xl rounded-tl-md bg-slate-50 px-3.5 py-2.5 text-sm leading-relaxed text-slate-600 ring-1 ring-slate-100">
+                      なんでも聞いてください。
+                      {ctx && ctx.kind !== "general" ? "上のチップの内容（いま見ているもの）について答えます。" : ""}
+                      下の質問を押すか、入力して送ってください。例文には 🔊 と読みが付きます。
+                    </div>
                   </div>
                 )
               )}
@@ -444,9 +451,7 @@ export default function TeacherSheet() {
               {runHere?.status === "streaming" &&
                 (runHere.text ? (
                   <div className="flex gap-2" aria-live="polite">
-                    <span aria-hidden className="mt-1 shrink-0 text-xl">
-                      🧑‍🏫
-                    </span>
+                    <TeacherAvatar className="mt-1" />
                     <div className="min-w-0 flex-1 rounded-2xl rounded-tl-md bg-slate-50 px-3.5 py-2.5 ring-1 ring-slate-100">
                       <TeacherAnswer text={runHere.text} />
                     </div>
@@ -475,7 +480,8 @@ export default function TeacherSheet() {
                     )}
                     {(runHere.kind === "no-key" || runHere.kind === "auth" || runHere.kind === "quota") && (
                       <button type="button" onClick={openSettings} className="btn-ghost min-h-11 px-4 text-sm">
-                        ⚙ 設定を開く
+                        <SettingsIcon size={16} aria-hidden />
+                        設定を開く
                       </button>
                     )}
                   </div>
@@ -522,7 +528,8 @@ export default function TeacherSheet() {
                   className="btn min-h-11 shrink-0 bg-rose-500 px-3 text-sm text-white"
                   aria-label="返事を止める"
                 >
-                  ■ 停止
+                  <Square size={12} className="fill-current" aria-hidden />
+                  停止
                 </button>
               ) : (
                 <button type="button" onClick={() => send(draft)} disabled={!canSend || !draft.trim()} className="btn-primary min-h-11 shrink-0 px-4 text-sm">

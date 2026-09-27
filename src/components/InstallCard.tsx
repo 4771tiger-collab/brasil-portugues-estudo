@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { X } from "lucide-react";
+import { IconBadge } from "./icons";
 import { usePwa } from "../pwa/usePwa";
 import { installSnoozed, useMeta } from "../store/useMeta";
 import { isStandalone } from "../services/platform";
@@ -39,9 +41,7 @@ export default function InstallCard() {
 
   return (
     <section className="card flex animate-fade-in items-start gap-3 p-4" aria-label="アプリのインストール">
-      <span className="text-2xl" aria-hidden="true">
-        📲
-      </span>
+      <IconBadge feature="install" />
       <div className="min-w-0 flex-1">
         <div className="font-bold text-brand-ink">アプリとしてインストール</div>
         <p className="mt-0.5 text-xs text-slate-500">
@@ -61,9 +61,9 @@ export default function InstallCard() {
         type="button"
         onClick={dismiss}
         aria-label="案内を閉じる"
-        className="-mr-2 -mt-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-slate-400 transition active:scale-95"
+        className="-mr-2 -mt-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-slate-500 transition active:scale-95"
       >
-        ✕
+        <X size={20} aria-hidden />
       </button>
     </section>
   );

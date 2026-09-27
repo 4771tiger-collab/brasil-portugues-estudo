@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, Navigate, useParams, useSearchParams } from "react-router-dom";
+import { ChevronRight, Eye, EyeOff, Hand, MessagesSquare, Mic } from "lucide-react";
+import { IconBadge, MediaIcon, type FeatureKey, type MediaKind } from "../components/icons";
 import { PASSAGES, SCRIPTS } from "../data/content";
 import type { ContentLevel, Passage, Script } from "../data/types";
 import { useSettings } from "../store/useSettings";
@@ -93,8 +95,13 @@ function useMaterials(): Material[] {
 function SpeakerChip({ name, idx, me = false }: { name: string; idx: number; me?: boolean }) {
   const tone = SPEAKER_TONE[idx === 1 ? 1 : 0];
   return (
-    <span className={`chip shrink-0 font-bold ${tone.chip}`}>
-      {me ? "🙋 " : ""}
+    <span className={`chip shrink-0 gap-1 font-bold ${tone.chip}`}>
+      {me && (
+        <>
+          <Hand size={12} className="shrink-0" aria-hidden />
+          <span className="sr-only">自分の役:</span>
+        </>
+      )}
       {name}
     </span>
   );
@@ -157,7 +164,7 @@ function LineButton({
   tone = "green",
   ariaLabel,
 }: {
-  icon: string;
+  icon: MediaKind;
   label: string;
   onClick: () => void;
   disabled?: boolean;
@@ -184,7 +191,7 @@ function LineButton({
         pulse ? "animate-pulse" : ""
       }`}
     >
-      <span className="text-base leading-none">{icon}</span>
+      <MediaIcon kind={icon} size={16} />
       <span>{label}</span>
     </button>
   );
@@ -621,7 +628,12 @@ function Player({ script, speakers, onBack }: { script: Script; speakers: [strin
     return sp !== null && idx >= 0 ? <SpeakerChip name={sp} idx={idx} me={mode === "role" && sp === myRole} /> : null;
   };
   // 上の固定バーの主ボタン: ロールプレイでは開始／停止、それ以外はお手本の全文再生
-  const roleLabel = rpRunning ? "■ 停止" : rpNext > 0 ? "▶ 続きから" : "▶ スタート";
+  const roleLabel = (
+    <>
+      <MediaIcon kind={rpRunning ? "stop" : "play"} />
+      {rpRunning ? "停止" : rpNext > 0 ? "続きから" : "スタート"}
+    </>
+  );
 
   return (
     <div className="animate-fade-in space-y-4">
@@ -629,7 +641,10 @@ function Player({ script, speakers, onBack }: { script: Script; speakers: [strin
       <h1 className="text-lg font-bold text-brand-ink">{script.title}</h1>
       {speakers && (
         <div className="flex flex-wrap items-center gap-1.5 text-xs text-slate-400">
-          <span>💬 会話:</span>
+          <span className="inline-flex items-center gap-1">
+            <MessagesSquare size={14} className="shrink-0 text-violet-600" aria-hidden />
+            会話:
+          </span>
           <SpeakerChip name={speakers[0]} idx={0} />
           <SpeakerChip name={speakers[1]} idx={1} />
         </div>
@@ -668,7 +683,8 @@ function Player({ script, speakers, onBack }: { script: Script; speakers: [strin
             onClick={player.playing ? stopAll : () => void playAllModel()}
             className={`btn ${player.playing ? "bg-rose-500 text-white" : "btn-primary"} min-h-11 px-3 py-1.5 text-sm`}
           >
-            {player.playing ? "■ 停止" : "▶ お手本(全文)"}
+            <MediaIcon kind={player.playing ? "stop" : "play"} />
+            {player.playing ? "停止" : "お手本(全文)"}
           </button>
         )}
         <div className="flex items-center rounded-lg bg-slate-100 p-0.5 text-xs" role="group" aria-label="再生の速さ">
@@ -690,8 +706,9 @@ function Player({ script, speakers, onBack }: { script: Script; speakers: [strin
       </div>
 
       <div className="flex flex-wrap gap-1.5 text-xs">
-        <button onClick={() => setShowScript((v) => !v)} className={`chip min-h-11 px-3.5 ring-1 ${showScript ? "bg-white text-slate-600 ring-slate-200" : "bg-brand-green text-white ring-brand-green"}`}>
-          {showScript ? "🙈 スクリプトを隠す" : "👁 スクリプトを表示"}
+        <button onClick={() => setShowScript((v) => !v)} className={`chip min-h-11 gap-1 px-3.5 ring-1 ${showScript ? "bg-white text-slate-600 ring-slate-200" : "bg-brand-green text-white ring-brand-green"}`}>
+          {showScript ? <EyeOff size={16} aria-hidden /> : <Eye size={16} aria-hidden />}
+          {showScript ? "スクリプトを隠す" : "スクリプトを表示"}
         </button>
         <button onClick={() => setShowKana((v) => !v)} className={`chip min-h-11 min-w-11 justify-center px-3.5 ring-1 ${showKana ? "bg-brand-green text-white ring-brand-green" : "bg-white text-slate-600 ring-slate-200"}`}>
           カナ
@@ -702,7 +719,10 @@ function Player({ script, speakers, onBack }: { script: Script; speakers: [strin
       </div>
 
       {mode !== "role" && !support.ok && (
-        <p className="rounded-xl bg-amber-50 p-3 text-xs leading-relaxed text-amber-700">🎤 {recErrorMessage(support.kind)}</p>
+        <p className="flex items-start gap-1.5 rounded-xl bg-amber-50 p-3 text-xs leading-relaxed text-amber-700">
+          <Mic size={14} className="mt-0.5 shrink-0" aria-hidden />
+          <span>{recErrorMessage(support.kind)}</span>
+        </p>
       )}
       {micError && (
         <p role="alert" className="rounded-xl bg-rose-50 p-3 text-xs leading-relaxed text-rose-600">
@@ -714,7 +734,10 @@ function Player({ script, speakers, onBack }: { script: Script; speakers: [strin
         <>
           {/* 自分の役（ロールプレイ中は変えない） */}
           <div className="card space-y-2 p-3">
-            <div className="text-xs font-medium text-slate-400">🙋 自分の役を選ぶ</div>
+            <div className="flex items-center gap-1 text-xs font-medium text-slate-400">
+              <Hand size={14} className="shrink-0" aria-hidden />
+              自分の役を選ぶ
+            </div>
             <div className="grid grid-cols-2 gap-2" role="group" aria-label="自分の役">
               {speakers.map((sp, k) => {
                 const on = myRole === sp;
@@ -725,25 +748,26 @@ function Player({ script, speakers, onBack }: { script: Script; speakers: [strin
                     onClick={() => chooseRole(sp)}
                     disabled={rpRunning}
                     aria-pressed={on}
-                    className={`min-h-11 truncate rounded-xl px-3 text-sm font-bold ring-1 transition disabled:opacity-60 ${
+                    className={`flex min-h-11 min-w-0 items-center justify-center gap-1 rounded-xl px-3 text-sm font-bold ring-1 transition disabled:opacity-60 ${
                       on ? SPEAKER_TONE[k].on : "bg-white text-slate-600 ring-slate-200"
                     }`}
                   >
-                    {on ? "🙋 " : ""}
-                    {sp}
+                    {on && <Hand size={14} className="shrink-0" aria-hidden />}
+                    <span className="truncate">{sp}</span>
                   </button>
                 );
               })}
             </div>
             {!rpRunning && rpNext > 0 && (
               <button type="button" onClick={() => startRole(0)} className="btn-ghost min-h-11 w-full text-sm">
-                ↺ 最初から
+                <MediaIcon kind="restart" />
+                最初から
               </button>
             )}
             <p className="text-[11px] leading-relaxed text-slate-400">
               {myRole
                 ? `相手（${speakers.find((s) => s !== myRole)}）のセリフを読み上げます。黄色の「あなたの番」で、自分のセリフを言いましょう。`
-                : "どちらの役を話すか選んでから ▶ スタート。"}
+                : "どちらの役を話すか選んでから「スタート」。"}
               {myRole &&
                 (speechOn && speechInput.isSupported()
                   ? " あなたの番では 🎤 言ってみる で言ってから「次へ」。"
@@ -792,7 +816,7 @@ function Player({ script, speakers, onBack }: { script: Script; speakers: [strin
                         aria-label={soloModel ? `${i + 1}行目のお手本を止める` : `${i + 1}行目のお手本を再生`}
                         className="-my-2 ml-auto flex min-h-11 min-w-11 items-center justify-center rounded-lg text-sm text-brand-green"
                       >
-                        {soloModel ? "■" : "▶"}
+                        <MediaIcon kind={soloModel ? "stop" : "play"} size={16} />
                       </button>
                     )}
                   </div>
@@ -884,7 +908,7 @@ function Player({ script, speakers, onBack }: { script: Script; speakers: [strin
                   </div>
                   <div className="mt-2 grid grid-cols-4 gap-1.5">
                     <LineButton
-                      icon={soloModel ? "■" : "▶"}
+                      icon={soloModel ? "stop" : "play"}
                       label="お手本"
                       active={soloModel}
                       onClick={() => playModel(i)}
@@ -892,7 +916,7 @@ function Player({ script, speakers, onBack }: { script: Script; speakers: [strin
                     />
                     <LineButton
                       tone="rose"
-                      icon={phase === "on" ? "■" : phase === "starting" ? "…" : "●"}
+                      icon={phase === "on" ? "stop" : phase === "starting" ? "loading" : "record"}
                       label={phase === "on" ? "停止" : phase === "starting" ? "準備中" : "録音"}
                       active={phase !== null}
                       pulse={phase === "on"}
@@ -901,7 +925,7 @@ function Player({ script, speakers, onBack }: { script: Script; speakers: [strin
                       ariaLabel={phase === "on" ? `${i + 1}文目の録音を止める` : phase === "starting" ? "録音の準備を取り消す" : `${i + 1}文目を録音`}
                     />
                     <LineButton
-                      icon={ownHere ? "■" : "▶"}
+                      icon={ownHere ? "stop" : "play"}
                       label="自分"
                       active={ownHere}
                       disabled={!url || recording}
@@ -909,7 +933,7 @@ function Player({ script, speakers, onBack }: { script: Script; speakers: [strin
                       ariaLabel={ownHere ? "自分の録音を止める" : `${i + 1}文目の自分の録音を再生`}
                     />
                     <LineButton
-                      icon={comparing === i ? "■" : "⇄"}
+                      icon={comparing === i ? "stop" : "compare"}
                       label="聞き比べ"
                       active={comparing === i}
                       disabled={!url || recording}
@@ -928,7 +952,10 @@ function Player({ script, speakers, onBack }: { script: Script; speakers: [strin
         <>
           {/* 録音コントロール（全文を通して） */}
           <div className="card space-y-2 p-3">
-            <div className="text-xs font-medium text-slate-400">🎤 ボイスレコーダー（お手本を追いかけて発話）</div>
+            <div className="flex items-center gap-1 text-xs font-medium text-slate-400">
+              <Mic size={14} className="shrink-0 text-rose-500" aria-hidden />
+              ボイスレコーダー（お手本を追いかけて発話）
+            </div>
             <div className="flex items-center gap-2">
               <button
                 onClick={() => toggleRec(FULL_KEY)}
@@ -941,10 +968,12 @@ function Player({ script, speakers, onBack }: { script: Script; speakers: [strin
                       : "bg-rose-50 text-rose-600 ring-1 ring-rose-200"
                 }`}
               >
-                {fullPhase === "on" ? "■ 録音停止" : fullPhase === "starting" ? "… 準備中" : "● 録音開始"}
+                <MediaIcon kind={fullPhase === "on" ? "stop" : fullPhase === "starting" ? "loading" : "record"} />
+                {fullPhase === "on" ? "録音停止" : fullPhase === "starting" ? "準備中" : "録音開始"}
               </button>
               <button onClick={() => playOwn(FULL_KEY)} disabled={!recs[FULL_KEY] || recording} className="btn-ghost min-h-11 flex-1 py-2 text-sm">
-                {ownKey === FULL_KEY ? "■ 止める" : "▶ 自分の声を聴く"}
+                <MediaIcon kind={ownKey === FULL_KEY ? "stop" : "play"} />
+                {ownKey === FULL_KEY ? "止める" : "自分の声を聴く"}
               </button>
             </div>
             <p className="text-[11px] leading-relaxed text-slate-400">
@@ -1018,7 +1047,8 @@ export function ShadowingDetail() {
   return <Player key={material.script.id} script={material.script} speakers={material.speakers ?? null} onBack={back} />;
 }
 
-const MATERIAL_ICON: Record<Material["kind"], string> = { dialogue: "💬", script: "🗣️", passage: "📖" };
+/** 教材の種類ごとのアイコン（icons/features.ts） */
+const MATERIAL_ICON: Record<Material["kind"], FeatureKey> = { dialogue: "dialogue", script: "shadowing", passage: "chunk" };
 
 function MaterialLink({ m }: { m: Material }) {
   const n = m.script.lines.length;
@@ -1031,7 +1061,7 @@ function MaterialLink({ m }: { m: Material }) {
       to={`${LIST_PATH}/${encodeURIComponent(m.script.id)}`}
       className="card flex w-full items-center gap-3 p-3 text-left transition hover:ring-brand-green/40"
     >
-      <span className="text-xl">{MATERIAL_ICON[m.kind]}</span>
+      <IconBadge feature={MATERIAL_ICON[m.kind]} size="sm" />
       <div className="min-w-0 flex-1">
         <div className="truncate font-medium text-brand-ink">{m.script.title}</div>
         {desc && <div className="truncate text-xs text-slate-500">{desc}</div>}
@@ -1040,7 +1070,7 @@ function MaterialLink({ m }: { m: Material }) {
       {m.source && m.source !== "original" && (
         <span className="chip shrink-0 bg-amber-100 text-amber-600">{m.source === "custom" ? "自作" : "取込"}</span>
       )}
-      <span className="text-slate-300">›</span>
+      <ChevronRight size={20} className="shrink-0 text-slate-300" aria-hidden />
     </Link>
   );
 }

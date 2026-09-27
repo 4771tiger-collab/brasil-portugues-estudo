@@ -20,6 +20,11 @@ let changed = 0;
 
 for (const pl of playlists) {
   for (const s of pl.songs) {
+    if (s.lrcMissing) {
+      // 動画と合う正しい歌詞が無いと確認済み（別言語・別の版しか無い）。固定もしない
+      console.log(`– ${s.title}: lrcMissing（検索しない）`);
+      continue;
+    }
     if (s.lrclibId != null && !all) continue;
     try {
       const cands = await searchLyrics(s.lrcArtist, s.lrcTrack);

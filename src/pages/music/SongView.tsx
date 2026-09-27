@@ -18,7 +18,28 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { SONGS, SONG_BY_ID, getLemmatizer, prepareLemmatizer, songIndex } from "../../data/music";
+import {
+  ArrowDownToLine,
+  Bot,
+  Check,
+  CirclePause,
+  Globe,
+  GraduationCap,
+  Layers,
+  Lightbulb,
+  Pause,
+  PenLine,
+  Pencil,
+  Play,
+  Plus,
+  Repeat,
+  Repeat1,
+  Rewind,
+  SkipBack,
+  SkipForward,
+  Timer,
+} from "lucide-react";
+import { SONG_BY_ID, getLemmatizer, neighborSong, playlistOf, prepareLemmatizer } from "../../data/music";
 import { isCovered, type Lemmatizer, type Token } from "../../services/lemmatize";
 import { lineHash, lineKey, type LyricLine as Line } from "../../services/lyrics";
 import {
@@ -92,6 +113,14 @@ function findLine(times: number[], t: number): number {
   }
   return ans;
 }
+
+/**
+ * 操作バー（プレーヤーの下に固定）のボタンの押せる範囲を 44px にする。見た目の高さは変えず（バーを高くすると
+ * 歌詞の見える行が減る）、透明な ::before を上下に張り出す。幅は min-w-11
+ */
+const HIT = "relative min-w-11 before:absolute before:inset-x-0 before:-inset-y-2";
+/** 再生／一時停止（高さ 36px の緑のボタン）用 */
+const HIT_PLAY = "relative before:absolute before:inset-x-0 before:-inset-y-1";
 
 const TOKEN_CLS: Record<TokenStatus, string> = {
   none: "underline decoration-dotted decoration-slate-300 underline-offset-4",
@@ -211,7 +240,7 @@ const LyricLine = memo(function LyricLine(p: LineProps) {
             title="この行を AI先生に聞く（意味・文脈・比喩・文法）"
             aria-label="この行を AI先生に聞く"
           >
-            🧑‍🏫
+            <GraduationCap size={16} className="text-violet-600" aria-hidden />
           </button>
         )}
       </div>
@@ -263,12 +292,19 @@ const LyricLine = memo(function LyricLine(p: LineProps) {
                   p.noteOpen ? "opacity-100" : "opacity-70"
                 }`}
               >
-                💡
+                <Lightbulb size={15} className={p.noteOpen ? "fill-amber-200 text-amber-600" : "text-amber-600"} aria-hidden />
               </button>
             )}
+            {/* 和訳を編集。押せる範囲は 44px（隣の補足・自分で訳すと同じく下の余白に張り出す） */}
             {p.jaVisible && (
-              <button type="button" onClick={() => p.onEdit(p.i)} className="shrink-0 px-1 text-[11px] text-slate-400" title="和訳を編集" aria-label="和訳を編集">
-                ✏️
+              <button
+                type="button"
+                onClick={() => p.onEdit(p.i)}
+                className="relative z-[1] -mb-5 -mt-1 flex h-11 min-w-11 shrink-0 items-start justify-center rounded-lg pt-1 text-slate-400"
+                title="和訳を編集"
+                aria-label="和訳を編集"
+              >
+                <Pencil size={14} aria-hidden />
               </button>
             )}
             {/* 自分で訳す。押せる範囲は 44px、行の高さはあまり増やさない（下の余白に張り出す。行は relative なので、
@@ -282,7 +318,8 @@ const LyricLine = memo(function LyricLine(p: LineProps) {
               title="自分で訳してから機械翻訳と比べる"
               aria-label={p.selfDone ? "自分で訳す（この行は訳しました）" : "自分で訳す"}
             >
-              ✍{p.selfDone ? "✓" : ""}
+              <PenLine size={14} aria-hidden />
+              {p.selfDone && <Check size={12} strokeWidth={3} aria-hidden />}
             </button>
           </div>
         )}
@@ -413,7 +450,10 @@ function ProduceBody({ original, cachedMt, mtContext, mtIsAi, fetchMt, onSubmit,
 
   return (
     <>
-      <div className="mb-1 text-xs font-bold text-slate-400">✍ 自分で訳す{compare ? ` ・ ${refName}と比べる` : ""}</div>
+      <div className="mb-1 flex items-center gap-1 text-xs font-bold text-slate-400">
+        <PenLine size={13} className="shrink-0" aria-hidden />
+        <span className="min-w-0">自分で訳す{compare ? ` ・ ${refName}と比べる` : ""}</span>
+      </div>
       <div className="mb-2 text-sm font-medium text-brand-ink">{original}</div>
       {compare && <div className="mb-1 text-[11px] font-bold text-slate-500">あなたの訳（直してから保存できます）</div>}
       <textarea
@@ -544,10 +584,12 @@ function VocabTab({
       </div>
       <div className="flex gap-2">
         <button onClick={bulkAdd} disabled={!candidatesToAdd.length} className="btn-ghost flex-1 py-2 text-sm">
-          ＋ よく出る未学習語をまとめて追加（{candidatesToAdd.length}）
+          <Plus size={16} className="shrink-0" aria-hidden />
+          よく出る未学習語をまとめて追加（{candidatesToAdd.length}）
         </button>
         <Link to={`/flashcards/music:${videoId}`} className="btn-primary flex-1 py-2 text-sm">
-          📇 この曲の単語で学習
+          <Layers size={16} aria-hidden />
+          この曲の単語で学習
         </Link>
       </div>
       <div className="card divide-y divide-slate-100">
@@ -573,8 +615,9 @@ function VocabTab({
               ) : (
                 <div className="flex shrink-0 items-center gap-1.5">
                   {card && !other && <span className="text-[11px] text-slate-400">{levelLabel(card)}</span>}
-                  <button onClick={() => add(w)} className="btn-primary px-2.5 py-1 text-xs">
-                    ＋ 追加
+                  <button onClick={() => add(w)} className="btn-primary gap-1 px-2.5 py-1 text-xs">
+                    <Plus size={14} aria-hidden />
+                    追加
                   </button>
                 </div>
               )}
@@ -1013,9 +1056,8 @@ export default function SongView() {
 
   function goSong(dir: 1 | -1) {
     clearGap();
-    const i = songIndex(videoId);
-    const n = SONGS.length;
-    const target = SONGS[((i < 0 ? 0 : i) + dir + n) % n];
+    // 曲送りはこの曲の再生リストの中だけ
+    const target = neighborSong(videoId, dir);
     player.playSong(target.videoId);
     navigate(`/music/${target.videoId}`, { replace: true });
   }
@@ -1272,36 +1314,37 @@ export default function SongView() {
       ? createPortal(
           <div className="border-b border-slate-200 bg-white/95 backdrop-blur">
             <div className="flex items-center gap-1 px-2 py-1.5 text-sm">
-              <button onClick={rewindLine} disabled={!synced} className="rounded-lg px-2 py-1.5 text-slate-600 disabled:opacity-30" title="今の行の頭へ" aria-label="今の行の頭へ">
-                ⏪
+              <button onClick={rewindLine} disabled={!synced} className={`${HIT} flex justify-center rounded-lg px-2 py-1.5 text-slate-600 disabled:opacity-30`} title="今の行の頭へ" aria-label="今の行の頭へ">
+                <Rewind size={18} aria-hidden />
               </button>
-              <button onClick={togglePlay} className="btn-primary h-9 w-11 px-0 py-0" title={playing ? "一時停止" : "再生"} aria-label={playing ? "一時停止" : "再生"}>
-                {playing ? "❚❚" : "▶"}
+              <button onClick={togglePlay} className={`btn-primary ${HIT_PLAY} h-9 w-11 px-0 py-0`} title={playing ? "一時停止" : "再生"} aria-label={playing ? "一時停止" : "再生"}>
+                {playing ? <Pause size={18} className="fill-current" aria-hidden /> : <Play size={18} className="fill-current" aria-hidden />}
               </button>
               <button
                 onClick={toggleRepeat}
                 disabled={!synced}
-                className={`rounded-lg px-2 py-1.5 text-xs font-bold disabled:opacity-30 ${repeatIdx != null ? "bg-brand-green text-white" : "text-slate-600"}`}
+                className={`${HIT} inline-flex items-center justify-center gap-0.5 rounded-lg px-2 py-1.5 text-xs font-bold disabled:opacity-30 ${repeatIdx != null ? "bg-brand-green text-white" : "text-slate-600"}`}
                 title="今の行を繰り返す"
                 aria-label="今の行を繰り返す"
                 aria-pressed={repeatIdx != null}
               >
-                🔁行
+                <Repeat1 size={15} aria-hidden />行
               </button>
               <button
                 onClick={toggleStopPerLine}
                 disabled={!synced}
-                className={`rounded-lg px-2 py-1.5 text-xs font-bold disabled:opacity-30 ${stopPerLine ? "bg-brand-green text-white" : "text-slate-600"}`}
+                className={`${HIT} inline-flex items-center justify-center gap-0.5 rounded-lg px-2 py-1.5 text-xs font-bold disabled:opacity-30 ${stopPerLine ? "bg-brand-green text-white" : "text-slate-600"}`}
                 title="1行ごとに一時停止（リピート練習・シャドーイング用）"
                 aria-label="1行ごとに一時停止"
                 aria-pressed={stopPerLine}
               >
-                ⏸1行
+                {/* 左の再生／一時停止（塗りの Pause）と見分けるため、丸つきの一時停止 */}
+                <CirclePause size={15} aria-hidden />1行
               </button>
               <button
                 onClick={() => setSpeed(rate === 0.75 ? 1 : 0.75)}
                 disabled={!has075}
-                className={`rounded-lg px-2 py-1.5 text-xs font-bold disabled:opacity-30 ${rate === 0.75 ? "bg-brand-green text-white" : "text-slate-600"}`}
+                className={`${HIT} rounded-lg px-2 py-1.5 text-xs font-bold disabled:opacity-30 ${rate === 0.75 ? "bg-brand-green text-white" : "text-slate-600"}`}
                 title="ゆっくり再生"
                 aria-label="0.75倍速で再生"
                 aria-pressed={rate === 0.75}
@@ -1309,7 +1352,7 @@ export default function SongView() {
                 0.75x
               </button>
               <div className="relative ml-auto" onClick={(e) => e.stopPropagation()}>
-                <button onClick={() => setMenu((v) => !v)} className="rounded-lg px-2 py-1.5 text-xs font-bold text-slate-600">
+                <button onClick={() => setMenu((v) => !v)} className={`${HIT} rounded-lg px-2 py-1.5 text-xs font-bold text-slate-600`}>
                   表示▾
                 </button>
                 {menu && (
@@ -1401,24 +1444,26 @@ export default function SongView() {
 
       {/* 曲情報・曲送り */}
       <div className="flex items-center gap-2">
-        <Link to="/music" className="shrink-0 text-sm text-brand-green">
+        <Link to={`/music?pl=${encodeURIComponent(playlistOf(videoId)?.id ?? "")}`} className="shrink-0 text-sm text-brand-green">
           ‹ 一覧
         </Link>
         <div className="min-w-0 flex-1 text-center">
           <h1 className="truncate text-base font-bold text-brand-ink">{song.title}</h1>
           <div className="truncate text-xs text-slate-500">{song.artist}</div>
+          {song.film && <div className="truncate text-[11px] text-slate-400">『{song.film}』</div>}
         </div>
-        <button onClick={() => goSong(-1)} className="rounded-lg px-2 py-1 text-slate-500" title="前の曲" aria-label="前の曲">
-          ⏮
+        <button onClick={() => goSong(-1)} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-slate-500" title="前の曲" aria-label="前の曲">
+          <SkipBack size={20} aria-hidden />
         </button>
-        <button onClick={() => goSong(1)} className="rounded-lg px-2 py-1 text-slate-500" title="次の曲" aria-label="次の曲">
-          ⏭
+        <button onClick={() => goSong(1)} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-slate-500" title="次の曲" aria-label="次の曲">
+          <SkipForward size={20} aria-hidden />
         </button>
       </div>
 
       {!isCurrent && (
         <button onClick={() => player.playSong(videoId)} className="btn-primary w-full py-3">
-          ▶ この曲を再生
+          <Play size={18} className="fill-current" aria-hidden />
+          この曲を再生
         </button>
       )}
 
@@ -1427,15 +1472,16 @@ export default function SongView() {
         <div className="flex items-center rounded-lg bg-slate-100 p-0.5">
           {(
             [
-              ["all", "➡ 連続"],
-              ["one", "🔂 1曲"],
+              ["all", "連続", Repeat],
+              ["one", "1曲", Repeat1],
             ] as const
-          ).map(([m, label]) => (
+          ).map(([m, label, Icon]) => (
             <button
               key={m}
               onClick={() => setPrefs({ playMode: m })}
-              className={`rounded px-2 py-1 ${prefs.playMode === m ? "bg-white font-bold shadow-sm" : "text-slate-500"}`}
+              className={`inline-flex min-h-11 min-w-11 items-center justify-center gap-1 rounded px-2 py-1 ${prefs.playMode === m ? "bg-white font-bold shadow-sm" : "text-slate-500"}`}
             >
+              <Icon size={13} aria-hidden />
               {label}
             </button>
           ))}
@@ -1443,26 +1489,27 @@ export default function SongView() {
         {synced && (
           <div className="ml-auto flex items-center gap-1">
             <span className="text-slate-400">同期</span>
-            <button onClick={() => setOffset(videoId, offsetMs - 500)} className="rounded bg-slate-100 px-1.5 py-1">
+            <button onClick={() => setOffset(videoId, offsetMs - 500)} className="min-h-11 min-w-11 rounded-lg bg-slate-100 px-1.5 py-1">
               −0.5s
             </button>
             <span className="w-12 text-center font-mono text-slate-600">
               {offsetMs >= 0 ? "+" : ""}
               {(offsetMs / 1000).toFixed(1)}s
             </span>
-            <button onClick={() => setOffset(videoId, offsetMs + 500)} className="rounded bg-slate-100 px-1.5 py-1">
+            <button onClick={() => setOffset(videoId, offsetMs + 500)} className="min-h-11 min-w-11 rounded-lg bg-slate-100 px-1.5 py-1">
               +0.5s
             </button>
             <button
               onClick={() => setSyncMode((v) => !v)}
               disabled={!isCurrent}
-              className={`rounded px-1.5 py-1 disabled:opacity-30 ${syncMode ? "bg-amber-400 font-bold text-white" : "bg-slate-100"}`}
+              className={`inline-flex min-h-11 items-center gap-0.5 rounded-lg px-1.5 py-1 disabled:opacity-30 ${syncMode ? "bg-amber-400 font-bold text-white" : "bg-slate-100"}`}
               title="歌われている行の時刻をタップして合わせる"
             >
-              ⏱合わせる
+              <Timer size={13} className="shrink-0" aria-hidden />
+              合わせる
             </button>
             {offsetMs !== 0 && (
-              <button onClick={() => setOffset(videoId, 0)} className="px-1 text-slate-400 underline">
+              <button onClick={() => setOffset(videoId, 0)} className="min-h-11 px-1 text-slate-400 underline">
                 戻す
               </button>
             )}
@@ -1480,7 +1527,8 @@ export default function SongView() {
         <div className="flex flex-wrap items-center gap-2">
           {missing.length > 0 ? (
             <button onClick={() => makeTranslation(false)} disabled={tr.busy || aiHere?.status === "busy"} className="btn-ghost flex-1 py-2 text-sm">
-              {tr.busy ? "翻訳中…" : `🌐 和訳を作成（機械翻訳・${missing.length}${unitWord}）`}
+              <Globe size={16} className="shrink-0 text-brand-blue" aria-hidden />
+              {tr.busy ? "翻訳中…" : `和訳を作成（機械翻訳・${missing.length}${unitWord}）`}
             </button>
           ) : (
             <button onClick={() => makeTranslation(true)} disabled={tr.busy || aiHere?.status === "busy"} className="min-h-11 text-xs text-slate-400 underline">
@@ -1501,11 +1549,12 @@ export default function SongView() {
               }
               className="btn min-h-11 flex-1 bg-violet-50 py-2 text-sm text-violet-700 ring-1 ring-violet-200"
             >
+              <Bot size={16} className="shrink-0" aria-hidden />
               {aiHere?.status === "busy"
-                ? "🤖 AIで翻訳中…"
+                ? "AIで翻訳中…"
                 : aiBusy
-                  ? "🤖 別の曲を翻訳中…"
-                  : `🤖 AIで${aiDone ? "訳し直す" : "訳す"}（${aiPriceLabel}）`}
+                  ? "別の曲を翻訳中…"
+                  : `AIで${aiDone ? "訳し直す" : "訳す"}（${aiPriceLabel}）`}
             </button>
           )}
           {/* 和訳の単位: 文ごと（2〜3行に分かれた文をまとめて訳す）/ 行ごと */}
@@ -1533,8 +1582,9 @@ export default function SongView() {
             </div>
           )}
           {uniqueKeys.length > 0 && (
-            <span className={`chip ml-auto ${selfCount ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>
-              ✍ 自分で訳した行 {selfCount}/{uniqueKeys.length}
+            <span className={`chip ml-auto gap-1 ${selfCount ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>
+              <PenLine size={12} className="shrink-0" aria-hidden />
+              自分で訳した行 {selfCount}/{uniqueKeys.length}
             </span>
           )}
           {tr.error && (
@@ -1598,8 +1648,9 @@ export default function SongView() {
             </div>
           )}
           {!ai.provider && uniqueKeys.length > 0 && missing.length === 0 && tab === "lyrics" && (
-            <Link to="/settings" className="flex min-h-11 w-full items-center text-[11px] text-slate-400 underline decoration-slate-300 underline-offset-2">
-              🤖 機械翻訳が分かりにくいとき: 設定で Gemini（無料枠）か Claude（有料）の API キーを入れると、曲全体の流れをくみ取った AI 翻訳が使えます（任意）
+            <Link to="/settings" className="flex min-h-11 w-full items-center gap-1 text-[11px] text-slate-400 underline decoration-slate-300 underline-offset-2">
+              <Bot size={14} className="shrink-0 text-violet-500" aria-hidden />
+              機械翻訳が分かりにくいとき: 設定で Gemini（無料枠）か Claude（有料）の API キーを入れると、曲全体の流れをくみ取った AI 翻訳が使えます（任意）
             </Link>
           )}
           {jaMode === "sentence" && missing.length > 0 && tab === "lyrics" && (
@@ -1609,7 +1660,7 @@ export default function SongView() {
           )}
           {uniqueKeys.length > 0 && selfCount === 0 && tab === "lyrics" && (
             <div className="w-full text-[11px] text-slate-400">
-              各行の ✍ で、自分で訳してから機械翻訳と比べられます（和訳を隠しておくと練習になります）。
+              各行の <PenLine size={12} className="inline-block align-[-2px]" aria-label="ペン" /> で、自分で訳してから機械翻訳と比べられます（和訳を隠しておくと練習になります）。
             </div>
           )}
         </div>
@@ -1645,9 +1696,11 @@ export default function SongView() {
       {(lyr.status === "notfound" || lyr.status === "error") && (
         <div className="card space-y-2 p-6 text-center text-sm text-slate-500">
           <div>{lyr.error ?? "歌詞が見つかりませんでした"}</div>
-          <button onClick={lyr.retry} className="btn-ghost px-4 py-1.5 text-sm">
-            再試行
-          </button>
+          {!song.lrcMissing && (
+            <button onClick={lyr.retry} className="btn-ghost px-4 py-1.5 text-sm">
+              再試行
+            </button>
+          )}
         </div>
       )}
 
@@ -1746,7 +1799,8 @@ export default function SongView() {
           }}
           className="btn-primary fixed bottom-[calc(4.5rem+env(safe-area-inset-bottom))] right-[max(1rem,calc((100vw-42rem)/2+1rem))] z-[25] px-3 py-2 text-sm shadow-lg"
         >
-          ⤵ 現在行へ
+          <ArrowDownToLine size={16} aria-hidden />
+          現在行へ
         </button>
       )}
 

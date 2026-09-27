@@ -18,6 +18,13 @@ export interface Song {
   durationSec: number;
   /** 動画に合う LRCLIB の版（scripts/pin-lyrics.ts で固定。未固定なら検索） */
   lrclibId: number | null;
+  /** 映画の日本語タイトル（ディズニーなど。一覧と曲画面に小さく表示） */
+  film?: string;
+  /**
+   * LRCLIB に動画と合う正しい歌詞が無いと確認済み（別言語・別の歌手の版しか無い等）。
+   * 歌詞を取りに行かない（誤った歌詞を出さないため）。lrclibId は null にする
+   */
+  lrcMissing?: boolean;
 }
 
 export interface Playlist {
@@ -30,9 +37,25 @@ export interface Playlist {
 export const PLAYLISTS: Playlist[] = playlistsRaw as Playlist[];
 export const SONGS: Song[] = PLAYLISTS.flatMap((p) => p.songs);
 export const SONG_BY_ID = new Map(SONGS.map((s) => [s.videoId, s]));
+const PLAYLIST_BY_SONG = new Map(PLAYLISTS.flatMap((p) => p.songs.map((s) => [s.videoId, p] as const)));
 
-export function songIndex(videoId: string): number {
-  return SONGS.findIndex((s) => s.videoId === videoId);
+/** 曲が入っている再生リスト */
+export function playlistOf(videoId: string | null | undefined): Playlist | undefined {
+  return videoId ? PLAYLIST_BY_SONG.get(videoId) : undefined;
+}
+
+/** 同じ再生リストの中で dir 曲先の曲（端は反対側へ）。不明な曲なら最初の再生リストの先頭 */
+export function neighborSong(videoId: string | null | undefined, dir: 1 | -1): Song {
+  const pl = playlistOf(videoId);
+  if (!pl) return PLAYLISTS[0].songs[0];
+  const n = pl.songs.length;
+  const i = pl.songs.findIndex((s) => s.videoId === videoId);
+  return pl.songs[(i + dir + n) % n];
+}
+
+/** 再生リストのタブ用の短い名前（末尾の全角かっこ書きを省く: 「ディズニー（ポルトガル語吹替）」→「ディズニー」） */
+export function playlistShortTitle(pl: Playlist): string {
+  return pl.title.replace(/（[^）]*）$/, "").trim() || pl.title;
 }
 
 export function formatDuration(sec: number): string {

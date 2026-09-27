@@ -1,6 +1,8 @@
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
+import { Plus } from "lucide-react";
 import type { Word } from "../data/types";
+import { IconBadge } from "./icons";
 import { CORE_ORDER, reviewPool } from "../data/loadWords";
 import { useProgress } from "../store/useProgress";
 import { useSettings } from "../store/useSettings";
@@ -187,7 +189,10 @@ export default function SessionComplete({ stats, againItems, forecast, reason, o
 
       {onExtra && hasUnseen && reason !== "backlog" && (
         <button type="button" onClick={onExtra} className="btn-ghost min-h-11 w-full flex-col gap-0 py-2">
-          <span>＋ あと5語 学ぶ</span>
+          <span className="inline-flex items-center gap-1">
+            <Plus size={16} className="shrink-0" aria-hidden />
+            あと5語 学ぶ
+          </span>
           <span className="text-[11px] font-normal text-slate-400">明日の復習が約5枚増えます</span>
         </button>
       )}
@@ -196,12 +201,12 @@ export default function SessionComplete({ stats, againItems, forecast, reason, o
         <h2 className="px-1 text-sm font-bold text-slate-500">次の一手</h2>
         <div className="grid grid-cols-2 gap-3">
           <Link to={quizPath ?? "/quiz"} className="card flex min-h-11 flex-col gap-1 p-4 transition hover:ring-brand-green/40">
-            <span className="text-2xl">🎯</span>
+            <IconBadge feature="quiz" className="mb-1.5" />
             <span className="font-semibold text-brand-ink">{quizPath ? "このデッキでクイズ" : "クイズ"}</span>
             <span className="text-xs text-slate-500">覚えた語を確かめる</span>
           </Link>
           <Link to="/practice/shadowing" className="card flex min-h-11 flex-col gap-1 p-4 transition hover:ring-brand-green/40">
-            <span className="text-2xl">🗣️</span>
+            <IconBadge feature="shadowing" className="mb-1.5" />
             <span className="font-semibold text-brand-ink">シャドーイング</span>
             <span className="text-xs text-slate-500">声に出して慣れる</span>
           </Link>

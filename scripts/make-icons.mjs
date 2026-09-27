@@ -49,7 +49,7 @@ function framed(size, padding, background) {
 function renderPng(size, padding, background) {
   const resvg = new Resvg(framed(size, padding, background), {
     fitTo: { mode: "width", value: size },
-    // "BR" の文字は端末のフォントで描く（Windows なら Segoe UI Bold）
+    // いまのアイコンは図形（パス）だけで文字は無い。<text> を足したときのために端末のフォントも読めるようにしておく
     font: { loadSystemFonts: true, defaultFontFamily: "Arial" },
   });
   const png = resvg.render().asPng();

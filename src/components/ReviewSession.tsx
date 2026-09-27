@@ -8,6 +8,7 @@
 // ============================================================================
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Headphones, X } from "lucide-react";
 import type { Rating, Word } from "../data/types";
 import { useProgress } from "../store/useProgress";
 import { useSettings } from "../store/useSettings";
@@ -383,11 +384,11 @@ export default function ReviewSession({
             <button
               type="button"
               onClick={onExit}
-              className="-ml-2 inline-flex min-h-11 min-w-11 items-center justify-center rounded-full text-xl text-slate-400 transition hover:bg-slate-100"
+              className="-ml-2 inline-flex min-h-11 min-w-11 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100"
               aria-label="学習をやめて単語帳へ"
               title="単語帳へ"
             >
-              ✕
+              <X size={22} aria-hidden />
             </button>
             <div className="min-w-0 flex-1 truncate text-center text-sm font-bold text-brand-ink">{title}</div>
             <span className="text-xs tabular-nums text-slate-400">
@@ -397,10 +398,11 @@ export default function ReviewSession({
               <button
                 type="button"
                 onClick={onHandsfree}
-                className="min-h-11 px-1 text-xs text-brand-green"
+                className="inline-flex min-h-11 items-center gap-1 px-1 text-xs text-brand-green"
                 title="耳だけ復習（葡 → 考える間 → 和 を読み上げ）"
               >
-                🎧 耳だけ
+                <Headphones size={16} aria-hidden />
+                耳だけ
               </button>
             )}
             {onSwitchView && (

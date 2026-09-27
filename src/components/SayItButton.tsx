@@ -1,4 +1,6 @@
 import { useRef, useState } from "react";
+import { Mic } from "lucide-react";
+import { MediaIcon } from "./icons";
 import { useSettings } from "../store/useSettings";
 import { useSpeechInput } from "../hooks/useSpeechInput";
 import { sentenceListenTimeoutMs, speechErrorMessage, speechInput } from "../services/speechInput";
@@ -91,7 +93,17 @@ function SayIt({ expected, mode, onScored, onStart, disabled = false, showResult
             : "bg-brand-blue/10 text-brand-blue ring-brand-blue/30"
         }`}
       >
-        {listening ? "■ 聞き取り中…（押すと終える）" : again ? "🎤 もう一度" : "🎤 言ってみる"}
+        {listening ? (
+          <>
+            <MediaIcon kind="stop" />
+            聞き取り中…（押すと終える）
+          </>
+        ) : (
+          <>
+            <Mic size={16} aria-hidden />
+            {again ? "もう一度" : "言ってみる"}
+          </>
+        )}
       </button>
       {listening && (
         <p className="min-h-5 text-center text-sm italic text-slate-500" aria-live="polite">

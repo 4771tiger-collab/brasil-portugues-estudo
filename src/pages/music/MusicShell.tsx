@@ -3,13 +3,14 @@
 // - プレーヤーのコンテナは付け替え・サイズ変更しない（iframe を動かすと再読み込みされるため）
 // - host 要素は effect 内で命令的に作る（StrictMode の二重マウント対策）
 // - onReady 前の命令はキューに溜める。子には生のプレーヤーではなく命令関数を渡す
-// - 再生順は music-playlists.json の自前キュー（連続 / 1曲リピート）
+// - 再生順は music-playlists.json の自前キュー（連続 / 1曲リピート）。連続再生は曲の再生リストの中だけ
 // - 音楽タブを離れると再生は止まる（第1段階の仕様）
 // ============================================================================
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { Outlet, useMatch, useNavigate } from "react-router-dom";
-import { SONGS, SONG_BY_ID, songIndex } from "../../data/music";
+import { AudioLines, ChevronRight, CircleAlert, Play } from "lucide-react";
+import { SONG_BY_ID, neighborSong } from "../../data/music";
 import { loadYouTubeApi, watchUrl, YT_STATE, type YTPlayer } from "../../services/youtube";
 import { useMusic } from "../../store/useMusic";
 import { useActivityTimer } from "../../hooks/useActivityTimer";
@@ -150,11 +151,8 @@ export default function MusicShell() {
 
   const step = useCallback(
     (dir: 1 | -1, fromAuto = false) => {
-      const cur = live.current.currentVideoId;
-      const i = cur ? songIndex(cur) : -1;
-      const n = SONGS.length;
-      const nextIdx = i < 0 ? 0 : (i + dir + n) % n;
-      const id = SONGS[nextIdx].videoId;
+      // 連続再生・曲送りは今の曲の再生リストの中だけで回す
+      const id = neighborSong(live.current.currentVideoId, dir).videoId;
       loadInto(id);
       if (fromAuto) followTo(id);
       return id;
@@ -342,7 +340,10 @@ export default function MusicShell() {
           )}
           {errText && error && (
             <div className="absolute inset-x-0 bottom-0 flex flex-wrap items-center gap-2 bg-black/80 p-2 text-xs text-white">
-              <span className="flex-1">⚠ {errText}</span>
+              <span className="flex min-w-0 flex-1 items-center gap-1.5">
+                <CircleAlert size={14} className="shrink-0 text-amber-300" aria-hidden />
+                {errText}
+              </span>
               <a href={watchUrl(error.videoId)} target="_blank" rel="noreferrer" className="underline">
                 YouTubeで開く
               </a>
@@ -351,20 +352,27 @@ export default function MusicShell() {
           )}
         </div>
         {blocked && (
-          <div className="bg-amber-100 px-4 py-1.5 text-center text-xs font-medium text-amber-800">
-            ▶ 動画をタップして再生を開始してください
+          <div className="flex items-center justify-center gap-1.5 bg-amber-100 px-4 py-1.5 text-center text-xs font-medium text-amber-800">
+            <Play size={12} className="shrink-0 fill-current" aria-hidden />
+            動画をタップして再生を開始してください
           </div>
         )}
         {!onSongPage && current && (
           <button
             onClick={() => navigate(`/music/${current.videoId}`)}
-            className="flex w-full items-center gap-2 bg-white px-4 py-2 text-left text-sm"
+            className="flex min-h-11 w-full items-center gap-2 bg-white px-4 py-2 text-left text-sm"
           >
-            <span className="text-brand-green">♪ 再生中</span>
+            <span className="inline-flex shrink-0 items-center gap-1 text-brand-green">
+              <AudioLines size={14} aria-hidden />
+              再生中
+            </span>
             <span className="min-w-0 flex-1 truncate font-medium text-brand-ink">
               {current.title} <span className="text-slate-400">— {current.artist}</span>
             </span>
-            <span className="text-xs text-brand-green">歌詞を見る ›</span>
+            <span className="inline-flex shrink-0 items-center text-xs text-brand-green">
+              歌詞を見る
+              <ChevronRight size={14} aria-hidden />
+            </span>
           </button>
         )}
         {/* 曲画面の操作バー（SongView から portal で差し込む） */}
