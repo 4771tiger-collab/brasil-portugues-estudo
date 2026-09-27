@@ -174,6 +174,12 @@ export type ProductionAnswerMode = "self" | "type";
 /** 歌詞の AI 翻訳（Claude）に使うモデル（ID は日付の付かない形のまま API に送る） */
 export type AiTranslateModel = "claude-haiku-4-5" | "claude-sonnet-5" | "claude-opus-5";
 
+/** AI（先生・歌詞の AI 翻訳）に使うサービス。gemini = Google Gemini（無料枠・既定）/ claude = Anthropic Claude（任意・有料） */
+export type AiProviderId = "gemini" | "claude";
+
+/** Gemini のモデル（無料枠）。3.8 Flash = 賢さ優先（既定）/ 3.5 Flash-Lite = 速さ・回数優先 */
+export type GeminiModel = "gemini-3.8-flash" | "gemini-3.5-flash-lite";
+
 /** 設定 */
 export interface Settings {
   rate: number; // 既定の再生速度
@@ -222,4 +228,11 @@ export interface Settings {
    * API キーそのものは設定ではなく useSecrets（別のキー・バックアップ対象外）に置く
    */
   aiTranslateModel: AiTranslateModel;
+  /**
+   * AI（先生・歌詞の AI 翻訳）に使うサービス。既定 gemini（無料枠）。選んだ方にキーが無ければ、キーがある方を使う
+   * （services/ai/index.ts の activeProviderId）。キーは useSecrets（バックアップ対象外）
+   */
+  aiProvider: AiProviderId;
+  /** Gemini のモデル。既定 gemini-3.8-flash（上限に達したら、その回だけ 3.5 Flash-Lite で1回だけ頼み直す） */
+  geminiModel: GeminiModel;
 }

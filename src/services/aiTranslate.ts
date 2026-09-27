@@ -1,57 +1,29 @@
 // ============================================================================
-// 歌詞の AI 翻訳（Claude。利用者自身の Anthropic API キーで、任意・オプトイン）
-//   検証: scripts/check-translate.ts（npm run check:translate。偽のクライアントで動かし、実際には通信しない）
+// 歌詞の AI 翻訳（利用者自身の API キーで、任意・オプトイン）。既定は Gemini（無料枠）、Claude（有料）も選べる
+//   検証: scripts/check-translate.ts（npm run check:translate）・scripts/check-ai.ts（npm run check:ai）。
+//   どちらも偽のクライアントで動かし、実際には通信しない
 // - 無料の機械翻訳（translate.ts）とは別の経路。キーが無ければ何も起きない（画面にボタンも出さない）。
 // - 送るもの: 曲名・アーティスト名・歌詞の行（空でない行。同じ行は1回だけ）。ユーザーが「AIで訳す」を
 //   押して確認したときだけ送る。結果は行のハッシュをキーに端末へ保存する（歌詞の本文は保存しない。useMusic）。
-// - 公式の TypeScript SDK（@anthropic-ai/sdk）を、翻訳するときにだけ読み込む（dynamic import。
-//   最初の画面の読み込みを重くしない）。ブラウザから直接呼ぶので dangerouslyAllowBrowser を付ける
-//   （キーは利用者自身のもので、この端末にだけ保存している。useSecrets.ts）。
-// - 応答は JSON（構造化出力 output_config.format）で受け取り、行番号などを確かめてから使う（行番号がずれていれば
+// - 呼び出しはサービス（services/ai。Gemini / Claude）の generateJson に任せる（SDK はそちらが呼ぶときだけ読み込む）。
+//   ここはプロンプト・応答の検査・料金（Claude）だけを受け持つ。
+// - 応答は JSON（スキーマ付き）で受け取り、行番号などを確かめてから使う（行番号がずれていれば
 //   何も保存しない。訳が返らなかった行だけは飛ばして、ほかの行の訳は使う）。補足に元の行がまるごと入っていたら
 //   「この行」に置き換える（歌詞の本文を保存しない）。
-//   モデルが構造化出力を受け付けなければ、1回だけ format なしで頼み、本文の JSON を読む。
-// - Sonnet 5 / Opus 5 は effort medium（考える量を抑えて、料金を見積もりに近づける）。Haiku 4.5 には effort を送らない。
-// - SDK の自動の再試行はしない（有料のリクエストを黙って送り直さない）。
-// - 料金は応答の usage（トークン数）から計算して見せる（1ドル = 150円の目安）。
+// - Claude の料金は応答の usage（トークン数）から計算して見せる（1ドル = 150円の目安）。Gemini は無料枠なので出さない。
 // ============================================================================
 
-import type Anthropic from "@anthropic-ai/sdk";
 import type { AiTranslateModel } from "../data/types";
 import { lineHash } from "./lyrics";
+import { AI_MODEL_INFO, createClaudeProvider, toAiModel, type MessagesClient } from "./ai/claude";
+import { AiError, type AiProvider, type AiProviderId, type AiUsage, type GenerateJsonResult } from "./ai/types";
 
 // ---------------------------------------------------------------------------
-// モデルと料金
+// モデルと料金（Claude のモデルの一覧は services/ai/claude.ts。以前の名前のまま使えるようにここからも出す）
 // ---------------------------------------------------------------------------
 
-export const AI_MODELS: readonly AiTranslateModel[] = ["claude-haiku-4-5", "claude-sonnet-5", "claude-opus-5"];
-export const DEFAULT_AI_MODEL: AiTranslateModel = "claude-haiku-4-5";
-
-export interface AiModelInfo {
-  /** 画面の表示名 */
-  label: string;
-  /** 選ぶときの一言 */
-  hint: string;
-  /** 100万トークンあたりの料金（USD）: 入力 / 出力 */
-  usdPerMTokIn: number;
-  usdPerMTokOut: number;
-  /**
-   * 見積もりで出力に掛ける係数。Sonnet 5 / Opus 5 は、考える過程（思考。effort medium）も出力として課金され、
-   * 同じ文でもトークン数が 3 割ほど多く数えられる（トークナイザーが違う）ため、多めに見る（安く見せない）
-   */
-  outputFactor: number;
-}
-
-export const AI_MODEL_INFO: Record<AiTranslateModel, AiModelInfo> = {
-  "claude-haiku-4-5": { label: "Haiku 4.5", hint: "おすすめ・安い", usdPerMTokIn: 1, usdPerMTokOut: 5, outputFactor: 1 },
-  "claude-sonnet-5": { label: "Sonnet 5", hint: "より丁寧", usdPerMTokIn: 2, usdPerMTokOut: 10, outputFactor: 2.5 },
-  "claude-opus-5": { label: "Opus 5", hint: "最高品質", usdPerMTokIn: 5, usdPerMTokOut: 25, outputFactor: 2.5 },
-};
-
-/** 保存値をモデルに丸める（無い・知らない値は既定の Haiku 4.5） */
-export function toAiModel(v: unknown): AiTranslateModel {
-  return AI_MODELS.includes(v as AiTranslateModel) ? (v as AiTranslateModel) : DEFAULT_AI_MODEL;
-}
+export { AI_MODELS, AI_MODEL_INFO, DEFAULT_AI_MODEL, toAiModel, type AiModelInfo, type MessagesClient } from "./ai/claude";
+export { parseJsonText } from "./ai/types";
 
 /** 円の目安に使うレート（1ドル = 150円。実際の請求はドル建て） */
 export const YEN_PER_USD = 150;
@@ -200,7 +172,7 @@ Output rules:
 - Never invent content that is not in the lines. If a line is unclear, give the most plausible reading.
 - Respond with JSON only, no other text: {"lines":[{"i":0,"ja":"...","note":"..."}]}`;
 
-/** 応答の JSON の形（構造化出力 output_config.format に渡す） */
+/** 応答の JSON の形（Claude は構造化出力 output_config.format、Gemini は responseJsonSchema に渡す） */
 export const AI_TRANSLATION_SCHEMA = {
   type: "object",
   properties: {
@@ -343,44 +315,101 @@ export function parseAiTranslation(json: unknown, expectedIndices: readonly numb
   return { ok: true, results, skipped };
 }
 
-/** 本文から JSON を取り出して読む（構造化出力なしで頼んだとき用。```json の囲みや前後の文を除く）。読めなければ例外 */
-export function parseJsonText(text: string): unknown {
-  let t = text.trim();
-  const fence = /^```(?:json)?\s*([\s\S]*?)\s*```$/i.exec(t);
-  if (fence) t = fence[1].trim();
-  if (!t.startsWith("{")) {
-    const a = t.indexOf("{");
-    const b = t.lastIndexOf("}");
-    if (a >= 0 && b > a) t = t.slice(a, b + 1);
-  }
-  return JSON.parse(t);
+// ---------------------------------------------------------------------------
+// 料金（Claude）。Gemini は無料枠なので null
+// ---------------------------------------------------------------------------
+
+/** 共通の usage から今回の料金を出す（Claude だけ。Gemini の無料枠は null = 料金を出さない） */
+export function aiCostOf(provider: AiProviderId, model: string, usage: AiUsage | null | undefined): AiCost | null {
+  if (provider !== "claude") return null;
+  return costFromUsage(
+    {
+      input_tokens: usage?.input ?? 0,
+      output_tokens: usage?.output ?? 0,
+      cache_creation_input_tokens: usage?.cacheWrite ?? 0,
+      cache_read_input_tokens: usage?.cacheRead ?? 0,
+    },
+    toAiModel(model)
+  );
 }
 
 // ---------------------------------------------------------------------------
-// 呼び出し（SDK）とエラー
+// 呼び出し（今使うサービスの generateJson）
 // ---------------------------------------------------------------------------
 
-/** messages.create だけを使う（検証では偽物を渡す。実物は @anthropic-ai/sdk の Anthropic） */
-export interface MessagesClient {
-  messages: {
-    create(
-      body: Anthropic.MessageCreateParamsNonStreaming,
-      options?: { signal?: AbortSignal | null; timeout?: number; maxRetries?: number }
-    ): PromiseLike<Anthropic.Message>;
+export interface AiSongTranslation {
+  /** 入力の lines と同じ長さ・同じ順序。空の行・訳が返らなかった行は null */
+  results: (AiLineResult | null)[];
+  /** 送ったのに訳が返らなかった（空だった）行の数（その行は保存しない） */
+  skipped: number;
+  /** 今回の料金（Claude。応答の usage から）。Gemini の無料枠は null */
+  cost: AiCost | null;
+  provider: AiProviderId;
+  /** 答えたモデル */
+  model: string;
+  /** 設定のモデルが上限だったので別のモデルで訳したとき、元のモデル（Gemini の 3.8 Flash → 3.5 Flash-Lite） */
+  fallbackFrom: string | null;
+  /** 構造化出力を使わずに訳した（Claude。モデルが output_config を受け付けなかった） */
+  usedFallback: boolean;
+}
+
+/** 翻訳の失敗の文（断られた・切れた・形が崩れた応答は、翻訳の言葉で言い直す。種類・usage はそのまま） */
+function translationError(e: AiError): AiError {
+  const extra = { code: e.code, usage: e.usage, model: e.model };
+  if (e.kind === "refusal") {
+    const why =
+      e.code === "RECITATION" ? "AIが歌詞の翻訳を途中で止めました（歌詞の文章をそのまま書くのを避けるため）" : "AIがこの歌詞の翻訳を断りました";
+    return new AiError("refusal", `${why}。設定の「🤖 AI」で別のモデルを選ぶか、無料の機械翻訳を使ってください`, extra);
+  }
+  if (e.kind === "truncated") {
+    return new AiError("truncated", "訳が長くなりすぎて途中で切れました（保存していません）。別のモデルで試してください", extra);
+  }
+  if (e.kind === "bad-response") return new AiError("bad-response", `${e.message}（保存していません）`, extra);
+  return e;
+}
+
+/**
+ * 曲の歌詞を今使うサービス（Gemini / Claude）で和訳する（ユーザーの操作からだけ呼ぶ）。
+ * lines は送る行（songLinesForAi の lines。空文字は連の区切り）。provider が null（キーが無い）なら no-key。
+ * 失敗は AiError（kind で種類。料金が分かるときは usage・model を持つ → aiCostOf）
+ */
+export async function translateSongWithAi(p: {
+  provider: AiProvider | null;
+  title: string;
+  artist: string;
+  lines: readonly string[];
+  signal?: AbortSignal;
+}): Promise<AiSongTranslation> {
+  if (!p.provider) {
+    throw new AiError("no-key", "APIキーが設定されていません（設定の「🤖 AI」で Gemini か Claude のキーを入れてください）", {
+      code: "no_key",
+    });
+  }
+  const provider = p.provider;
+  const prompt = buildAiTranslatePrompt(p);
+  if (!prompt.indices.length) throw new AiError("unknown", "訳す行がありません", { code: "empty" });
+  let r: GenerateJsonResult;
+  try {
+    r = await provider.generateJson({ system: prompt.system, user: prompt.content, schema: AI_TRANSLATION_SCHEMA, signal: p.signal });
+  } catch (e) {
+    throw translationError(e instanceof AiError ? e : new AiError("unknown", "AI翻訳に失敗しました", { code: "unknown" }));
+  }
+  const parsed = parseAiTranslation(r.json, prompt.indices, p.lines);
+  if (!parsed.ok) throw new AiError("bad-response", `${parsed.error}（保存していません）`, { code: "parse", usage: r.usage, model: r.model });
+  return {
+    results: p.lines.map((_, i) => parsed.results.get(i) ?? null),
+    skipped: parsed.skipped.length,
+    cost: aiCostOf(provider.id, r.model, r.usage),
+    provider: provider.id,
+    model: r.model,
+    fallbackFrom: r.fallbackFrom ?? null,
+    usedFallback: r.formatFallback === true,
   };
 }
 
-type Sdk = typeof import("@anthropic-ai/sdk").default;
-
-/** SDK を読み込む（翻訳・接続テストのときだけ。最初の画面のバンドルに入れない）。読み込めなければ AiTranslateError */
-async function loadSdk(): Promise<Sdk> {
-  try {
-    const mod = await import("@anthropic-ai/sdk");
-    return mod.default;
-  } catch {
-    throw new AiTranslateError("connection", "AI翻訳の準備（読み込み）に失敗しました。通信環境を確かめて、もう一度試してください");
-  }
-}
+// ---------------------------------------------------------------------------
+// 以前の呼び出し口（Claude だけ。検証 check-translate.ts が使う。中身は上の translateSongWithAi と同じ経路）
+// ---------------------------------------------------------------------------
 
 export type AiErrorKind =
   | "no_key"
@@ -400,7 +429,26 @@ export type AiErrorKind =
   | "parse"
   | "unknown";
 
-/** AI 翻訳の失敗（message は画面に出す日本語。cost は課金されたと分かっている場合の料金） */
+const LEGACY_KINDS: readonly AiErrorKind[] = [
+  "no_key",
+  "empty",
+  "aborted",
+  "auth",
+  "permission",
+  "not_found",
+  "billing",
+  "rate_limit",
+  "bad_request",
+  "connection",
+  "server",
+  "api",
+  "refusal",
+  "max_tokens",
+  "parse",
+  "unknown",
+];
+
+/** AI 翻訳（Claude）の失敗（message は画面に出す日本語。cost は課金されたと分かっている場合の料金） */
 export class AiTranslateError extends Error {
   readonly kind: AiErrorKind;
   readonly cost: AiCost | null;
@@ -412,67 +460,30 @@ export class AiTranslateError extends Error {
   }
 }
 
-/** API のエラー本文の message（例: クレジット残高が足りない）。無ければ null */
-function apiErrorDetail(e: { error?: unknown }): string | null {
-  const body = e.error;
-  const inner = isObj(body) && isObj(body.error) ? body.error.message : undefined;
-  return typeof inner === "string" && inner.trim() ? inner.trim().slice(0, 200) : null;
-}
+const LEGACY_KIND_OF: Record<AiError["kind"], AiErrorKind> = {
+  "no-key": "no_key",
+  auth: "auth",
+  "rate-limit": "rate_limit",
+  quota: "billing",
+  network: "connection",
+  offline: "connection",
+  refusal: "refusal",
+  truncated: "max_tokens",
+  "bad-response": "parse",
+  aborted: "aborted",
+  server: "server",
+  unknown: "unknown",
+};
 
-/** SDK の型付きエラーを、画面に出す日本語のエラーにする（具体的なクラスから順に見る） */
-export function classifyAiError(A: Sdk, e: unknown, signal?: AbortSignal | null): AiTranslateError {
+/** 共通の AiError を以前の AiTranslateError にする（Claude のサービスは code に以前の kind を入れている） */
+function toLegacyError(e: unknown, model: AiTranslateModel): AiTranslateError {
   if (e instanceof AiTranslateError) return e;
-  if (e instanceof A.APIUserAbortError || signal?.aborted) return new AiTranslateError("aborted", "中止しました");
-  if (e instanceof A.AuthenticationError) {
-    return new AiTranslateError("auth", "APIキーが正しくありません（無効・削除済みの可能性）。設定の「AI翻訳」でキーを確かめてください");
-  }
-  if (e instanceof A.PermissionDeniedError) {
-    return new AiTranslateError("permission", "このAPIキーでは使えません（権限や利用地域の制限）。Anthropic Console で確かめてください");
-  }
-  if (e instanceof A.NotFoundError) {
-    return new AiTranslateError("not_found", "このモデルはこのAPIキーでは使えません。設定の「AI翻訳」で別のモデルを選んでください");
-  }
-  if (e instanceof A.RateLimitError) {
-    return new AiTranslateError(
-      "rate_limit",
-      "混み合っているか、利用の上限に達しました。少し待ってから試してください（月の上限は Anthropic Console で確かめられます）"
-    );
-  }
-  if (e instanceof A.BadRequestError) {
-    const detail = apiErrorDetail(e);
-    return new AiTranslateError(
-      "bad_request",
-      `リクエストが受け付けられませんでした${detail ? `（${detail}）` : ""}。クレジット残高・支払い設定も Anthropic Console で確かめてください`
-    );
-  }
-  if (e instanceof A.APIConnectionTimeoutError) {
-    return new AiTranslateError("connection", "時間内に応答がありませんでした。通信環境を確かめて、もう一度試してください");
-  }
-  if (e instanceof A.APIConnectionError) {
-    return new AiTranslateError("connection", "通信エラーです。オフラインか、接続が不安定です");
-  }
-  if (e instanceof A.InternalServerError) {
-    return new AiTranslateError("server", "Anthropic 側で一時的なエラーが起きました（混雑など）。少し待ってから試してください");
-  }
-  if (e instanceof A.APIError) {
-    if (e.status === 402) {
-      return new AiTranslateError("billing", "支払いの問題で使えません。Anthropic Console でクレジット残高・支払い設定を確かめてください");
-    }
-    return new AiTranslateError("api", `AIの呼び出しに失敗しました${e.status ? `（${e.status}）` : ""}`);
-  }
-  return new AiTranslateError("unknown", "AI翻訳に失敗しました");
+  if (!(e instanceof AiError)) return new AiTranslateError("unknown", "AI翻訳に失敗しました");
+  const kind = LEGACY_KINDS.includes(e.code as AiErrorKind) ? (e.code as AiErrorKind) : LEGACY_KIND_OF[e.kind];
+  return new AiTranslateError(kind, e.message, e.usage ? aiCostOf("claude", model, e.usage) : null);
 }
 
-/** 構造化出力（output_config）をこのモデルが受け付けなかったか（そのときだけ1回、output_config なしで頼み直す） */
-function isOutputConfigRejected(A: Sdk, e: unknown): boolean {
-  if (!(e instanceof A.BadRequestError)) return false;
-  return /output_config|output_format|format|schema/i.test(`${apiErrorDetail(e) ?? ""} ${e.message}`);
-}
-
-function firstText(res: Anthropic.Message): string | null {
-  const block = res.content.find((b): b is Anthropic.TextBlock => b.type === "text");
-  return block ? block.text : null;
-}
+const ZERO_USAGE = { input_tokens: 0, output_tokens: 0 };
 
 export interface AiTranslateResult {
   /** 入力の lines と同じ長さ・同じ順序。空の行・訳が返らなかった行は null */
@@ -487,7 +498,7 @@ export interface AiTranslateResult {
 }
 
 /**
- * 曲の歌詞を Claude で和訳する（ユーザーの操作からだけ呼ぶ）。
+ * 曲の歌詞を Claude で和訳する（以前の呼び出し口。画面は translateSongWithAi を使う）。
  * lines は送る行（songLinesForAi の lines。空文字は連の区切り）。失敗は AiTranslateError。
  * client は検証用（省略時は SDK を読み込んで、この apiKey でクライアントを作る）。
  */
@@ -501,80 +512,24 @@ export async function translateSongWithClaude(p: {
   client?: MessagesClient;
 }): Promise<AiTranslateResult> {
   const apiKey = (p.apiKey ?? "").trim();
-  if (!apiKey) throw new AiTranslateError("no_key", "APIキーが設定されていません（設定の「AI翻訳」で入れてください）");
+  if (!apiKey) throw new AiTranslateError("no_key", "APIキーが設定されていません（設定の「🤖 AI」で入れてください）");
   const model = toAiModel(p.model);
-  const prompt = buildAiTranslatePrompt(p);
-  if (!prompt.indices.length) throw new AiTranslateError("empty", "訳す行がありません");
-  const A = await loadSdk();
-  if (p.signal?.aborted) throw new AiTranslateError("aborted", "中止しました");
-  const client: MessagesClient = p.client ?? new A({ apiKey, dangerouslyAllowBrowser: true });
-  // thinking は送らない（Haiku 4.5 は考えずに訳す。Sonnet 5 / Opus 5 は省略すると考えながら訳す）。
-  // Sonnet 5 / Opus 5 の考える量は effort で抑える（既定の high だと上限がなく、料金が見積もりを大きく超えたり、
-  // 長い曲で max_tokens に届いて何も保存できなかったりする）。訳の質は medium で十分。
-  // Haiku 4.5 は effort を受け付けない（400）ので送らない
-  const effort: Anthropic.OutputConfig | null = model === "claude-haiku-4-5" ? null : { effort: "medium" };
-  const base: Anthropic.MessageCreateParamsNonStreaming = {
-    model,
-    max_tokens: 16000,
-    system: prompt.system,
-    messages: [{ role: "user", content: prompt.content }],
-    ...(effort ? { output_config: effort } : {}),
-  };
-  // SDK の自動の再試行はしない（曲全体の有料のリクエストを黙って送り直さない。表示する料金も1回分だけ）。
-  // 失敗したら画面の「再試行」で送り直す
-  const opts = { signal: p.signal, maxRetries: 0 };
-
-  let res: Anthropic.Message;
-  let usedFallback = false;
   try {
-    res = await client.messages.create(
-      { ...base, output_config: { ...effort, format: { type: "json_schema", schema: AI_TRANSLATION_SCHEMA } } },
-      opts
-    );
+    const r = await translateSongWithAi({
+      provider: createClaudeProvider({ apiKey, model, client: p.client }),
+      title: p.title,
+      artist: p.artist,
+      lines: p.lines,
+      signal: p.signal,
+    });
+    return { results: r.results, skipped: r.skipped, cost: r.cost ?? costFromUsage(ZERO_USAGE, model), model, usedFallback: r.usedFallback };
   } catch (e) {
-    if (!isOutputConfigRejected(A, e) || p.signal?.aborted) throw classifyAiError(A, e, p.signal);
-    // 構造化出力を受け付けないモデル → 1回だけ、本文の JSON で頼み直す（プロンプトでも JSON だけを求めている。
-    // base のまま = format だけを外し、effort は残す）
-    usedFallback = true;
-    try {
-      res = await client.messages.create(base, opts);
-    } catch (e2) {
-      throw classifyAiError(A, e2, p.signal);
-    }
+    throw toLegacyError(e, model);
   }
-
-  const cost = costFromUsage(res.usage, model);
-  if (res.stop_reason === "refusal") {
-    throw new AiTranslateError(
-      "refusal",
-      "AIがこの歌詞の翻訳を断りました。設定の「AI翻訳」で別のモデルを選ぶか、無料の機械翻訳を使ってください",
-      cost
-    );
-  }
-  if (res.stop_reason === "max_tokens") {
-    throw new AiTranslateError("max_tokens", "訳が長くなりすぎて途中で切れました（保存していません）。別のモデルで試してください", cost);
-  }
-  const text = firstText(res);
-  if (text == null) throw new AiTranslateError("parse", "AIの応答に訳がありませんでした（保存していません）", cost);
-  let json: unknown;
-  try {
-    json = parseJsonText(text);
-  } catch {
-    throw new AiTranslateError("parse", "AIの応答を JSON として読めませんでした（保存していません）", cost);
-  }
-  const parsed = parseAiTranslation(json, prompt.indices, p.lines);
-  if (!parsed.ok) throw new AiTranslateError("parse", `${parsed.error}（保存していません）`, cost);
-  return {
-    results: p.lines.map((_, i) => parsed.results.get(i) ?? null),
-    skipped: parsed.skipped.length,
-    cost,
-    model,
-    usedFallback,
-  };
 }
 
 /**
- * 接続テスト: 小さなリクエスト（max_tokens 16）でキーとモデルが使えるか確かめる。
+ * 接続テスト（以前の呼び出し口。Claude だけ）: 小さなリクエスト（max_tokens 16）でキーとモデルが使えるか確かめる。
  * 成功すれば今回の料金（ごくわずか）を返す。失敗は AiTranslateError（キーが正しくない、など）。
  */
 export async function testClaudeConnection(p: {
@@ -586,15 +541,10 @@ export async function testClaudeConnection(p: {
   const apiKey = (p.apiKey ?? "").trim();
   if (!apiKey) throw new AiTranslateError("no_key", "APIキーが設定されていません");
   const model = toAiModel(p.model);
-  const A = await loadSdk();
-  const client: MessagesClient = p.client ?? new A({ apiKey, dangerouslyAllowBrowser: true });
   try {
-    const res = await client.messages.create(
-      { model, max_tokens: 16, messages: [{ role: "user", content: "Reply with OK." }] },
-      { signal: p.signal, timeout: 30_000 }
-    );
-    return { cost: costFromUsage(res.usage, model), model };
+    const r = await createClaudeProvider({ apiKey, model, client: p.client }).testConnection({ signal: p.signal });
+    return { cost: aiCostOf("claude", model, r.usage) ?? costFromUsage(ZERO_USAGE, model), model };
   } catch (e) {
-    throw classifyAiError(A, e, p.signal);
+    throw toLegacyError(e, model);
   }
 }

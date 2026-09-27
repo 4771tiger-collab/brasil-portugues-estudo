@@ -24,6 +24,8 @@ import { LEVEL_FILTERS, LEVEL_LABEL, dialogueSpeakers, lineSpeaker, matchesLevel
 import { PARTNER_GAP_MS, myTurns, runRolePlay, turnGapMs, waitTurn, type RolePlayDeps } from "../services/rolePlay";
 import SayItButton from "../components/SayItButton";
 import FilterChips from "../components/FilterChips";
+import AskTeacherButton from "../components/teacher/AskTeacherButton";
+import { clip, sentenceContext } from "../services/ai/teacherContext";
 
 /**
  * 一覧の URL。詳細は /practice/shadowing/:id
@@ -869,6 +871,16 @@ function Player({ script, speakers, onBack }: { script: Script; speakers: [strin
                       )}
                       {showJa && l.ja && <p className="mt-0.5 text-sm leading-relaxed text-slate-500">{l.ja}</p>}
                     </div>
+                    {/* 🧑‍🏫 この文を AI 先生に聞く（聞いている間はお手本・録音の再生を止める） */}
+                    <AskTeacherButton
+                      variant="icon"
+                      label="この文について"
+                      context={() =>
+                        sentenceContext({ pt: l.pt, ja: l.ja, source: script.title, label: `🗣 ${clip(script.title, 16)} — ${i + 1}文目` })
+                      }
+                      onOpen={stopAll}
+                      className="-my-1.5 -mr-1 opacity-70"
+                    />
                   </div>
                   <div className="mt-2 grid grid-cols-4 gap-1.5">
                     <LineButton

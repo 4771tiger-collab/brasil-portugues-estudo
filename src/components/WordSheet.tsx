@@ -3,6 +3,7 @@
 // 原形・活用の説明・意味・品詞・カナ/IPA・読み上げ・「単語帳に追加」。
 // 同綴りで複数の読みがある場合は「他の可能性」、縮約は各要素ごとに追加できる。
 // 辞書に無い語は機械翻訳の候補を出し、意味を直して自分の単語として追加できる。
+// 「🧑‍🏫 聞く」で、この単語（原形・意味・品詞）を AI 先生に聞ける（曲名・その行は呼び出し側が足す）。
 // ============================================================================
 
 import { useEffect, useMemo, useState } from "react";
@@ -25,6 +26,8 @@ interface Props {
   videoId: string;
   onClose: () => void;
   onMove?: (index: number) => void;
+  /** 🧑‍🏫 この単語を AI 先生に聞く（曲名・行は呼び出し側が足す） */
+  onAskTeacher?: (w: { surface: string; lemma?: string; meaning?: string; pos?: string }) => void;
 }
 
 /** 注記に添える和訳は短く切る */
@@ -227,7 +230,7 @@ function UnknownWord({ surface, videoId }: { surface: string; videoId: string })
   );
 }
 
-export default function WordSheet({ tokens, index, videoId, onClose, onMove }: Props) {
+export default function WordSheet({ tokens, index, videoId, onClose, onMove, onAskTeacher }: Props) {
   const tok = tokens[index];
   const lem = getLemmatizer();
   const [showOthers, setShowOthers] = useState(false);
@@ -290,6 +293,25 @@ export default function WordSheet({ tokens, index, videoId, onClose, onMove }: P
           >
             ›
           </button>
+          {/* 🧑‍🏫 この単語を AI 先生に聞く（原形・意味・品詞と、曲名・その行を渡す） */}
+          {onAskTeacher && (
+            <button
+              type="button"
+              onClick={() => {
+                const ref = primary?.refs[0];
+                onAskTeacher({
+                  surface: tok.text,
+                  lemma: primary?.lemma,
+                  meaning: tok.phrase?.refs[0]?.ja ?? ref?.ja,
+                  pos: ref?.pos,
+                });
+              }}
+              className="chip min-h-11 shrink-0 gap-1 bg-violet-50 px-2.5 text-violet-700 ring-1 ring-violet-200"
+              aria-label="この単語を AI先生に聞く"
+            >
+              <span aria-hidden>🧑‍🏫</span>聞く
+            </button>
+          )}
           <button onClick={onClose} className="rounded-full px-2 py-1 text-slate-400" aria-label="閉じる">
             ✕
           </button>

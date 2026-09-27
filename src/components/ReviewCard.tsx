@@ -10,6 +10,17 @@ import DiffView from "./DiffView";
 import PtInput from "./PtInput";
 import { RATING_LABEL } from "./RatingButtons";
 import SpeakerButton from "./SpeakerButton";
+import AskTeacherButton from "./teacher/AskTeacherButton";
+import { wordTeacherContext } from "./teacher/contexts";
+
+/** 🧑‍🏫 この語を AI 先生に聞く（答えを見た後の裏面と、紹介のときだけ。表面では答えが分かってしまうので出さない） */
+function AskWord({ word }: { word: Word }) {
+  return (
+    <div className="mt-4 flex justify-center">
+      <AskTeacherButton context={() => wordTeacherContext(word)} />
+    </div>
+  );
+}
 
 /** 産出カード（和→葡）を入力などで答えた結果（ReviewSession が採点して持つ） */
 export interface ProdAnswer {
@@ -279,6 +290,7 @@ function ProductionBack({
       <ConjugationTable pt={word.pt} pos={word.pos} />
       <ExampleBlock word={word} />
       <NotDueNote card={card} today={today} />
+      <AskWord word={word} />
     </div>
   );
 }
@@ -306,6 +318,7 @@ export default function ReviewCard(props: Props) {
         <NoteToggle word={word} />
         <ExampleBlock word={word} />
         <p className="mt-4 text-center text-xs text-slate-400">数枚あとに、表だけでテストします</p>
+        <AskWord word={word} />
       </div>
     );
   }
@@ -352,6 +365,7 @@ export default function ReviewCard(props: Props) {
       <ConjugationTable pt={word.pt} pos={word.pos} />
       <ExampleBlock word={word} />
       <NotDueNote card={card} today={today} />
+      <AskWord word={word} />
     </div>
   );
 }

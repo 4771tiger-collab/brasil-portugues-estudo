@@ -34,6 +34,8 @@ import { useTodayPlan } from "../hooks/useTodayPlan";
 import SpeakerButton from "../components/SpeakerButton";
 import PtInput from "../components/PtInput";
 import DiffView from "../components/DiffView";
+import AskTeacherButton from "../components/teacher/AskTeacherButton";
+import { wordTeacherContext } from "../components/teacher/contexts";
 
 /**
  * 出題モード。
@@ -212,6 +214,10 @@ function AnswerCard({ word, chosen }: { word: Word; chosen?: Word | null }) {
           {word.note}
         </div>
       )}
+      {/* 🧑‍🏫 この語を AI 先生に聞く（間違えて選んだ語があれば、その語との違いも聞ける） */}
+      <div className="flex justify-center pt-1">
+        <AskTeacherButton context={() => wordTeacherContext(word, chosen)} />
+      </div>
     </div>
   );
 }

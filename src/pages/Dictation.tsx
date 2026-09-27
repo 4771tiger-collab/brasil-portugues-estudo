@@ -17,6 +17,8 @@ import {
 } from "../services/dictation";
 import SpeakerButton from "../components/SpeakerButton";
 import PtInput from "../components/PtInput";
+import AskTeacherButton from "../components/teacher/AskTeacherButton";
+import { sentenceContext } from "../services/ai/teacherContext";
 import { useBack } from "../hooks/useBack";
 import { useWakeLock } from "../hooks/useWakeLock";
 import { useVisibleStopwatch } from "../hooks/useActivityTimer";
@@ -453,6 +455,13 @@ function Runner({ item, onBack }: { item: DictationItem; onBack: () => void }) {
               ))}
             </div>
             <div className="rounded-lg bg-slate-50 p-3 text-slate-600">{item.ja}</div>
+            {/* 🧑‍🏫 この文を AI 先生に聞く（聞いている間は再生を止める） */}
+            <div className="flex justify-center">
+              <AskTeacherButton
+                context={() => sentenceContext({ pt: item.text, ja: item.ja, source: "ディクテーション（書き取り）" })}
+                onOpen={() => player.stop()}
+              />
+            </div>
             {lastAl && <AnswerCompare al={lastAl} label={al3 ? "STEP 3 の答え合わせ" : "STEP 1 の答え合わせ"} />}
             <div className="space-y-2 rounded-xl bg-brand-green/5 p-3">
               <p className="text-xs text-slate-500">

@@ -32,6 +32,9 @@ const DEFAULTS: Settings = {
   speechInputEnabled: false,
   // 歌詞の AI 翻訳（Claude）のモデル。API キーは useSecrets（別キー・バックアップ対象外）。キーが無ければ使われない
   aiTranslateModel: "claude-haiku-4-5",
+  // AI（先生・歌詞の AI 翻訳）のサービスと Gemini のモデル。既定は Gemini（無料枠）。キーは useSecrets
+  aiProvider: "gemini",
+  geminiModel: "gemini-3.8-flash",
 };
 
 export const useSettings = create<SettingsState>()(

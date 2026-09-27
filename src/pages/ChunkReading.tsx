@@ -26,6 +26,8 @@ import {
   type QuizAnswers,
 } from "../services/materials";
 import FilterChips from "../components/FilterChips";
+import AskTeacherButton from "../components/teacher/AskTeacherButton";
+import { clip, sentenceContext } from "../services/ai/teacherContext";
 
 /** 一覧の URL。詳細は /practice/chunk/:id（id は custom_… か psg_…） */
 const LIST_PATH = "/practice/chunk";
@@ -375,19 +377,33 @@ function Reader({ passage, onBack }: { passage: Passage; onBack: () => void }) {
                   reading ? "ring-2 ring-emerald-300" : ""
                 }`}
               >
-                <button
-                  type="button"
-                  onClick={() => playSentence(gi)}
-                  disabled={!g.pt}
-                  aria-pressed={solo}
-                  aria-label={solo ? `${gi + 1}文目を止める` : `${gi + 1}文目を通して再生`}
-                  className={`flex min-h-11 w-11 shrink-0 flex-col items-center justify-center gap-0.5 rounded-lg transition active:scale-95 disabled:opacity-30 disabled:active:scale-100 ${
-                    solo ? "bg-brand-green text-white" : "bg-slate-50 text-brand-green"
-                  }`}
-                >
-                  <span className={`text-[10px] font-bold leading-none ${solo ? "text-white/80" : "text-slate-400"}`}>{gi + 1}</span>
-                  <span className="text-sm leading-none">{solo ? "■" : "▶"}</span>
-                </button>
+                <div className="flex shrink-0 flex-col gap-0.5">
+                  <button
+                    type="button"
+                    onClick={() => playSentence(gi)}
+                    disabled={!g.pt}
+                    aria-pressed={solo}
+                    aria-label={solo ? `${gi + 1}文目を止める` : `${gi + 1}文目を通して再生`}
+                    className={`flex min-h-11 w-11 shrink-0 flex-col items-center justify-center gap-0.5 rounded-lg transition active:scale-95 disabled:opacity-30 disabled:active:scale-100 ${
+                      solo ? "bg-brand-green text-white" : "bg-slate-50 text-brand-green"
+                    }`}
+                  >
+                    <span className={`text-[10px] font-bold leading-none ${solo ? "text-white/80" : "text-slate-400"}`}>{gi + 1}</span>
+                    <span className="text-sm leading-none">{solo ? "■" : "▶"}</span>
+                  </button>
+                  {/* 🧑‍🏫 この文を AI 先生に聞く（瞬間作文でポルトガル語を隠している間は、答えが分かるので出さない） */}
+                  {!ptHidden && g.pt && (
+                    <AskTeacherButton
+                      variant="icon"
+                      label="この文について"
+                      context={() =>
+                        sentenceContext({ pt: g.pt, ja: g.ja, source: passage.title, label: `📚 ${clip(passage.title, 16)} — ${gi + 1}文目` })
+                      }
+                      onOpen={player.stop}
+                      className="w-11 opacity-70"
+                    />
+                  )}
+                </div>
                 <div className="min-w-0 flex-1 space-y-0.5 py-0.5">
                   {chunks.slice(g.start, g.end).map((c, k) => {
                     const i = g.start + k;

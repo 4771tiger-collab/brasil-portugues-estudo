@@ -1,5 +1,5 @@
 // ============================================================================
-// バックアップの形式（v1/v2/v3/未知の version）と、書き出しに歌詞が入らないことの回帰テスト
+// バックアップの形式（v1/v2/v3/未知の version）と、書き出しに歌詞（と AI の API キー・AI先生の会話）が入らないことの回帰テスト
 //   npm run check:backup
 // 前半は純関数（backupFormat.ts）。後半はストアをメモリ上の localStorage で動かす結合テスト。
 // 例は架空の短い文字列のみ（歌詞は使わない）。1件でも失敗したら終了コード1。
@@ -1612,9 +1612,10 @@ console.log("=== 和訳の source・note（書き出し・置き換え・統合�
 }
 
 // ---------------------------------------------------------------------------
-// AI 翻訳（Claude）: モデルの設定はバックアップに入る。API キー（useSecrets・bp-secrets-v1）は
-// 書き出しにも、置き換え・統合の取り込みにも一切入らない（ファイルに紛れ込んでいても端末のキーは変わらない）
-console.log("=== AI 翻訳の API キー: 書き出さない・取り込まない ===");
+// AI（Gemini / Claude）: サービス・モデルの設定はバックアップに入る。API キー（useSecrets・bp-secrets-v1。
+// Gemini・Anthropic の両方）は書き出しにも、置き換え・統合の取り込みにも一切入らない
+// （ファイルに紛れ込んでいても端末のキーは変わらない）
+console.log("=== AI の API キー（Gemini・Anthropic）: 書き出さない・取り込まない ===");
 {
   eq(
     ["claude-haiku-4-5", "claude-sonnet-5", "claude-opus-5"].map((m) => pickSettings({ aiTranslateModel: m }).aiTranslateModel),
@@ -1626,51 +1627,131 @@ console.log("=== AI 翻訳の API キー: 書き出さない・取り込まな�
     [{}, {}, {}],
     "pickSettings: 知らないモデル・数・API キーの項目は読まない"
   );
+  eq(
+    [pickSettings({ aiProvider: "gemini" }), pickSettings({ aiProvider: "claude" }), pickSettings({ geminiModel: "gemini-3.8-flash" }), pickSettings({ geminiModel: "gemini-3.5-flash-lite" })],
+    [{ aiProvider: "gemini" }, { aiProvider: "claude" }, { geminiModel: "gemini-3.8-flash" }, { geminiModel: "gemini-3.5-flash-lite" }],
+    "pickSettings: aiProvider・geminiModel を読む"
+  );
+  eq(
+    [pickSettings({ aiProvider: "openai" }), pickSettings({ geminiModel: "gemini-9-ultra" }), pickSettings({ geminiApiKey: "AIzaSyFAKE" })],
+    [{}, {}, {}],
+    "pickSettings: 知らないサービス・モデル、Gemini の API キーの項目は読まない"
+  );
 
   const FAKE = "sk-ant-test-FAKE-KEY-never-export-7777";
+  const FAKE_G = "AIzaTEST-FAKE-GEMINI-KEY-never-export-5555";
   const { exportAll, importAll } = await import("../src/store/backup");
   const { useProgress } = await import("../src/store/useProgress");
   const { useSettings } = await import("../src/store/useSettings");
   const { useSecrets } = await import("../src/store/useSecrets");
   const S = () => useSettings.getState();
   const K = () => useSecrets.getState().anthropicApiKey;
+  const G = () => useSecrets.getState().geminiApiKey;
   useProgress.getState().resetAll();
   useProgress.getState().rate("words:0010", "good");
   useSecrets.getState().setAnthropicApiKey(FAKE);
-  S().set({ aiTranslateModel: "claude-sonnet-5" });
+  useSecrets.getState().setGeminiApiKey(FAKE_G);
+  S().set({ aiTranslateModel: "claude-sonnet-5", aiProvider: "claude", geminiModel: "gemini-3.5-flash-lite" });
   ok((mem.get("bp-secrets-v1") ?? "").includes(FAKE), "前提: キーは bp-secrets-v1 に保存されている");
+  ok((mem.get("bp-secrets-v1") ?? "").includes(FAKE_G), "前提: Gemini のキーも bp-secrets-v1 に保存されている");
+  ok(!(mem.get("bp-settings-v1") ?? "").includes(FAKE_G) && !(mem.get("bp-settings-v1") ?? "").includes(FAKE), "前提: 設定のストアにはどちらのキーも入らない");
 
   const json = exportAll();
   ok(!json.includes(FAKE), "書き出しに API キーが入らない");
   ok(!json.includes("anthropicApiKey") && !json.includes("bp-secrets"), "書き出しにキーの項目名・秘密のストアが入らない");
   ok(!json.includes("sk-ant-"), "書き出しに sk-ant- で始まる文字列が入らない");
   eq((JSON.parse(json) as { settings: Record<string, unknown> }).settings.aiTranslateModel, "claude-sonnet-5", "書き出し: モデルの設定（秘密ではない）は入る");
+  ok(!json.includes(FAKE_G) && !json.includes("geminiApiKey") && !json.includes("AIza"), "書き出しに Gemini の API キー（AIza…）・項目名が入らない");
+  const exportedSettings = (JSON.parse(json) as { settings: Record<string, unknown> }).settings;
+  eq([exportedSettings.aiProvider, exportedSettings.geminiModel], ["claude", "gemini-3.5-flash-lite"], "書き出し: サービス・Gemini のモデルの設定（秘密ではない）は入る");
 
   // キーを紛れ込ませたファイル（最上位・settings・music）を取り込んでも、端末のキーは変わらない
   const forged = JSON.parse(json) as Record<string, unknown>;
   const OTHER = "sk-ant-test-FORGED-KEY-from-file-8888";
+  const OTHER_G = "AIzaTEST-FORGED-GEMINI-KEY-from-file-9999";
   forged.anthropicApiKey = OTHER;
-  forged.secrets = { anthropicApiKey: OTHER };
-  forged["bp-secrets-v1"] = { state: { anthropicApiKey: OTHER } };
-  forged.settings = { ...(forged.settings as Record<string, unknown>), anthropicApiKey: OTHER, aiTranslateModel: "claude-opus-5" };
+  forged.geminiApiKey = OTHER_G;
+  forged.secrets = { anthropicApiKey: OTHER, geminiApiKey: OTHER_G };
+  forged["bp-secrets-v1"] = { state: { anthropicApiKey: OTHER, geminiApiKey: OTHER_G } };
+  forged.settings = {
+    ...(forged.settings as Record<string, unknown>),
+    anthropicApiKey: OTHER,
+    geminiApiKey: OTHER_G,
+    aiTranslateModel: "claude-opus-5",
+    aiProvider: "gemini",
+    geminiModel: "gemini-3.8-flash",
+  };
   (forged.music as Record<string, unknown>).anthropicApiKey = OTHER;
-  S().set({ aiTranslateModel: "claude-haiku-4-5" });
+  (forged.music as Record<string, unknown>).geminiApiKey = OTHER_G;
+  S().set({ aiTranslateModel: "claude-haiku-4-5", aiProvider: "claude", geminiModel: "gemini-3.5-flash-lite" });
   ok(importAll(JSON.stringify(forged), "replace").ok, "置き換えで取り込む");
-  eq(K(), FAKE, "置き換え: 端末の API キーは変わらない");
+  eq([K(), G()], [FAKE, FAKE_G], "置き換え: 端末の API キー（Anthropic・Gemini）は変わらない");
   eq(S().aiTranslateModel, "claude-opus-5", "置き換え: モデルの設定はファイルの内容");
-  ok(!("anthropicApiKey" in S()), "置き換え: 設定にキーの項目が入らない");
-  S().set({ aiTranslateModel: "claude-haiku-4-5" });
+  eq([S().aiProvider, S().geminiModel], ["gemini", "gemini-3.8-flash"], "置き換え: サービス・Gemini のモデルの設定はファイルの内容");
+  ok(!("anthropicApiKey" in S()) && !("geminiApiKey" in S()), "置き換え: 設定にキーの項目が入らない");
+  S().set({ aiTranslateModel: "claude-haiku-4-5", aiProvider: "claude", geminiModel: "gemini-3.5-flash-lite" });
   ok(importAll(JSON.stringify(forged), "merge").ok, "統合で取り込む");
-  eq([K(), S().aiTranslateModel], [FAKE, "claude-haiku-4-5"], "統合: キーも設定も端末側のまま");
-  ok(!(mem.get("bp-secrets-v1") ?? "").includes(OTHER) && !(mem.get("bp-settings-v1") ?? "").includes(OTHER), "ファイルのキーは端末のどこにも保存されない");
-  ok(!exportAll().includes(FAKE), "取り込んだ後の書き出しにもキーが入らない");
+  eq([K(), G(), S().aiTranslateModel, S().aiProvider, S().geminiModel], [FAKE, FAKE_G, "claude-haiku-4-5", "claude", "gemini-3.5-flash-lite"], "統合: キーも設定も端末側のまま");
+  ok(
+    ![OTHER, OTHER_G].some((k) => (mem.get("bp-secrets-v1") ?? "").includes(k) || (mem.get("bp-settings-v1") ?? "").includes(k)),
+    "ファイルのキーは端末のどこにも保存されない"
+  );
+  ok(!exportAll().includes(FAKE) && !exportAll().includes(FAKE_G), "取り込んだ後の書き出しにもキーが入らない");
 
   // キーが無くても書き出し・取り込みはこれまでどおり
   useSecrets.getState().clearAnthropicApiKey();
-  ok(importAll(exportAll(), "replace").ok && K() === null, "キーを削除した後も書き出し・取り込みはでき、キーは null のまま");
+  useSecrets.getState().clearGeminiApiKey();
+  ok(importAll(exportAll(), "replace").ok && K() === null && G() === null, "キーを削除した後も書き出し・取り込みはでき、キーは null のまま");
 
   useProgress.getState().resetAll();
-  S().set({ aiTranslateModel: "claude-haiku-4-5" });
+  S().set({ aiTranslateModel: "claude-haiku-4-5", aiProvider: "gemini", geminiModel: "gemini-3.8-flash" });
+}
+
+// ---------------------------------------------------------------------------
+// 🧑‍🏫 AI 先生の会話の履歴（useTeacher・bp-teacher-v1）: 会話には質問や歌詞の行が入りうるので、端末の外に出さない。
+// 書き出しに入らず、置き換え・統合の取り込みで変わらず（ファイルに紛れ込んでいても持ち込まない）、進捗のリセットでも消えない
+console.log("=== AI 先生の会話の履歴: 書き出さない・取り込まない・リセットで消さない ===");
+{
+  const MARK = "CONVERSA_INVENTADA_PARA_TESTE";
+  const { exportAll, importAll, resetAllProgress } = await import("../src/store/backup");
+  const { useTeacher } = await import("../src/store/useTeacher");
+  const { songLineContext } = await import("../src/services/ai/teacherContext");
+  const T = () => useTeacher.getState();
+  T().clearAll();
+  const id = T().newConversation({
+    context: songLineContext({ title: "Canção Inventada", artist: "Grupo de Teste", lines: [`Linha ${MARK}`, "Outra linha"], index: 0, translation: "訳" }),
+    at: "2026-09-27T10:00:00.000Z",
+  });
+  T().append(id, { role: "user", text: `Pergunta ${MARK}`, at: "2026-09-27T10:00:01.000Z" });
+  T().append(id, { role: "assistant", text: `Resposta ${MARK}`, at: "2026-09-27T10:00:02.000Z", model: "gemini-3.8-flash" });
+  ok((mem.get("bp-teacher-v1") ?? "").includes(MARK), "前提: 会話は bp-teacher-v1 に保存されている");
+
+  const json = exportAll();
+  ok(!json.includes(MARK), "書き出しに会話（質問・返事・文脈の歌詞の行）が入らない");
+  for (const k of ["bp-teacher-v1", "conversations", "contextLabel", "Canção Inventada"]) ok(!json.includes(k), `書き出しに会話の項目・ストアの名前（${k}）が入らない`);
+
+  // 会話を紛れ込ませたファイル（最上位・settings・music）を取り込んでも、端末の会話は変わらない
+  const forged = JSON.parse(json) as Record<string, unknown>;
+  const OTHER = "CONVERSA_DE_FORA";
+  const fake = [{ id: "de-fora", title: OTHER, createdAt: "2026-09-27T09:00:00.000Z", updatedAt: "2026-09-27T09:00:00.000Z", messages: [{ role: "user", text: OTHER, at: "2026-09-27T09:00:00.000Z" }] }];
+  forged.conversations = fake;
+  forged["bp-teacher-v1"] = { state: { conversations: fake }, version: 0 };
+  forged.teacher = { conversations: fake };
+  forged.settings = { ...(forged.settings as Record<string, unknown>), conversations: fake };
+  (forged.music as Record<string, unknown>).conversations = fake;
+  const before = JSON.stringify(T().conversations);
+  ok(importAll(JSON.stringify(forged), "replace").ok, "置き換えで取り込む");
+  eq(JSON.stringify(T().conversations), before, "置き換え: 端末の会話は変わらない");
+  ok(importAll(JSON.stringify(forged), "merge").ok, "統合で取り込む");
+  eq(JSON.stringify(T().conversations), before, "統合: 端末の会話は変わらない");
+  ok(![...mem.values()].some((v) => v.includes(OTHER)), "ファイルの会話は端末のどこにも保存されない");
+  ok(!exportAll().includes(MARK), "取り込んだ後の書き出しにも会話が入らない");
+
+  resetAllProgress();
+  eq(T().conversations.map((c) => c.id), [id], "進捗のリセットでは会話を消さない（設定・先生のシートの「すべて消す」で消す）");
+  ok(![...mem.entries()].some(([k, v]) => k !== "bp-teacher-v1" && v.includes(MARK)), "会話は bp-teacher-v1 のほかのどこにも保存されない");
+  T().clearAll();
+  ok(!(mem.get("bp-teacher-v1") ?? "").includes(MARK), "すべて消す: 保存データからも消える");
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

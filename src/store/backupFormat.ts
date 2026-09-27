@@ -14,6 +14,8 @@
 //     足した。文ごとの訳も同じ translations に文のハッシュをキーに入る（どちらも version は 3 のまま。無ければ項目を置かない）。
 //     AI 翻訳（Claude）で設定 aiTranslateModel を足した（version は 3 のまま。無ければ端末側のまま）。
 //     AI 翻訳の API キーは別のストア（useSecrets・bp-secrets-v1）にあり、書き出さず・読み込まない。
+//     AI（Gemini を既定に）で設定 aiProvider・geminiModel を足した（version は 3 のまま。無ければ端末側のまま）。
+//     Gemini の API キーも useSecrets にあり、書き出さず・読み込まない。AI 先生の会話の記録も書き出さない（端末だけ）。
 // v4 以降（新しいアプリで作ったファイル）: 警告を出し、このアプリが知っている項目だけ読む。
 // 歌詞の本文・歌詞キャッシュ（lyricsCache）は書き出さず、読み込みでも拾わない。
 // ============================================================================
@@ -106,6 +108,10 @@ const SETTINGS_SCHEMA: { [K in keyof Settings]-?: SettingKind } = {
   // 歌詞の AI 翻訳（Claude）のモデル（任意フィールド。無い古いファイルでは端末側の値のまま）。
   // API キーは設定ではなく useSecrets（bp-secrets-v1）にあり、書き出しにも読み込みにも一切入らない
   aiTranslateModel: ["claude-haiku-4-5", "claude-sonnet-5", "claude-opus-5"],
+  // AI（先生・歌詞の AI 翻訳）のサービスと Gemini のモデル（任意フィールド。無い古いファイルでは端末側の値のまま）。
+  // Gemini の API キーも useSecrets（bp-secrets-v1）にあり、書き出しにも読み込みにも一切入らない
+  aiProvider: ["gemini", "claude"],
+  geminiModel: ["gemini-3.8-flash", "gemini-3.5-flash-lite"],
 };
 
 function settingOk(kind: SettingKind, v: unknown): boolean {

@@ -6,6 +6,8 @@ import ConjugationTable from "./ConjugationTable";
 import Maskable from "./Maskable";
 import SpeakerButton from "./SpeakerButton";
 import RatingButtons from "./RatingButtons";
+import AskTeacherButton from "./teacher/AskTeacherButton";
+import { wordTeacherContext } from "./teacher/contexts";
 
 /** 一覧表示で評価した結果（表示用） */
 export interface RatedInfo {
@@ -70,6 +72,8 @@ export default function Flashcard({
   const hasExample = !!(extra?.examples?.length || extra?.collocations?.length);
   // 解説（カポエイラ語の元の訳）は読み（≒葡語）と意味の両方を含むので、葡・和の両方が見えている時だけ出す
   const showNote = !!word.note && ptVisible && jaVisible;
+  // 🧑‍🏫 AI 先生に聞くのも、葡・和の両方が見えている時だけ（聞くと答えが分かってしまうため）
+  const canAsk = ptVisible && jaVisible;
   const notDue = card?.last ? daysUntilDue(card, today) : 0;
 
   return (
@@ -103,7 +107,7 @@ export default function Flashcard({
         </Maskable>
       </div>
 
-      {(hasExample || showNote) && (
+      {(hasExample || showNote || canAsk) && (
         <div className="mt-2">
           <div className="flex flex-wrap items-center gap-x-4">
             {showNote && (
@@ -125,6 +129,8 @@ export default function Flashcard({
                 {openExample ? "例文を隠す" : "例文・コロケーション"}
               </button>
             )}
+            {/* 押せる範囲は 44px。行の高さは増やさない（上下の余白に食い込ませる） */}
+            {canAsk && <AskTeacherButton context={() => wordTeacherContext(word)} variant="link" className="-my-3" />}
           </div>
           {showNote && openNote && (
             <div className="mt-2 rounded-lg bg-slate-50 p-3 text-sm text-slate-600">{word.note}</div>

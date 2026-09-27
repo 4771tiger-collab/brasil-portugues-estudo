@@ -3,6 +3,8 @@ import { NavLink, useLocation } from "react-router-dom";
 import { currentStreak, studiedToday, useProgress } from "../store/useProgress";
 import { useToday } from "../hooks/useToday";
 import { useUi } from "../store/useUi";
+import TeacherFab from "./teacher/TeacherFab";
+import TeacherSheet from "./teacher/TeacherSheet";
 
 const tabs = [
   { to: "/", label: "ホーム", icon: "M3 11.5 12 4l9 7.5M5 10v9h14v-9", exact: true },
@@ -59,7 +61,13 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         </div>
       </header>
 
-      <main className="flex-1 pb-24 pl-[calc(1rem+env(safe-area-inset-left))] pr-[calc(1rem+env(safe-area-inset-right))] pt-4">{children}</main>
+      {/* 下の余白は下部ナビと 🧑‍🏫 の浮かぶボタンの分（ページの最後までスクロールすればボタンに隠れない）。
+          ボタンは safe-area の分だけ上がるので、余白にも safe-area を足す（曲の画面はさらに SongView が足す） */}
+      <main className="flex-1 pb-[calc(8rem+env(safe-area-inset-bottom))] pl-[calc(1rem+env(safe-area-inset-left))] pr-[calc(1rem+env(safe-area-inset-right))] pt-4">{children}</main>
+
+      {/* 🧑‍🏫 AI 先生（どの画面からでも。浮かぶボタンと、開くシート） */}
+      <TeacherFab />
+      <TeacherSheet />
 
       {/* 1枚ずつ学習の間（immersive）は下部ナビを隠す。親指ゾーンは学習の操作バーが使う */}
       <nav

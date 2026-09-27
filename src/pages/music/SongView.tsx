@@ -6,9 +6,12 @@
 // 和訳の改善: 「訳: 文ごと / 行ごと」。文ごと（既定）は2〜3行に分かれた文をまとめて1回で訳し（lyricSentences.ts）、
 //        訳は文の最後の行の下に出して、文の範囲に左の線を引く。送る前に口語の短縮形を直す（mtNormalize.ts）。
 //        行の表示の優先順位は resolveLineTranslation（自分の訳 > AI の訳 > 文の訳 > 行の機械翻訳）
-// AI 翻訳（任意）: 設定で自分の Anthropic API キーを入れたときだけ「🤖 AIで訳す（約N円）」を出す。確認のうえ
-//        曲全体（同じ行は1回）を Claude で訳し、行ごとに source "ai"・訳の補足 note つきで保存（aiTranslate.ts）。
+// AI 翻訳（任意）: 設定で自分の API キー（Gemini＝無料枠・既定 / Claude＝有料）を入れたときだけ
+//        「🤖 AIで訳す（Gemini・無料）/（Claude・約N円）」を出す。確認のうえ曲全体（同じ行は1回）を今使うサービス
+//        （services/ai）で訳し、行ごとに source "ai"・訳の補足 note つきで保存（aiTranslate.ts の translateSongWithAi）。
 //        AI の訳には「AI」の印と 💡（補足）を出す。文のどの行にも AI・自分の訳があれば、文の機械翻訳は出さない
+// 🧑‍🏫 AI 先生: 各行の 🧑‍🏫 と単語シートの「先生に聞く」で、行（前後2行・今出している訳）・歌詞の単語を文脈にして
+//        先生のシートを開く（開くときに再生を止める。送るのはシートで質問を選んだとき）
 // 歌詞は端末で LRCLIB から取得したものを表示するだけ（アプリには同梱しない）。
 // ============================================================================
 
@@ -43,16 +46,9 @@ import {
 } from "../../services/musicPractice";
 import { toKana } from "../../services/pronunciation";
 import { translateUnits } from "../../services/translate";
-import {
-  AI_MODEL_INFO,
-  AiTranslateError,
-  estimateAiCost,
-  formatUsd,
-  formatYen,
-  songLinesForAi,
-  toAiModel,
-  translateSongWithClaude,
-} from "../../services/aiTranslate";
+import { aiCostOf, estimateAiCost, formatUsd, formatYen, songLinesForAi, toAiModel, translateSongWithAi } from "../../services/aiTranslate";
+import { AiError, aiModelLabel } from "../../services/ai";
+import { openTeacher, songLineContext, songWordContext, useTeacherUi } from "../../services/ai/teacherContext";
 import {
   addTargetId,
   buildVocabItems,
@@ -66,10 +62,11 @@ import { YT_STATE } from "../../services/youtube";
 import { isKnownForLyrics } from "../../srs/scheduler";
 import { useMusic, userWordId, type TranslationInput } from "../../store/useMusic";
 import { useProgress } from "../../store/useProgress";
-import { useSecrets } from "../../store/useSecrets";
+import { keyFor, useSecrets } from "../../store/useSecrets";
 import { useSettings } from "../../store/useSettings";
 import { useAiRunStore, type AiRun } from "../../store/aiRun";
 import { useOnline } from "../../hooks/useOnline";
+import { useAiProvider } from "../../hooks/useAiProvider";
 import WordSheet from "../../components/WordSheet";
 import { useMusicPlayer } from "./MusicShell";
 import { useSongLyrics } from "./useSongLyrics";
@@ -138,6 +135,8 @@ interface LineProps {
   onEdit: (i: number) => void;
   onProduce: (i: number) => void;
   onNote: (i: number) => void;
+  /** 🧑‍🏫 この行を AI 先生に聞く */
+  onAsk: (i: number) => void;
 }
 
 const LyricLine = memo(function LyricLine(p: LineProps) {
@@ -177,25 +176,45 @@ const LyricLine = memo(function LyricLine(p: LineProps) {
           }`}
         />
       )}
-      {p.synced && (
-        <button
-          type="button"
-          onClick={() => p.onChip(p.i)}
-          title={p.syncMode ? "この行を今の再生位置に合わせる" : "この行から再生"}
-          aria-label={p.syncMode ? `この行を今の再生位置に合わせる（${p.timeLabel}）` : `${p.timeLabel} から再生`}
-          className={`mt-0.5 h-7 w-12 shrink-0 rounded-lg text-[11px] font-mono ${
-            p.syncMode
-              ? "bg-amber-400 text-white"
-              : p.repeat
-                ? "bg-brand-green text-white"
-                : p.active
-                  ? "bg-emerald-200 text-emerald-800"
-                  : "bg-slate-100 text-slate-500"
-          }`}
-        >
-          {p.timeLabel}
-        </button>
-      )}
+      {/* 左の列: 時刻のチップ（同期歌詞）と、その下に 🧑‍🏫（和訳の行に置くと訳の幅が狭くなりすぎるので、こちらに置く）。
+          空の行（♪）も列の幅は取る（行の頭をそろえる） */}
+      <div className={`flex ${p.synced ? "w-12" : "w-11"} shrink-0 flex-col items-center`}>
+        {p.synced && (
+          <button
+            type="button"
+            onClick={() => p.onChip(p.i)}
+            title={p.syncMode ? "この行を今の再生位置に合わせる" : "この行から再生"}
+            aria-label={p.syncMode ? `この行を今の再生位置に合わせる（${p.timeLabel}）` : `${p.timeLabel} から再生`}
+            className={`mt-0.5 h-7 w-12 shrink-0 rounded-lg text-[11px] font-mono ${
+              p.syncMode
+                ? "bg-amber-400 text-white"
+                : p.repeat
+                  ? "bg-brand-green text-white"
+                  : p.active
+                    ? "bg-emerald-200 text-emerald-800"
+                    : "bg-slate-100 text-slate-500"
+            }`}
+          >
+            {p.timeLabel}
+          </button>
+        )}
+        {/* 🧑‍🏫 この行を AI 先生に聞く（前後2行と今の訳を渡す。送るのはシートで質問を選んだとき）。
+            押せる範囲は 44px。行の高さはあまり増やさない（下に張り出す分は -mb-4 まで。-mb-5 だと次の行の
+            時刻のチップの上端に重なる。張り出した分が次の行に隠れないよう relative z-[1]） */}
+        {p.line.text && (
+          <button
+            type="button"
+            onClick={() => p.onAsk(p.i)}
+            className={`relative z-[1] -mb-4 flex h-11 w-full shrink-0 items-start justify-center rounded-lg text-[12px] opacity-60 ${
+              p.synced ? "pt-1" : "-mt-1 pt-1.5"
+            }`}
+            title="この行を AI先生に聞く（意味・文脈・比喩・文法）"
+            aria-label="この行を AI先生に聞く"
+          >
+            🧑‍🏫
+          </button>
+        )}
+      </div>
       <div className="min-w-0 flex-1">
         {p.line.text ? (
           <div className={`text-[17px] leading-relaxed ${p.active ? "font-semibold text-brand-ink" : "text-slate-700"}`}>
@@ -213,7 +232,7 @@ const LyricLine = memo(function LyricLine(p: LineProps) {
                 {p.jaKind !== "covered" && (
                   <div className={p.ja ? "text-slate-500" : "text-slate-300"}>
                     {p.jaKind === "ai" && (
-                      <span className="mr-1 rounded bg-violet-100 px-1 text-[10px] font-bold text-violet-700" title="AI（Claude）の訳">
+                      <span className="mr-1 rounded bg-violet-100 px-1 text-[10px] font-bold text-violet-700" title="AI の訳">
                         AI
                       </span>
                     )}
@@ -590,9 +609,9 @@ export default function SongView() {
   const lyr = useSongLyrics(song);
   const pauseOnWordTap = useSettings((s) => s.pauseOnWordTap);
   const replayAfterLookup = useSettings((s) => s.replayAfterLookup);
-  // AI 翻訳（任意）: 自分の API キー（この端末だけ・バックアップ対象外）とモデル
-  const apiKey = useSecrets((s) => s.anthropicApiKey);
-  const aiModel = toAiModel(useSettings((s) => s.aiTranslateModel));
+  // AI 翻訳（任意）: 今使うサービス（Gemini＝無料枠 / Claude＝有料）。キーはこの端末だけ・バックアップ対象外。
+  // どちらにもキーが無ければ ai.provider は null（ボタンを出さない）
+  const ai = useAiProvider();
   const online = useOnline();
 
   const [lem, setLem] = useState<Lemmatizer | null>(getLemmatizer());
@@ -748,12 +767,14 @@ export default function SongView() {
     []
   );
 
-  // 単語シート・和訳編集中は自動追従しない
-  overlayRef.current = !!sheet || editing != null;
+  // 単語シート・和訳編集中・AI 先生のシートを開いている間は自動追従しない（プレイリストの次の曲へ URL も移さない。
+  // 先生のシートは開いたときに履歴を1つ積むので、その間に URL を置き換えると戻る操作で前の曲に戻ってしまう）
+  const teacherOpen = useTeacherUi((s) => s.open);
+  overlayRef.current = !!sheet || editing != null || teacherOpen;
   useEffect(() => {
-    player.setBusy(!!sheet || editing != null);
+    player.setBusy(!!sheet || editing != null || teacherOpen);
     return () => player.setBusy(false);
-  }, [sheet, editing, player]);
+  }, [sheet, editing, teacherOpen, player]);
 
   useEffect(() => {
     if (player.ready && isCurrent) setRates(player.getRates());
@@ -858,9 +879,9 @@ export default function SongView() {
   );
 
   useEffect(() => {
-    if (activeIdx < 0 || !prefs.autoScroll || !follow || tab !== "lyrics" || sheet || editing != null) return;
+    if (activeIdx < 0 || !prefs.autoScroll || !follow || tab !== "lyrics" || sheet || editing != null || teacherOpen) return;
     scrollToLine(activeIdx);
-  }, [activeIdx, prefs.autoScroll, follow, tab, sheet, editing, scrollToLine]);
+  }, [activeIdx, prefs.autoScroll, follow, tab, sheet, editing, teacherOpen, scrollToLine]);
 
   // 手動スクロールの意図（ホイール・スワイプ・キー）で自動追従を止める
   useEffect(() => {
@@ -982,6 +1003,13 @@ export default function SongView() {
     },
     [clearGap]
   );
+  // 🧑‍🏫 AI 先生に聞く（行・歌詞の単語）。文脈は押したときに作る（行の訳などを読むので、下で ref に入れる）
+  const askRef = useRef<{
+    line: (i: number) => void;
+    word: (w: { surface: string; lemma?: string; meaning?: string; pos?: string }) => void;
+  }>({ line: () => {}, word: () => {} });
+  const onAsk = useCallback((i: number) => askRef.current.line(i), []);
+  const onAskWord = useCallback((w: { surface: string; lemma?: string; meaning?: string; pos?: string }) => askRef.current.word(w), []);
 
   function goSong(dir: 1 | -1) {
     clearGap();
@@ -1069,6 +1097,38 @@ export default function SongView() {
     return out;
   }
 
+  /** AI 先生を開く前に、再生中なら止める（読んでいる間に曲が進まないように。自動では再開しない） */
+  function pauseForTeacher() {
+    clearGap();
+    if (isCurrent && live.current.playerState === YT_STATE.PLAYING) player.pause();
+  }
+  // 🧑‍🏫 行: 前後2行・今出している訳（文ごとの訳なら文全体の訳）・AI の訳の補足を渡す
+  askRef.current.line = (i: number) => {
+    if (!song || !lines[i]?.text) return;
+    const g = multiGroupOf(i);
+    const view = resolveLineTranslation({
+      translations,
+      lineKey: lineKeys[i],
+      mode: jaMode,
+      group: g,
+      index: i,
+      groupLineKeys: g ? lineKeys.slice(g.start, g.end) : undefined,
+    });
+    const text = view.kind === "covered" && g ? translations[g.key]?.text : view.text;
+    const note = translations[lineKeys[i]]?.note?.trim();
+    const whole = view.kind === "group" || view.kind === "covered" ? "（文全体の訳）" : "";
+    const translation = text?.trim() ? `${whole}${text.trim()}${note ? ` ／ 補足: ${note}` : ""}` : "";
+    pauseForTeacher();
+    openTeacher(songLineContext({ title: song.title, artist: song.artist, lines: lines.map((l) => l.text), index: i, translation }));
+  };
+  // 🧑‍🏫 歌詞の単語（単語シートから）: 形・原形・意味・品詞と、その行
+  askRef.current.word = (w) => {
+    if (!song) return;
+    const li = sheetLineRef.current;
+    pauseForTeacher();
+    openTeacher(songWordContext({ title: song.title, artist: song.artist, ...w, line: li != null ? lines[li]?.text : undefined }));
+  };
+
   async function makeTranslation(redo: boolean, retry = false) {
     // 作り直しでも、自分で直した訳・AI の訳は送らない（上書きもしない）
     const todo = pendingUnits(units, translations, redo);
@@ -1093,44 +1153,61 @@ export default function SongView() {
   // 送る行: 同じ行は1回（繰り返すサビは1回分の料金で全部の箇所に出る）。空行は連の区切り
   const aiInput = useMemo(() => songLinesForAi(lines), [lines]);
   const aiLineCount = useMemo(() => aiInput.keys.filter((k) => k !== null).length, [aiInput]);
-  const aiEstimate = useMemo(() => estimateAiCost(aiInput.lines, aiModel), [aiInput, aiModel]);
+  // 料金の目安は Claude のときだけ（Gemini は無料枠なので出さない）
+  const aiEstimate = useMemo(
+    () => (ai.provider?.id === "claude" ? estimateAiCost(aiInput.lines, toAiModel(ai.provider.model)) : null),
+    [aiInput, ai.provider]
+  );
+  // ボタンに出すサービスと料金（「Gemini・無料」「Claude・約2.3円」）
+  const aiPriceLabel = ai.provider ? (ai.provider.free ? `${ai.provider.name}・無料` : `${ai.provider.name}・${formatYen(aiEstimate?.yen ?? 0)}`) : "";
   // この曲で AI の訳がある行（同じ行は1行と数える）
   const aiDone = uniqueKeys.filter((k) => translations[k]?.source === "ai" && !!translations[k]?.text.trim()).length;
   const aiHere = aiRun && aiRun.vid === videoId ? aiRun : null;
   const aiBusy = aiRun?.status === "busy";
 
   async function runAi() {
+    const provider = ai.provider;
+    const usedKey = ai.key;
     // 通信中（別の曲・前に開いた画面から始めたものも）はもう1回始めない
-    if (!apiKey || !song || !aiLineCount || useAiRunStore.getState().run?.status === "busy") return;
+    if (!provider || !usedKey || !song || !aiLineCount || useAiRunStore.getState().run?.status === "busy") return;
     const vid = videoId;
     const input = aiInput;
-    const model = aiModel;
-    const info = AI_MODEL_INFO[model];
-    const est = estimateAiCost(input.lines, model);
+    const label = aiModelLabel(provider.model);
+    const privacy = provider.free
+      ? [
+          `・送るもの: 歌詞 ${aiLineCount}行（繰り返しの行は1回）・曲名・アーティスト名 → Google（Gemini）`,
+          "・無料枠で使います（0円。課金を有効にしていなければ料金はかかりません）。",
+          "・⚠ 無料枠では、送った内容と AI の返事が Google の製品改善に使われ、人が読むこともあります。",
+        ]
+      : (() => {
+          const est = estimateAiCost(input.lines, toAiModel(provider.model));
+          return [
+            `・送るもの: 歌詞 ${aiLineCount}行（繰り返しの行は1回）・曲名・アーティスト名 → Anthropic（Claude）`,
+            `・料金の目安: ${formatYen(est.yen)}（${formatUsd(est.usd)}）。あなたの Anthropic アカウントに請求されます（実際の額は終わったら表示）`,
+          ];
+        })();
     const msg = [
-      `🤖 AI（Claude ${info.label}）で、この曲の歌詞を曲全体の流れに沿って訳します。`,
+      `🤖 AI（${label}）で、この曲の歌詞を曲全体の流れに沿って訳します。`,
       "",
-      `・送るもの: 歌詞 ${aiLineCount}行（繰り返しの行は1回）・曲名・アーティスト名 → Anthropic`,
-      `・料金の目安: ${formatYen(est.yen)}（${formatUsd(est.usd)}）。あなたの Anthropic アカウントに請求されます（実際の額は終わったら表示）`,
+      ...privacy,
       "・自分で直した訳はそのまま残ります（機械翻訳の訳は AI の訳に置き換わります）。",
       "",
       "よろしいですか？",
     ].join("\n");
     if (!confirm(msg)) return;
     const ctrl = new AbortController();
-    useAiRunStore.setState({ run: { vid, status: "busy", label: info.label, lines: aiLineCount }, ctrl });
+    useAiRunStore.setState({ run: { vid, status: "busy", provider: provider.id, label, lines: aiLineCount }, ctrl });
     try {
-      const r = await translateSongWithClaude({
-        apiKey,
-        model,
+      const r = await translateSongWithAi({
+        provider,
         title: song.title,
         artist: song.artist,
         lines: input.lines,
         signal: ctrl.signal,
       });
       // 通信中に設定でキーを削除・差し替えた → 結果を保存しない（中止と同じ扱い）
-      if (useSecrets.getState().anthropicApiKey !== apiKey) {
-        setAiRun({ vid, status: "cancelled" });
+      if (keyFor(provider.id, useSecrets.getState()) !== usedKey) {
+        setAiRun({ vid, status: "cancelled", provider: provider.id });
         return;
       }
       // 行のハッシュをキーに保存（歌詞の本文は保存しない）。自分で直した訳は mergeTranslations が上書きしない
@@ -1142,15 +1219,33 @@ export default function SongView() {
       const before = useMusic.getState().songs[vid]?.translations ?? {};
       const kept = Object.keys(map).filter((k) => before[k]?.edited).length;
       mergeTranslations(vid, map, "ai");
-      setAiRun({ vid, status: "done", label: info.label, cost: r.cost, lines: Object.keys(map).length - kept, kept, skipped: r.skipped });
+      setAiRun({
+        vid,
+        status: "done",
+        provider: r.provider,
+        label: aiModelLabel(r.model),
+        cost: r.cost,
+        lines: Object.keys(map).length - kept,
+        kept,
+        skipped: r.skipped,
+        fallbackFrom: r.fallbackFrom ? aiModelLabel(r.fallbackFrom) : null,
+      });
       if (videoIdRef.current === vid) {
         setShowJaAll(true);
         setPrefs({ showJa: true });
       }
     } catch (e) {
-      const err = e instanceof AiTranslateError ? e : null;
-      if (err?.kind === "aborted") setAiRun({ vid, status: "cancelled" });
-      else setAiRun({ vid, status: "error", error: err?.message ?? "AI翻訳に失敗しました", cost: err?.cost ?? null });
+      const err = e instanceof AiError ? e : null;
+      if (err?.kind === "aborted") setAiRun({ vid, status: "cancelled", provider: provider.id });
+      else {
+        setAiRun({
+          vid,
+          status: "error",
+          provider: provider.id,
+          error: err?.message ?? "AI翻訳に失敗しました",
+          cost: err?.usage ? aiCostOf(provider.id, err.model ?? provider.model, err.usage) : null,
+        });
+      }
     } finally {
       if (useAiRunStore.getState().ctrl === ctrl) useAiRunStore.setState({ ctrl: null });
     }
@@ -1299,8 +1394,9 @@ export default function SongView() {
   const editInitial =
     editingOwn?.text && (editingOwn.edited || editingOwn.source === "ai" || !editingGroupJa) ? editingOwn.text : "";
 
+  // 下の余白 pb-16: 曲の画面では 🧑‍🏫 の浮かぶボタンが「⤵ 現在行へ」の上まで上がるので、最後の行がボタンに隠れないように
   return (
-    <div className="animate-fade-in space-y-3 pb-4" onClick={() => menu && setMenu(false)}>
+    <div className="animate-fade-in space-y-3 pb-16" onClick={() => menu && setMenu(false)}>
       {transport}
 
       {/* 曲情報・曲送り */}
@@ -1391,19 +1487,25 @@ export default function SongView() {
               {tr.busy ? "翻訳中…" : "機械翻訳で作り直す"}
             </button>
           )}
-          {/* AI 翻訳（自分の API キーを保存しているときだけ。押すと料金の目安を出して確認する） */}
-          {apiKey && uniqueKeys.length > 0 && (
+          {/* AI 翻訳（自分の API キーを保存しているときだけ。押すと送るもの・料金（Claude）・無料枠の注意（Gemini）を出して確認する） */}
+          {ai.provider && uniqueKeys.length > 0 && (
             <button
               onClick={() => void runAi()}
               disabled={!online || aiBusy || tr.busy}
-              title={online ? "Claude で曲全体の流れに沿って訳します（有料・あなたの API キー）" : "オフラインのため使えません"}
+              title={
+                online
+                  ? ai.provider.free
+                    ? "Gemini（無料枠・あなたの API キー）で曲全体の流れに沿って訳します"
+                    : "Claude（有料・あなたの API キー）で曲全体の流れに沿って訳します"
+                  : "オフラインのため使えません"
+              }
               className="btn min-h-11 flex-1 bg-violet-50 py-2 text-sm text-violet-700 ring-1 ring-violet-200"
             >
               {aiHere?.status === "busy"
                 ? "🤖 AIで翻訳中…"
                 : aiBusy
                   ? "🤖 別の曲を翻訳中…"
-                  : `🤖 AIで${aiDone ? "訳し直す" : "訳す"}（${formatYen(aiEstimate.yen)}）`}
+                  : `🤖 AIで${aiDone ? "訳し直す" : "訳す"}（${aiPriceLabel}）`}
             </button>
           )}
           {/* 和訳の単位: 文ごと（2〜3行に分かれた文をまとめて訳す）/ 行ごと */}
@@ -1443,14 +1545,14 @@ export default function SongView() {
               </button>
             </div>
           )}
-          {apiKey && !online && uniqueKeys.length > 0 && (
+          {ai.provider && !online && uniqueKeys.length > 0 && (
             <div className="w-full text-[11px] text-slate-400">オフラインのため、AI 翻訳は使えません（つながると押せます）。</div>
           )}
           {aiHere?.status === "busy" && (
             <div className="flex w-full items-center gap-2 rounded-lg bg-violet-50 pl-3 text-xs text-violet-700" aria-live="polite">
               <span className="inline-block h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-violet-200 border-t-violet-600" aria-hidden />
               <span className="min-w-0 flex-1">
-                Claude（{aiHere.label}）が曲全体（{aiHere.lines}行）を訳しています…（1分ほどかかることがあります）
+                {aiHere.label} が曲全体（{aiHere.lines}行）を訳しています…（1分ほどかかることがあります）
               </span>
               <button type="button" onClick={() => useAiRunStore.getState().ctrl?.abort()} className="min-h-11 min-w-11 shrink-0 px-3 font-bold underline">
                 中止
@@ -1460,35 +1562,44 @@ export default function SongView() {
           {aiHere?.status === "done" && (
             <div className="w-full rounded-lg bg-violet-50 px-3 py-2 text-xs text-violet-800" aria-live="polite">
               <div className="font-bold">
-                ✓ AI翻訳しました（今回 {formatYen(aiHere.cost.yen)}・{formatUsd(aiHere.cost.usd)}）
+                {aiHere.cost
+                  ? `✓ AI翻訳しました（今回 ${formatYen(aiHere.cost.yen)}・${formatUsd(aiHere.cost.usd)}）`
+                  : "✓ AI翻訳しました（無料枠）"}
               </div>
               <div>
                 {aiHere.label}・{aiHere.lines}行を AI の訳にしました
                 {aiHere.kept > 0 ? `（自分で直した ${aiHere.kept}行はそのまま）` : ""}。💡 のある行は補足を見られます。
               </div>
+              {aiHere.fallbackFrom && (
+                <div className="text-violet-600">{aiHere.fallbackFrom} が回数の上限だったため、{aiHere.label} で訳しました。</div>
+              )}
               {aiHere.skipped > 0 && (
                 <div className="text-amber-700">{aiHere.skipped}行は AI の訳が返らなかったため、今の訳のままです。</div>
               )}
-              <div className="text-[11px] text-violet-500">料金は目安です（応答のトークン数から 1ドル＝150円で計算。請求はドル建て）。</div>
+              {aiHere.cost && (
+                <div className="text-[11px] text-violet-500">料金は目安です（応答のトークン数から 1ドル＝150円で計算。請求はドル建て）。</div>
+              )}
             </div>
           )}
           {aiHere?.status === "cancelled" && (
-            <div className="w-full text-xs text-slate-500">AI翻訳を中止しました（保存していません。途中で止めても料金がかかる場合があります）。</div>
+            <div className="w-full text-xs text-slate-500">
+              AI翻訳を中止しました（保存していません{aiHere.provider === "claude" ? "。途中で止めても料金がかかる場合があります" : ""}）。
+            </div>
           )}
           {aiHere?.status === "error" && (
             <div className="w-full text-xs text-rose-500" role="alert">
               {aiHere.error}
               {aiHere.cost ? `（この回の料金 ${formatYen(aiHere.cost.yen)}）` : ""}
-              {apiKey && (
+              {ai.provider && (
                 <button type="button" onClick={() => void runAi()} disabled={!online || aiBusy} className="ml-2 min-h-11 underline">
                   再試行
                 </button>
               )}
             </div>
           )}
-          {!apiKey && uniqueKeys.length > 0 && missing.length === 0 && tab === "lyrics" && (
+          {!ai.provider && uniqueKeys.length > 0 && missing.length === 0 && tab === "lyrics" && (
             <Link to="/settings" className="flex min-h-11 w-full items-center text-[11px] text-slate-400 underline decoration-slate-300 underline-offset-2">
-              🤖 機械翻訳が分かりにくいとき: 設定で自分の Claude の API キーを入れると、曲全体の流れをくみ取った AI 翻訳が使えます（任意・有料）
+              🤖 機械翻訳が分かりにくいとき: 設定で Gemini（無料枠）か Claude（有料）の API キーを入れると、曲全体の流れをくみ取った AI 翻訳が使えます（任意）
             </Link>
           )}
           {jaMode === "sentence" && missing.length > 0 && tab === "lyrics" && (
@@ -1607,6 +1718,7 @@ export default function SongView() {
                 onEdit={onEdit}
                 onProduce={onProduce}
                 onNote={onNote}
+                onAsk={onAsk}
               />
             );
           })}
@@ -1645,6 +1757,7 @@ export default function SongView() {
           videoId={videoId}
           onClose={closeSheet}
           onMove={(i) => setSheet((s) => (s && i >= 0 && i < s.tokens.length ? { ...s, index: i } : s))}
+          onAskTeacher={onAskWord}
         />
       )}
 

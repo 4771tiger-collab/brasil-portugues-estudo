@@ -2240,7 +2240,7 @@ console.log("=== useMusic（和訳の出どころ・文ごとの訳） ===");
 
 // ---------------------------------------------------------------------------
 // AI 翻訳の API キー（useSecrets）: 設定とは別のキーに保存・何もしない migrate・伏せ字
-console.log("=== useSecrets（AI 翻訳の API キー） ===");
+console.log("=== useSecrets（AI の API キー: Anthropic・Gemini） ===");
 {
   const FAKE = "sk-ant-test-FAKE-KEY-0000-wxyz";
   mem.set("bp-secrets-v1", JSON.stringify({ state: { anthropicApiKey: FAKE, futureKey: 1 }, version: 3 }));
@@ -2248,7 +2248,14 @@ console.log("=== useSecrets（AI 翻訳の API キー） ===");
   eq(useSecrets.getState().anthropicApiKey, FAKE, "将来版（version:3）の保存データも読める（migrate で素通し）");
   useSecrets.getState().setAnthropicApiKey(`  ${FAKE}\n`);
   eq(useSecrets.getState().anthropicApiKey, FAKE, "保存時に前後の空白・改行を除く");
-  eq(Object.keys(JSON.parse(mem.get("bp-secrets-v1") ?? "{}").state ?? {}), ["anthropicApiKey"], "保存するのはキーだけ（関数は保存しない）");
+  eq(useSecrets.getState().geminiApiKey, null, "Gemini のキーが無い保存データ → Gemini は null");
+  eq(Object.keys(JSON.parse(mem.get("bp-secrets-v1") ?? "{}").state ?? {}).sort(), ["anthropicApiKey", "geminiApiKey"], "保存するのはキーだけ（関数は保存しない）");
+  const FAKE_G = "AIzaTEST-FAKE-GEMINI-0000-abcd";
+  useSecrets.getState().setGeminiApiKey(` ${FAKE_G} `);
+  eq([useSecrets.getState().geminiApiKey, JSON.parse(mem.get("bp-secrets-v1") ?? "{}").state?.geminiApiKey], [FAKE_G, FAKE_G], "Gemini のキーも前後の空白を除いて bp-secrets-v1 に保存");
+  ok(!(mem.get("bp-settings-v1") ?? "").includes(FAKE_G), "Gemini のキーも設定（bp-settings-v1）には入らない");
+  useSecrets.getState().clearGeminiApiKey();
+  eq([useSecrets.getState().geminiApiKey, JSON.parse(mem.get("bp-secrets-v1") ?? "{}").state?.geminiApiKey], [null, null], "Gemini のキーの削除 → 保存データからも消える");
   ok(!(mem.get("bp-settings-v1") ?? "").includes(FAKE), "キーは設定（bp-settings-v1）には入らない");
   eq(maskApiKey(FAKE), "…wxyz", "伏せ字は末尾4文字だけ");
   eq([maskApiKey(null), maskApiKey("short")], ["", "…"], "伏せ字: 無い → 空・短いキーは末尾も出さない");
@@ -2283,7 +2290,8 @@ console.log("=== useSettings（移行・既定値） ===");
   );
   eq(st.speechInputEnabled, false, "T2-8 の新しいキー（音声認識の「言ってみる」）は既定でオフ（オプトイン）");
   eq(st.aiTranslateModel, "claude-haiku-4-5", "AI 翻訳のモデルの既定は claude-haiku-4-5（キーが無ければ使われない）");
-  ok(!("anthropicApiKey" in st), "設定に API キーの項目は無い（useSecrets に置く）");
+  eq([st.aiProvider, st.geminiModel], ["gemini", "gemini-3.8-flash"], "AI のサービスの既定は Gemini（無料枠）・モデルは 3.8 Flash");
+  ok(!("anthropicApiKey" in st) && !("geminiApiKey" in st), "設定に API キーの項目は無い（useSecrets に置く）");
   st.set({ studyView: "list" });
   const saved = JSON.parse(mem.get("bp-settings-v1") ?? "{}");
   eq([saved.version, saved.state?.studyView, saved.state?.rate, saved.state?.futureKey], [0, "list", 0.8, "x"], "書き戻しても既存の値と未知の項目が残る");

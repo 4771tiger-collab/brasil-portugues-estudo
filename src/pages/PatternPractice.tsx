@@ -4,6 +4,8 @@ import { PATTERNS } from "../data/content";
 import type { Pattern } from "../data/types";
 import SayItButton from "../components/SayItButton";
 import SpeakerButton from "../components/SpeakerButton";
+import AskTeacherButton from "../components/teacher/AskTeacherButton";
+import { patternContext } from "../services/ai/teacherContext";
 import { audio, delay } from "../services/audio";
 import { speechInput } from "../services/speechInput";
 import { toKana } from "../services/pronunciation";
@@ -79,6 +81,18 @@ const RATING_UI: Record<SelfRating, { label: string; mark: string; btn: string; 
   close: { label: "惜しい", mark: "△", btn: "bg-amber-50 text-amber-600 ring-amber-200", text: "text-amber-500" },
   missed: { label: "言えなかった", mark: "×", btn: "bg-rose-50 text-rose-600 ring-rose-200", text: "text-rose-500" },
 };
+
+/** 🧑‍🏫 AI 先生に渡す文型の文脈（型・和文の型・今の文・入れ替え語の例・メモ） */
+function askContext(pattern: Pattern, pt: string, ja: string) {
+  return patternContext({
+    category: pattern.category,
+    frame: pattern.frame,
+    ja: pattern.ja,
+    sentence: pt ? { pt, ja } : null,
+    options: slotOptions(pattern).map((o) => o.pt),
+    note: pattern.note,
+  });
+}
 
 /** 入れ替え部分を強調したポルトガル語の文 */
 function SlotSentence({ pattern, value }: { pattern: Pattern; value: string }) {
@@ -180,11 +194,15 @@ function PatternCard({ pattern, onSentence }: { pattern: Pattern; onSentence: ()
 
   return (
     <div className="card space-y-3 p-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2">
         <span className="chip bg-brand-blue/10 font-bold text-brand-blue">{pattern.category}</span>
-        <button onClick={shuffleOne} className="-my-2 min-h-11 px-2 text-xs text-slate-400">
-          🔀 ランダム
-        </button>
+        <div className="-my-2 flex shrink-0 items-center gap-1">
+          {/* 🧑‍🏫 この文型を AI 先生に聞く（例文をもっと・場面での言い方・丁寧／くだけた言い方） */}
+          <AskTeacherButton context={() => askContext(pattern, sentence, sentenceJa)} />
+          <button onClick={shuffleOne} className="min-h-11 px-2 text-xs text-slate-400">
+            🔀 ランダム
+          </button>
+        </div>
       </div>
 
       <div className="rounded-xl bg-slate-50 p-4 text-center">
@@ -485,6 +503,16 @@ function Drill({ onBrowse }: { onBrowse: () => void }) {
               </button>
             </div>
             {item.pattern.note && <p className="pt-1 text-left text-xs text-slate-400">💡 {item.pattern.note}</p>}
+            {/* 🧑‍🏫 この文を AI 先生に聞く（聞いている間は答えの音声・🎤 の聞き取りを止める） */}
+            <div className="flex justify-center pt-1">
+              <AskTeacherButton
+                context={() => askContext(item.pattern, item.pt, item.ja)}
+                onOpen={() => {
+                  stopListening();
+                  player.stop();
+                }}
+              />
+            </div>
           </div>
         )}
         {/* 🎤 言ってみる（音声認識がオンのときだけ出る）。採点したら答えを開く。答えの後も言い直せる */}

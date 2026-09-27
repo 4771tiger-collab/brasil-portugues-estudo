@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { useSettings } from "../store/useSettings";
 import { applyBackup, describeBackup, parseBackup, resetAllProgress, saveBackupFile, type ImportMode } from "../store/backup";
 import { useMeta } from "../store/useMeta";
@@ -7,21 +8,20 @@ import { diffDays, todayStr } from "../srs/scheduler";
 import { audio, type VoiceInfo } from "../services/audio";
 import { speechErrorMessage, speechInput } from "../services/speechInput";
 import { useSpeechInput } from "../hooks/useSpeechInput";
-import type { HandsfreeDirection, ProductionAnswerMode, StudyDirection, StudyViewMode } from "../data/types";
+import type { AiProviderId, HandsfreeDirection, ProductionAnswerMode, StudyDirection, StudyViewMode } from "../data/types";
 import { HANDSFREE_GAPS_SEC } from "../services/handsfree";
 import UpdateBanner from "../components/UpdateBanner";
 import { checkForUpdate, type UpdateCheckResult } from "../pwa/usePwa";
-import { looksLikeAnthropicKey, maskApiKey, normalizeApiKey, useSecrets } from "../store/useSecrets";
+import { looksLikeAnthropicKey, looksLikeGeminiKey, maskApiKey, normalizeApiKey, useSecrets } from "../store/useSecrets";
 import { abortAiRun } from "../store/aiRun";
 import { useOnline } from "../hooks/useOnline";
-import {
-  AI_MODELS,
-  AI_MODEL_INFO,
-  formatYen,
-  testClaudeConnection,
-  toAiModel,
-  typicalSongCost,
-} from "../services/aiTranslate";
+import { AI_MODELS, AI_MODEL_INFO, aiCostOf, formatYen, toAiModel, typicalSongCost } from "../services/aiTranslate";
+import { AI_PROVIDERS, AI_PROVIDER_INFO, activeProviderId, aiModelLabel, toAiProviderId } from "../services/ai";
+import { GEMINI_MODELS, GEMINI_MODEL_INFO, createGeminiProvider, toGeminiModel } from "../services/ai/gemini";
+import { createClaudeProvider } from "../services/ai/claude";
+import { abortTeacherRun } from "../services/ai/teacherContext";
+import { clearTeacherHistory } from "../services/ai/teacherChat";
+import { useTeacher } from "../store/useTeacher";
 
 function Row({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
@@ -364,95 +364,294 @@ type KeyTest = { status: "idle" } | { status: "busy" } | { status: "ok"; msg: st
 const CAN_MASK_WITH_CSS = typeof CSS !== "undefined" && typeof CSS.supports === "function" && CSS.supports("-webkit-text-security", "disc");
 
 /**
- * 🤖 AI翻訳（Claude）の設定（任意）。利用者自身の Anthropic API キーを入れたときだけ、曲の画面に「🤖 AIで訳す」が出る。
- * キーは useSecrets（bp-secrets-v1。この端末だけ・バックアップ対象外）に保存し、画面には末尾4文字だけ出す。
- * モデル（aiTranslateModel）は普通の設定（バックアップに入る）。接続テストは小さなリクエストを1回送る
+ * API キーの入力欄（伏せ字・表示の切り替え・保存・削除）。保存済みのキーは入力欄に戻さず、末尾4文字だけ出す。
+ * キーを替えた・削除したら、通信中の AI 翻訳・AI 先生の返事も止める（前のキーでの通信を続けない）。onChanged で接続テストの結果を消す
  */
-function AiTranslateSettings() {
+function ApiKeyField(p: {
+  /** 入力欄の name（サービスごとに別。パスワード マネージャーに覚えさせない） */
+  name: string;
+  /** 読み上げ用のラベル（「Gemini の API キー」など） */
+  label: string;
+  placeholder: string;
+  savedKey: string | null;
+  setKey: (key: string | null) => void;
+  clearKey: () => void;
+  /** キーらしい形か（違っても保存はできる。注意を出すだけ） */
+  looksLike: (key: string) => boolean;
+  /** 形が違うときの注意 */
+  formatHint: string;
+  /** 削除の確認の文 */
+  removeConfirm: string;
+  onChanged: () => void;
+}) {
+  // 入力中のキー（保存したら消す。保存済みのキーは入力欄に戻さない）
+  const [draft, setDraft] = useState("");
+  const [show, setShow] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
+  const draftKey = normalizeApiKey(draft);
+
+  function save() {
+    if (!draftKey) return;
+    // 別のキーに替えたら、前のキーで通信中の AI 翻訳・AI 先生の返事も止める
+    if (draftKey !== p.savedKey) {
+      abortAiRun();
+      abortTeacherRun();
+    }
+    p.setKey(draftKey);
+    setDraft("");
+    setShow(false);
+    p.onChanged();
+    setNote(p.looksLike(draftKey) ? "キーを保存しました。「接続テスト」で使えるか確かめられます。" : `保存しました。ただし ${p.formatHint}`);
+  }
+
+  function remove() {
+    if (!confirm(p.removeConfirm)) return;
+    // 通信中の AI 翻訳・AI 先生の返事も止める（削除したキーでの通信を続けない）
+    abortAiRun();
+    abortTeacherRun();
+    p.clearKey();
+    p.onChanged();
+    setNote("キーを削除しました。");
+  }
+
+  return (
+    <div className="space-y-2 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-500">
+      <div className="flex items-center justify-between gap-2">
+        <span className="font-medium text-slate-600">APIキー</span>
+        <span className={`chip ${p.savedKey ? "bg-emerald-100 text-emerald-700" : "bg-slate-200 text-slate-600"}`}>
+          {p.savedKey ? `保存済み ${maskApiKey(p.savedKey)}` : "未設定"}
+        </span>
+      </div>
+      <div className="flex gap-2">
+        {/* パスワード欄にしない（CAN_MASK_WITH_CSS）。伏せ字は CSS で、「表示」で外す。
+            パスワード マネージャーの拡張機能にも保存・入力させない（data-lpignore / data-1p-ignore） */}
+        <input
+          type={show || CAN_MASK_WITH_CSS ? "text" : "password"}
+          name={p.name}
+          data-lpignore="true"
+          data-1p-ignore=""
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          placeholder={p.savedKey ? "別のキーに替えるときだけ入力" : p.placeholder}
+          autoComplete="off"
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
+          aria-label={p.label}
+          className={`min-h-11 min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2 font-mono text-sm text-brand-ink ${
+            !show && CAN_MASK_WITH_CSS ? "[-webkit-text-security:disc]" : ""
+          }`}
+        />
+        <button
+          type="button"
+          onClick={() => setShow((v) => !v)}
+          aria-pressed={show}
+          aria-label={show ? "入力したキーを隠す" : "入力したキーを表示"}
+          className="btn-ghost min-h-11 min-w-11 shrink-0 px-2 text-xs"
+        >
+          {show ? "隠す" : "表示"}
+        </button>
+      </div>
+      <div className="flex gap-2">
+        <button type="button" onClick={save} disabled={!draftKey} className="btn-primary min-h-11 flex-1 text-sm">
+          保存
+        </button>
+        <button
+          type="button"
+          onClick={remove}
+          disabled={!p.savedKey}
+          className="btn min-h-11 flex-1 bg-rose-50 text-sm text-rose-600 ring-1 ring-rose-200"
+        >
+          削除
+        </button>
+      </div>
+      {note && <p aria-live="polite">{note}</p>}
+    </div>
+  );
+}
+
+/** 接続テストのボタンと結果（キーが無い・オフラインのときは押せない理由を出す） */
+function KeyTestButton(p: { hasKey: boolean; online: boolean; test: KeyTest; onRun: () => void; footnote: string }) {
+  return (
+    <>
+      <button
+        type="button"
+        onClick={p.onRun}
+        disabled={!p.hasKey || !p.online || p.test.status === "busy"}
+        className="btn-ghost min-h-11 w-full text-sm"
+      >
+        {p.test.status === "busy" ? "接続テスト中…" : "接続テスト"}
+      </button>
+      {!p.hasKey && <p className="px-1 text-[11px] text-slate-400">キーを保存すると、接続テストができます。</p>}
+      {p.hasKey && !p.online && <p className="px-1 text-[11px] text-slate-400">オフラインのため、接続テストはできません。</p>}
+      {p.test.status === "ok" && (
+        <p aria-live="polite" className="rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
+          ✓ {p.test.msg}
+        </p>
+      )}
+      {p.test.status === "error" && (
+        <p role="alert" className="rounded-lg bg-rose-50 px-3 py-2 text-xs leading-relaxed text-rose-600">
+          {p.test.msg}
+        </p>
+      )}
+      <p className="px-1 text-[11px] text-slate-400">{p.footnote}</p>
+    </>
+  );
+}
+
+/** 接続テストを走らせる（画面を離れたら通信も止める）。run が返した文を ok に、失敗の文を error に出す */
+function useKeyTest(): { test: KeyTest; reset: () => void; run: (fn: (signal: AbortSignal) => Promise<string>) => Promise<void> } {
+  const [test, setTest] = useState<KeyTest>({ status: "idle" });
+  const ctrl = useRef<AbortController | null>(null);
+  useEffect(() => () => ctrl.current?.abort(), []);
+  return {
+    test,
+    reset: () => {
+      ctrl.current?.abort();
+      setTest({ status: "idle" });
+    },
+    run: async (fn) => {
+      ctrl.current?.abort();
+      const c = new AbortController();
+      ctrl.current = c;
+      setTest({ status: "busy" });
+      try {
+        const msg = await fn(c.signal);
+        if (!c.signal.aborted) setTest({ status: "ok", msg });
+      } catch (e) {
+        if (!c.signal.aborted) setTest({ status: "error", msg: e instanceof Error ? e.message : "接続できませんでした" });
+      }
+    },
+  };
+}
+
+/**
+ * Gemini（Google AI Studio。無料枠・既定）の設定: 説明（無料・課金しなければ料金なし・無料枠のデータの扱い・18歳以上）、
+ * キーの作り方、キー、モデル、接続テスト。キーは useSecrets（この端末だけ・バックアップ対象外）
+ */
+function GeminiSettings({ online }: { online: boolean }) {
+  const savedKey = useSecrets((st) => st.geminiApiKey);
+  const setKey = useSecrets((st) => st.setGeminiApiKey);
+  const clearKey = useSecrets((st) => st.clearGeminiApiKey);
+  const model = toGeminiModel(useSettings((st) => st.geminiModel));
+  const set = useSettings((st) => st.set);
+  const kt = useKeyTest();
+
+  return (
+    <div className="space-y-2 rounded-xl border border-slate-200 p-3">
+      <h3 className="text-sm font-bold text-brand-ink">
+        Gemini（Google）<span className="ml-1 chip bg-emerald-100 text-emerald-700">無料枠・おすすめ</span>
+      </h3>
+      <ul className="list-disc space-y-1 pl-4 text-xs leading-relaxed text-slate-500">
+        <li>
+          <span className="font-bold text-slate-600">無料枠で使えます（0円）。</span>
+          課金（請求先アカウント）を有効にしなければ料金は発生しません（上限に達したら止まるだけです）。
+        </li>
+        <li className="rounded-lg bg-amber-50 px-2 py-1 text-amber-800">
+          <span className="font-bold">⚠ 無料枠では、送った内容とAIの返事が Google の製品改善に使われ、人が読むこともあります。</span>
+          個人情報や秘密は書かないでください。
+        </li>
+        <li>18歳以上が対象です（Google の利用規約）。</li>
+        <li>
+          回数の上限はプロジェクトごとに決まっていて、AI Studio で確認できます。3.8 Flash が上限のときは、その回だけ 3.5 Flash-Lite
+          で答えます。
+        </li>
+        <li>送るのは、AI 先生に質問したとき・曲の画面で「🤖 AIで訳す」を押して確認したときだけです。</li>
+      </ul>
+      <details className="rounded-lg bg-slate-50 px-3 py-1 text-xs text-slate-500">
+        <summary className="flex min-h-11 cursor-pointer items-center font-medium text-slate-600">キーの作り方</summary>
+        <ol className="mb-2 list-decimal space-y-1 pl-5">
+          <li>
+            <a href="https://aistudio.google.com" target="_blank" rel="noreferrer" className="text-brand-blue underline">
+              aistudio.google.com
+            </a>{" "}
+            を開いて、Google アカウントでログインします。
+          </li>
+          <li>「Get API key」でキーを作り、表示されたキー（AIza で始まる）をコピーします。</li>
+          <li>下の欄に貼り付けて「保存」し、「接続テスト」で確かめます。</li>
+          <li>課金（Billing）は設定しなくて大丈夫です。設定しなければ無料枠のまま使えます。</li>
+          <li>回数の上限（1分あたり・1日あたり）は AI Studio で確認できます。</li>
+        </ol>
+      </details>
+
+      <ApiKeyField
+        name="gemini-api-key-input"
+        label="Gemini の API キー"
+        placeholder="AIza…"
+        savedKey={savedKey}
+        setKey={setKey}
+        clearKey={clearKey}
+        looksLike={looksLikeGeminiKey}
+        formatHint="Gemini の API キーは普通 AIza で始まります。別のキーでないか確かめてください。"
+        removeConfirm="保存した Gemini の API キーをこの端末から削除します。よろしいですか？（これまでの訳は残ります）"
+        onChanged={kt.reset}
+      />
+
+      <Row label="モデル" hint={GEMINI_MODEL_INFO[model].hint}>
+        <select
+          value={model}
+          onChange={(e) => {
+            set({ geminiModel: toGeminiModel(e.target.value) });
+            kt.reset();
+          }}
+          aria-label="Gemini のモデル"
+          className="min-h-11 max-w-[210px] rounded-lg border border-slate-200 px-2 py-1.5"
+        >
+          {GEMINI_MODELS.map((m) => (
+            <option key={m} value={m}>
+              {GEMINI_MODEL_INFO[m].label}（{GEMINI_MODEL_INFO[m].hint}）
+            </option>
+          ))}
+        </select>
+      </Row>
+
+      <KeyTestButton
+        hasKey={!!savedKey}
+        online={online}
+        test={kt.test}
+        onRun={() =>
+          void kt.run(async (signal) => {
+            const r = await createGeminiProvider({ apiKey: savedKey, model }).testConnection({ signal });
+            return `接続できました（${aiModelLabel(r.model)}・無料枠）`;
+          })
+        }
+        footnote="接続テストは、選んだモデルに短いメッセージを1回送ります（無料枠の回数を1回使います）。"
+      />
+    </div>
+  );
+}
+
+/**
+ * Claude（Anthropic。任意・有料）の設定: 説明（料金の目安）、キーの作り方、キー、モデル、接続テスト。
+ * キーは useSecrets（この端末だけ・バックアップ対象外）。モデル（aiTranslateModel）は普通の設定（バックアップに入る）
+ */
+function ClaudeSettings({ online }: { online: boolean }) {
   const savedKey = useSecrets((st) => st.anthropicApiKey);
   const setKey = useSecrets((st) => st.setAnthropicApiKey);
   const clearKey = useSecrets((st) => st.clearAnthropicApiKey);
   const model = toAiModel(useSettings((st) => st.aiTranslateModel));
   const set = useSettings((st) => st.set);
-  const online = useOnline();
-  // 入力中のキー（保存したら消す。保存済みのキーは入力欄に戻さない）
-  const [draft, setDraft] = useState("");
-  const [show, setShow] = useState(false);
-  const [note, setNote] = useState<string | null>(null);
-  const [test, setTest] = useState<KeyTest>({ status: "idle" });
-  const ctrl = useRef<AbortController | null>(null);
-  // 画面を離れたら接続テストの通信も止める
-  useEffect(() => () => ctrl.current?.abort(), []);
-
-  const draftKey = normalizeApiKey(draft);
-
-  function save() {
-    if (!draftKey) return;
-    ctrl.current?.abort();
-    // 別のキーに替えたら、前のキーで通信中の AI 翻訳も止める
-    if (draftKey !== savedKey) abortAiRun();
-    setKey(draftKey);
-    setDraft("");
-    setShow(false);
-    setTest({ status: "idle" });
-    setNote(
-      looksLikeAnthropicKey(draftKey)
-        ? "キーを保存しました。「接続テスト」で使えるか確かめられます。"
-        : "保存しました。ただし Anthropic の API キーは普通 sk-ant- で始まります。別のキーでないか確かめてください。"
-    );
-  }
-
-  function remove() {
-    if (!confirm("保存した API キーをこの端末から削除します。AI 翻訳は使えなくなります（これまでの訳は残ります）。よろしいですか？")) return;
-    ctrl.current?.abort();
-    // 曲の画面で通信中の AI 翻訳も止める（削除したキーでの通信を続けない）
-    abortAiRun();
-    clearKey();
-    setTest({ status: "idle" });
-    setNote("キーを削除しました。");
-  }
-
-  async function runTest() {
-    if (!savedKey) return;
-    ctrl.current?.abort();
-    const c = new AbortController();
-    ctrl.current = c;
-    setTest({ status: "busy" });
-    try {
-      const r = await testClaudeConnection({ apiKey: savedKey, model, signal: c.signal });
-      if (!c.signal.aborted) {
-        setTest({ status: "ok", msg: `接続できました（${AI_MODEL_INFO[r.model].label}・今回 ${formatYen(r.cost.yen)}）` });
-      }
-    } catch (e) {
-      if (!c.signal.aborted) setTest({ status: "error", msg: e instanceof Error ? e.message : "接続できませんでした" });
-    }
-  }
+  const kt = useKeyTest();
 
   return (
-    <section className="card space-y-2 p-3">
-      <h2 className="px-1 text-sm font-bold text-slate-500">🤖 AI翻訳（Claude）</h2>
-      <div className="space-y-1.5 px-1 text-xs leading-relaxed text-slate-500">
-        <p>
-          曲の歌詞の和訳を、Claude（Anthropic の AI）で作れます。曲全体の流れ・口語・比喩をくみ取った自然な訳になり、慣用句や文化の背景には 💡
-          の補足が付きます。<span className="font-bold text-slate-600">任意の機能です</span>
-          （キーを入れなければ、これまでどおり無料の機械翻訳だけを使います）。
-        </p>
-        <ul className="list-disc space-y-1 pl-4">
-          <li>
-            <span className="font-bold text-slate-600">歌詞の行・曲名・アーティスト名が Anthropic に送られて翻訳されます。</span>
-            送るのは、曲の画面で「🤖 AIで訳す」を押して確認したときだけです。
-          </li>
-          <li>APIキーはこの端末にだけ保存します（バックアップ・エクスポートに含めません）。</li>
-          <li>
-            利用料はあなたの Anthropic アカウントに請求されます。1曲あたりの目安（40行の曲）:{" "}
-            {AI_MODELS.map((m) => `${AI_MODEL_INFO[m].label} ${formatYen(typicalSongCost(m).yen)}`).join(" / ")}
-            （1ドル＝150円で計算した目安）。
-          </li>
-          <li>Anthropic Console で月の利用上限を設定しておくと安心です。</li>
-        </ul>
-      </div>
+    <div className="space-y-2 rounded-xl border border-slate-200 p-3">
+      <h3 className="text-sm font-bold text-brand-ink">
+        Claude（Anthropic）<span className="ml-1 chip bg-slate-200 text-slate-600">任意・有料</span>
+      </h3>
+      <ul className="list-disc space-y-1 pl-4 text-xs leading-relaxed text-slate-500">
+        <li>
+          <span className="font-bold text-slate-600">質問・歌詞の行・曲名・アーティスト名が Anthropic に送られます。</span>
+          送るのは、AI 先生に質問したとき・曲の画面で「🤖 AIで訳す」を押して確認したときだけです。
+        </li>
+        <li>
+          利用料はあなたの Anthropic アカウントに請求されます。歌詞の翻訳1曲あたりの目安（40行の曲）:{" "}
+          {AI_MODELS.map((m) => `${AI_MODEL_INFO[m].label} ${formatYen(typicalSongCost(m).yen)}`).join(" / ")}
+          （1ドル＝150円で計算した目安）。
+        </li>
+        <li>Anthropic Console で月の利用上限を設定しておくと安心です。</li>
+      </ul>
       <details className="rounded-lg bg-slate-50 px-3 py-1 text-xs text-slate-500">
-        <summary className="cursor-pointer py-2 font-medium text-slate-600">APIキーの作り方</summary>
+        <summary className="flex min-h-11 cursor-pointer items-center font-medium text-slate-600">キーの作り方</summary>
         <ol className="mb-2 list-decimal space-y-1 pl-5">
           <li>
             <a href="https://console.anthropic.com" target="_blank" rel="noreferrer" className="text-brand-blue underline">
@@ -466,67 +665,27 @@ function AiTranslateSettings() {
         </ol>
       </details>
 
-      <div className="space-y-2 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-500">
-        <div className="flex items-center justify-between gap-2">
-          <span className="font-medium text-slate-600">APIキー</span>
-          <span className={`chip ${savedKey ? "bg-emerald-100 text-emerald-700" : "bg-slate-200 text-slate-600"}`}>
-            {savedKey ? `保存済み ${maskApiKey(savedKey)}` : "未設定"}
-          </span>
-        </div>
-        <div className="flex gap-2">
-          {/* パスワード欄にしない（CAN_MASK_WITH_CSS）。伏せ字は CSS で、「表示」で外す。
-              パスワード マネージャーの拡張機能にも保存・入力させない（data-lpignore / data-1p-ignore） */}
-          <input
-            type={show || CAN_MASK_WITH_CSS ? "text" : "password"}
-            name="anthropic-api-key-input"
-            data-lpignore="true"
-            data-1p-ignore=""
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            placeholder={savedKey ? "別のキーに替えるときだけ入力" : "sk-ant-…"}
-            autoComplete="off"
-            autoCapitalize="none"
-            autoCorrect="off"
-            spellCheck={false}
-            aria-label="Anthropic の API キー"
-            className={`min-h-11 min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2 font-mono text-sm text-brand-ink ${
-              !show && CAN_MASK_WITH_CSS ? "[-webkit-text-security:disc]" : ""
-            }`}
-          />
-          <button
-            type="button"
-            onClick={() => setShow((v) => !v)}
-            aria-pressed={show}
-            aria-label={show ? "入力したキーを隠す" : "入力したキーを表示"}
-            className="btn-ghost min-h-11 min-w-11 shrink-0 px-2 text-xs"
-          >
-            {show ? "隠す" : "表示"}
-          </button>
-        </div>
-        <div className="flex gap-2">
-          <button type="button" onClick={save} disabled={!draftKey} className="btn-primary min-h-11 flex-1 text-sm">
-            保存
-          </button>
-          <button
-            type="button"
-            onClick={remove}
-            disabled={!savedKey}
-            className="btn min-h-11 flex-1 bg-rose-50 text-sm text-rose-600 ring-1 ring-rose-200"
-          >
-            削除
-          </button>
-        </div>
-        {note && <p aria-live="polite">{note}</p>}
-      </div>
+      <ApiKeyField
+        name="anthropic-api-key-input"
+        label="Anthropic の API キー"
+        placeholder="sk-ant-…"
+        savedKey={savedKey}
+        setKey={setKey}
+        clearKey={clearKey}
+        looksLike={looksLikeAnthropicKey}
+        formatHint="Anthropic の API キーは普通 sk-ant- で始まります。別のキーでないか確かめてください。"
+        removeConfirm="保存した Claude（Anthropic）の API キーをこの端末から削除します。よろしいですか？（これまでの訳は残ります）"
+        onChanged={kt.reset}
+      />
 
-      <Row label="モデル" hint={`1曲あたりの目安 ${formatYen(typicalSongCost(model).yen)}（40行の曲）`}>
+      <Row label="モデル" hint={`歌詞の翻訳1曲あたりの目安 ${formatYen(typicalSongCost(model).yen)}（40行の曲）`}>
         <select
           value={model}
           onChange={(e) => {
             set({ aiTranslateModel: toAiModel(e.target.value) });
-            setTest({ status: "idle" });
+            kt.reset();
           }}
-          aria-label="AI翻訳のモデル"
+          aria-label="Claude のモデル"
           className="min-h-11 max-w-[200px] rounded-lg border border-slate-200 px-2 py-1.5"
         >
           {AI_MODELS.map((m) => (
@@ -537,27 +696,119 @@ function AiTranslateSettings() {
         </select>
       </Row>
 
+      <KeyTestButton
+        hasKey={!!savedKey}
+        online={online}
+        test={kt.test}
+        onRun={() =>
+          void kt.run(async (signal) => {
+            const r = await createClaudeProvider({ apiKey: savedKey, model }).testConnection({ signal });
+            const cost = aiCostOf("claude", r.model, r.usage);
+            return `接続できました（${AI_MODEL_INFO[model].label}・今回 ${formatYen(cost?.yen ?? 0)}）`;
+          })
+        }
+        footnote="接続テストは、選んだモデルに短いメッセージを1回送ります（料金はごくわずか）。"
+      />
+    </div>
+  );
+}
+
+/**
+ * 🧑‍🏫 AI 先生の説明と、会話の履歴（この端末だけ。バックアップ対象外・進捗のリセットでも消えない）をすべて消すボタン
+ */
+function TeacherHistorySettings() {
+  const count = useTeacher((st) => st.conversations.length);
+  const [note, setNote] = useState<string | null>(null);
+  return (
+    <div className="space-y-2 rounded-xl border border-slate-200 p-3">
+      <h3 className="text-sm font-bold text-brand-ink">🧑‍🏫 AI先生</h3>
+      <ul className="list-disc space-y-1 pl-4 text-xs leading-relaxed text-slate-500">
+        <li>
+          どの画面でも右下の 🧑‍🏫 から質問できます。歌詞の行・単語・文型・教材の文の「🧑‍🏫 先生に聞く」からは、いま見ている内容を付けて聞けます。
+        </li>
+        <li>
+          送るのは、質問を送ったときだけです（質問と会話の続き・いま見ている内容（歌詞の行なら前後2行と今の訳）・学習した語の数と習得の数・最近つまずいた語（最大5語）と今日復習した語（最大8語。意味つき。歌から足した語は自分で付けた意味）。この学習のようすは、文脈のチップを外しても送ります）。
+        </li>
+        <li>会話の履歴はこの端末にだけ保存します（新しい順に 30件まで。バックアップ・エクスポートに含めず、進捗のリセットでも消えません）。</li>
+      </ul>
       <button
         type="button"
-        onClick={() => void runTest()}
-        disabled={!savedKey || !online || test.status === "busy"}
-        className="btn-ghost min-h-11 w-full text-sm"
+        onClick={() => {
+          if (!confirm("AI先生との会話の履歴をすべて消します。よろしいですか？（元に戻せません）")) return;
+          clearTeacherHistory();
+          setNote("会話の履歴を消しました。");
+        }}
+        disabled={count === 0}
+        className="btn min-h-11 w-full bg-rose-50 text-sm text-rose-600 ring-1 ring-rose-200"
       >
-        {test.status === "busy" ? "接続テスト中…" : "接続テスト"}
+        会話の履歴をすべて消す（{count}件）
       </button>
-      {!savedKey && <p className="px-1 text-[11px] text-slate-400">キーを保存すると、接続テストができます。</p>}
-      {savedKey && !online && <p className="px-1 text-[11px] text-slate-400">オフラインのため、接続テストはできません。</p>}
-      {test.status === "ok" && (
-        <p aria-live="polite" className="rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
-          ✓ {test.msg}
+      {note && (
+        <p aria-live="polite" className="px-1 text-xs text-slate-500">
+          {note}
         </p>
       )}
-      {test.status === "error" && (
-        <p role="alert" className="rounded-lg bg-rose-50 px-3 py-2 text-xs leading-relaxed text-rose-600">
-          {test.msg}
+    </div>
+  );
+}
+
+/**
+ * 🤖 AI（先生・歌詞のAI翻訳）の設定（任意）。使うサービス（既定 Gemini＝無料枠 / Claude＝有料）を選び、
+ * それぞれの API キーを入れる。選んだ方にキーが無ければ、キーがある方を使う（services/ai の activeProviderId）。
+ * キーは useSecrets（bp-secrets-v1。この端末だけ・バックアップ対象外）。サービス・モデルの選択は普通の設定
+ */
+function AiSettings() {
+  const choice = toAiProviderId(useSettings((st) => st.aiProvider));
+  const set = useSettings((st) => st.set);
+  const geminiKey = useSecrets((st) => st.geminiApiKey);
+  const anthropicKey = useSecrets((st) => st.anthropicApiKey);
+  const online = useOnline();
+  const active = activeProviderId({ aiProvider: choice }, { geminiApiKey: geminiKey, anthropicApiKey: anthropicKey });
+  const hasKey: Record<AiProviderId, boolean> = { gemini: !!geminiKey, claude: !!anthropicKey };
+
+  return (
+    // id: 先生のシートの「設定を開く」で、この見出しまで送る（上はヘッダーの高さ --hdr の分をあける）
+    <section id="ai-settings" className="card scroll-mt-[calc(var(--hdr,53px)+0.5rem)] space-y-3 p-3">
+      <h2 className="px-1 text-sm font-bold text-slate-500">🤖 AI（先生・歌詞のAI翻訳）</h2>
+      <div className="space-y-1.5 px-1 text-xs leading-relaxed text-slate-500">
+        <p>
+          AI 先生（どの画面からでも質問できるチャット）と、曲の歌詞の AI 翻訳（曲全体の流れ・口語・比喩をくみ取った訳。💡
+          の補足付き）に使います。<span className="font-bold text-slate-600">任意の機能です</span>
+          （キーを入れなければ、これまでどおり無料の機械翻訳だけを使います）。
         </p>
-      )}
-      <p className="px-1 text-[11px] text-slate-400">接続テストは、選んだモデルに短いメッセージを1回送ります（料金はごくわずか）。</p>
+        <p>APIキーはこの端末にだけ保存します（バックアップ・エクスポートに含めません）。</p>
+      </div>
+
+      <div role="radiogroup" aria-label="使う AI" className="grid grid-cols-2 gap-2">
+        {AI_PROVIDERS.map((id) => (
+          <button
+            key={id}
+            type="button"
+            role="radio"
+            aria-checked={choice === id}
+            onClick={() => set({ aiProvider: id })}
+            className={`min-h-11 rounded-lg px-2 py-2 text-sm ring-1 ${
+              choice === id ? "bg-brand-green font-bold text-white ring-brand-green" : "bg-white text-slate-600 ring-slate-200"
+            }`}
+          >
+            {AI_PROVIDER_INFO[id].name}
+            <span className="block text-[11px] font-normal opacity-80">
+              {AI_PROVIDER_INFO[id].hint}・{hasKey[id] ? "キーあり" : "キーなし"}
+            </span>
+          </button>
+        ))}
+      </div>
+      <p className="px-1 text-[11px] text-slate-400" aria-live="polite">
+        {active === null
+          ? "どちらのキーも未設定です。まずは Gemini（無料枠）のキーを入れるのがおすすめです。"
+          : active === choice
+            ? `今は ${AI_PROVIDER_INFO[active].name} を使います。`
+            : `${AI_PROVIDER_INFO[choice].name} のキーが無いため、今は ${AI_PROVIDER_INFO[active].name} を使います。`}
+      </p>
+
+      <GeminiSettings online={online} />
+      <ClaudeSettings online={online} />
+      <TeacherHistorySettings />
     </section>
   );
 }
@@ -573,6 +824,13 @@ export default function Settings() {
   const [paste, setPaste] = useState("");
   // インポートの方法。開くたびに安全な「統合」に戻す（置き換えは消える記録があるため）
   const [importMode, setImportMode] = useState<ImportMode>("merge");
+
+  // 先生のシートの「設定を開く」から来たときは、AI の設定まで送る
+  const location = useLocation();
+  const focus = (location.state as { focus?: unknown } | null)?.focus;
+  useEffect(() => {
+    if (focus === "ai") document.getElementById("ai-settings")?.scrollIntoView({ block: "start" });
+  }, [focus, location.key]);
 
   // 音声一覧は後から届く・増える（Android は遅い。音声データを入れて戻ってきたときも読み直す）
   const [voicesLoaded, setVoicesLoaded] = useState(false);
@@ -868,8 +1126,8 @@ export default function Settings() {
         </Row>
       </section>
 
-      {/* 歌詞の AI 翻訳（任意。自分の Anthropic API キー） */}
-      <AiTranslateSettings />
+      {/* AI（先生・歌詞の AI 翻訳）。任意。Gemini（無料枠・既定）/ Claude（有料）の自分の API キー */}
+      <AiSettings />
 
       {/* 音声 */}
       <section className="card p-3">
@@ -909,7 +1167,7 @@ export default function Settings() {
         <h2 className="px-1 text-sm font-bold text-slate-500">データとバックアップ</h2>
         <DataProtection onMessage={flash} />
         <p className="px-1 text-xs text-slate-400">
-          進捗（産出カード・日ごとの学習ログ・活用ドリルの成績を含む）・曲の和訳・曲から追加した単語・設定を保存します（歌詞そのもの・音声の選択・音声認識のオン／オフ・AI翻訳の API キーは含みません）。スマホでは共有メニューから
+          進捗（産出カード・日ごとの学習ログ・活用ドリルの成績を含む）・曲の和訳・曲から追加した単語・設定を保存します（歌詞そのもの・音声の選択・音声認識のオン／オフ・AI の API キー・AI先生との会話は含みません）。スマホでは共有メニューから
           Google ドライブやメールに保存できます（ファイルは .txt ですが、そのままインポートできます）。PC ではファイル（.json）をダウンロードします。
         </p>
         <LastBackup />
