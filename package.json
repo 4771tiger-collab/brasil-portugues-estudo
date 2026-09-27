@@ -16,7 +16,7 @@
     "enrich": "tsx scripts/enrich.ts",
     "core-order": "tsx scripts/build-core-order.ts",
     "aliases": "tsx scripts/find-aliases.ts",
-    "check": "npm run typecheck && npm run check:srs && npm run check:pron && npm run check:backup && npm run check:grade && npm run check:content && npm run check:lemma && npm run check:dict",
+    "check": "npm run typecheck && npm run check:srs && npm run check:pron && npm run check:backup && npm run check:grade && npm run check:content && npm run check:lemma && npm run check:dict && npm run check:translate",
     "check:lemma": "tsx scripts/check-lemmatize.ts",
     "check:dict": "tsx scripts/check-dict.ts",
     "music:pin": "tsx scripts/pin-lyrics.ts",
@@ -25,9 +25,11 @@
     "check:pron": "tsx scripts/check-pron.ts",
     "check:backup": "tsx scripts/check-backup.ts",
     "check:grade": "tsx scripts/check-grade.ts",
-    "check:content": "tsx scripts/check-content.ts"
+    "check:content": "tsx scripts/check-content.ts",
+    "check:translate": "tsx scripts/check-translate.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.128.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.26.2",

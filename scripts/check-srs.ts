@@ -2142,12 +2142,12 @@ console.log("=== useMusic（自分で訳した行・機械翻訳の採用・行�
   eq(M().songs.vidB, { offsetMs: 0, translations: {}, selfTranslated: { [H]: true } }, "markSelfTranslated: まだデータの無い曲にも付けられる");
 
   M().editTranslation("vidA", H, " 自分の訳 ");
-  eq(M().songs.vidA.translations[H], { text: "自分の訳", edited: true }, "自分の訳を保存 → edited");
+  eq(M().songs.vidA.translations[H], { text: "自分の訳", edited: true, source: "user" }, "自分の訳を保存 → edited（出どころ user）");
   eq(M().songs.vidA.selfTranslated, { [H]: true }, "editTranslation でも印は残る");
   M().mergeTranslations("vidA", { [H]: "機械の訳2" });
   eq(M().songs.vidA.translations[H].text, "自分の訳", "手で直した訳は機械翻訳で上書きしない（従来どおり）");
   M().adoptMachineTranslation("vidA", H, " 機械の訳2 ");
-  eq(M().songs.vidA.translations[H], { text: "機械の訳2", edited: false }, "機械翻訳を採用 → 手で直した行も機械翻訳の訳（edited: false）に");
+  eq(M().songs.vidA.translations[H], { text: "機械の訳2", edited: false, source: "mt" }, "機械翻訳を採用 → 手で直した行も機械翻訳の訳（edited: false・出どころ mt）に");
   M().adoptMachineTranslation("vidA", H, "  ");
   eq(M().songs.vidA.translations[H].text, "機械の訳2", "空の機械翻訳は採用しない");
   eq([M().songs.vidA.offsetMs, M().songs.vidA.selfTranslated], [300, { [H]: true }], "採用しても同期・印はそのまま");
@@ -2159,10 +2159,106 @@ console.log("=== useMusic（自分で訳した行・機械翻訳の採用・行�
   );
   await useMusic.persist.rehydrate();
   eq([M().prefs.gapMode, M().prefs.showKana, M().prefs.rate, M().prefs.playMode], ["off", false, 0.75, "one"], "gapMode の無い保存データ → off で補い、他の設定は保持");
-  M().setPrefs({ gapMode: "1.5x" });
+  // 和訳の単位（prefs.jaMode）も DEFAULT_PREFS とのマージで補う（既定は文ごと）
+  eq(M().prefs.jaMode, "sentence", "jaMode の無い保存データ → 文ごと（sentence）で補う");
+  M().setPrefs({ gapMode: "1.5x", jaMode: "line" });
   eq(JSON.parse(mem.get("bp-music-v1") ?? "{}").state?.prefs?.gapMode, "1.5x", "gapMode を保存する");
+  eq(JSON.parse(mem.get("bp-music-v1") ?? "{}").state?.prefs?.jaMode, "line", "jaMode を保存する");
+  eq(JSON.parse(mem.get("bp-music-v1") ?? "{}").version, 1, "bp-music-v1 の version は 1 のまま（移行なし）");
   useMusic.setState({ songs: {}, addedWords: [], userWords: [] });
-  M().setPrefs({ gapMode: "off", showKana: true, rate: 1, playMode: "all" });
+  M().setPrefs({ gapMode: "off", showKana: true, rate: 1, playMode: "all", jaMode: "sentence" });
+}
+
+// ---------------------------------------------------------------------------
+// 和訳の出どころ（source）: 機械翻訳は手で直した訳・AI の訳を上書きしない。空の訳は反映しない。note は残す
+console.log("=== useMusic（和訳の出どころ・文ごとの訳） ===");
+{
+  const { useMusic } = await import("../src/store/useMusic");
+  const M = () => useMusic.getState();
+  const A = lineHash("Uma linha inventada");
+  const B = lineHash("Outra linha inventada");
+  const G = lineHash("Uma linha inventada Outra linha inventada");
+  useMusic.setState({
+    songs: {
+      vidT: {
+        offsetMs: 0,
+        translations: {
+          [A]: { text: "AI の訳", edited: false, source: "ai", note: "補足" },
+          [B]: { text: "古い機械翻訳", edited: false },
+        },
+      },
+    },
+  });
+  M().mergeTranslations("vidT", { [A]: "機械の訳", [B]: " 新しい機械翻訳 ", [G]: "文の訳" });
+  eq(M().songs.vidT.translations[A], { text: "AI の訳", edited: false, source: "ai", note: "補足" }, "mergeTranslations(mt): AI の訳は上書きしない");
+  eq(M().songs.vidT.translations[B], { text: "新しい機械翻訳", edited: false, source: "mt" }, "mergeTranslations(mt): 出どころの無い古い機械翻訳は作り直す（前後の空白を除く）");
+  eq(M().songs.vidT.translations[G], { text: "文の訳", edited: false, source: "mt" }, "mergeTranslations: 文ごとの訳も文のハッシュのキーで保存");
+  const before = M().songs;
+  M().mergeTranslations("vidT", { [B]: "  ", [G]: "" });
+  ok(M().songs === before, "mergeTranslations: 空の訳だけなら何も変えない");
+  M().mergeTranslations("vidT", { [A]: "AI の訳2" }, "ai");
+  eq(M().songs.vidT.translations[A], { text: "AI の訳2", edited: false, source: "ai" }, "mergeTranslations(ai): AI の訳は AI の訳で作り直せる");
+  M().editTranslation("vidT", B, "自分の訳");
+  M().mergeTranslations("vidT", { [B]: "AI の訳3" }, "ai");
+  eq(M().songs.vidT.translations[B], { text: "自分の訳", edited: true, source: "user" }, "mergeTranslations(ai): 手で直した訳は上書きしない");
+  useMusic.setState({ songs: { vidT: { offsetMs: 0, translations: { [A]: { text: "AI の訳", edited: false, source: "ai", note: "補足" } } } } });
+  M().editTranslation("vidT", A, "自分の訳");
+  eq(M().songs.vidT.translations[A], { text: "自分の訳", edited: true, source: "user", note: "補足" }, "editTranslation: 訳の補足（note）は残す");
+  M().adoptMachineTranslation("vidT", A, "AI の訳", "ai");
+  eq(M().songs.vidT.translations[A], { text: "AI の訳", edited: false, source: "ai", note: "補足" }, "adoptMachineTranslation: 出どころを渡せる・note は残す");
+  M().editTranslation("vidT", A, " ");
+  ok(!(A in M().songs.vidT.translations), "editTranslation: 空で保存 → 削除（従来どおり）");
+  ok(!JSON.stringify(M().songs).includes("inventada"), "曲のデータに行の本文が残らない（キーはハッシュ）");
+
+  // AI 翻訳の結果（{ text, note }）: 機械翻訳を置き換え、補足を付ける。手で直した訳はそのまま
+  useMusic.setState({
+    songs: {
+      vidT: {
+        offsetMs: 0,
+        translations: {
+          [A]: { text: "機械の訳A", edited: false, source: "mt" },
+          [B]: { text: "自分の訳B", edited: true, source: "user" },
+          [G]: { text: "文の機械翻訳", edited: false, source: "mt" },
+        },
+      },
+    },
+  });
+  M().mergeTranslations("vidT", { [A]: { text: " AI の訳A ", note: " 慣用句の補足 " }, [B]: { text: "AI の訳B", note: "補足B" } }, "ai");
+  eq(M().songs.vidT.translations[A], { text: "AI の訳A", edited: false, source: "ai", note: "慣用句の補足" }, "mergeTranslations(ai, {text, note}): 機械翻訳を AI の訳に置き換え、補足を付ける（前後の空白を除く）");
+  eq(M().songs.vidT.translations[B], { text: "自分の訳B", edited: true, source: "user" }, "mergeTranslations(ai, {text, note}): 手で直した訳は上書きしない（補足も付けない）");
+  eq(M().songs.vidT.translations[G], { text: "文の機械翻訳", edited: false, source: "mt" }, "mergeTranslations(ai): 渡していないキー（文の訳）はそのまま");
+  M().mergeTranslations("vidT", { [A]: { text: "AI の訳A2", note: "   " } }, "ai");
+  eq(M().songs.vidT.translations[A], { text: "AI の訳A2", edited: false, source: "ai" }, "mergeTranslations(ai): 空の補足は付けない・前の補足は残さない（訳し直した訳の補足ではないため）");
+  M().mergeTranslations("vidT", { [A]: { text: "機械の訳A3" } });
+  eq(M().songs.vidT.translations[A]?.text, "AI の訳A2", "mergeTranslations(mt, {text}): AI の訳は上書きしない");
+  const before2 = M().songs;
+  M().mergeTranslations("vidT", { [G]: { text: "  " } }, "ai");
+  ok(M().songs === before2, "mergeTranslations({text: 空}): 何も変えない");
+  ok(!JSON.stringify(M().songs).includes("inventada"), "AI の訳を入れても曲のデータに行の本文が残らない");
+  useMusic.setState({ songs: {}, addedWords: [], userWords: [] });
+}
+
+// ---------------------------------------------------------------------------
+// AI 翻訳の API キー（useSecrets）: 設定とは別のキーに保存・何もしない migrate・伏せ字
+console.log("=== useSecrets（AI 翻訳の API キー） ===");
+{
+  const FAKE = "sk-ant-test-FAKE-KEY-0000-wxyz";
+  mem.set("bp-secrets-v1", JSON.stringify({ state: { anthropicApiKey: FAKE, futureKey: 1 }, version: 3 }));
+  const { useSecrets, maskApiKey, normalizeApiKey, looksLikeAnthropicKey } = await import("../src/store/useSecrets");
+  eq(useSecrets.getState().anthropicApiKey, FAKE, "将来版（version:3）の保存データも読める（migrate で素通し）");
+  useSecrets.getState().setAnthropicApiKey(`  ${FAKE}\n`);
+  eq(useSecrets.getState().anthropicApiKey, FAKE, "保存時に前後の空白・改行を除く");
+  eq(Object.keys(JSON.parse(mem.get("bp-secrets-v1") ?? "{}").state ?? {}), ["anthropicApiKey"], "保存するのはキーだけ（関数は保存しない）");
+  ok(!(mem.get("bp-settings-v1") ?? "").includes(FAKE), "キーは設定（bp-settings-v1）には入らない");
+  eq(maskApiKey(FAKE), "…wxyz", "伏せ字は末尾4文字だけ");
+  eq([maskApiKey(null), maskApiKey("short")], ["", "…"], "伏せ字: 無い → 空・短いキーは末尾も出さない");
+  eq([normalizeApiKey(" a b "), normalizeApiKey("  "), normalizeApiKey(null)], ["ab", null, null], "normalizeApiKey: 空白を除く・空なら null");
+  eq([looksLikeAnthropicKey(FAKE), looksLikeAnthropicKey("abc123")], [true, false], "looksLikeAnthropicKey: sk-ant- で始まるか");
+  useSecrets.getState().setAnthropicApiKey("   ");
+  eq(useSecrets.getState().anthropicApiKey, null, "空で保存 → 削除と同じ");
+  useSecrets.getState().setAnthropicApiKey(FAKE);
+  useSecrets.getState().clearAnthropicApiKey();
+  eq([useSecrets.getState().anthropicApiKey, JSON.parse(mem.get("bp-secrets-v1") ?? "{}").state?.anthropicApiKey], [null, null], "削除 → 保存データからも消える");
 }
 
 // ---------------------------------------------------------------------------
@@ -2186,6 +2282,8 @@ console.log("=== useSettings（移行・既定値） ===");
     "T2-1 の新しいキー（産出カード: 出す・1日5語・言ってから答えを見る）も既定値"
   );
   eq(st.speechInputEnabled, false, "T2-8 の新しいキー（音声認識の「言ってみる」）は既定でオフ（オプトイン）");
+  eq(st.aiTranslateModel, "claude-haiku-4-5", "AI 翻訳のモデルの既定は claude-haiku-4-5（キーが無ければ使われない）");
+  ok(!("anthropicApiKey" in st), "設定に API キーの項目は無い（useSecrets に置く）");
   st.set({ studyView: "list" });
   const saved = JSON.parse(mem.get("bp-settings-v1") ?? "{}");
   eq([saved.version, saved.state?.studyView, saved.state?.rate, saved.state?.futureKey], [0, "list", 0.8, "x"], "書き戻しても既存の値と未知の項目が残る");

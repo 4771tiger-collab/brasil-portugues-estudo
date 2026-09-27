@@ -30,6 +30,8 @@ const DEFAULTS: Settings = {
   productionAnswerMode: "self",
   // T2-8: 音声認識の「言ってみる」。オプトイン（設定画面で説明を読んでからオンにする）
   speechInputEnabled: false,
+  // 歌詞の AI 翻訳（Claude）のモデル。API キーは useSecrets（別キー・バックアップ対象外）。キーが無ければ使われない
+  aiTranslateModel: "claude-haiku-4-5",
 };
 
 export const useSettings = create<SettingsState>()(

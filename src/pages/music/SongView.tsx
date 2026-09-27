@@ -3,6 +3,12 @@
 //         行ごとの和訳（機械翻訳＋編集）・単語タップで WordSheet・曲の単語一覧
 // B3-08: 単語を調べた後は行の頭から聴き直す（replayAfterLookup）・行の後の間（gapMode）で自動再開・
 //        ✍ 自分で訳してから機械翻訳と比べる（selfTranslated は行のハッシュだけ保存）
+// 和訳の改善: 「訳: 文ごと / 行ごと」。文ごと（既定）は2〜3行に分かれた文をまとめて1回で訳し（lyricSentences.ts）、
+//        訳は文の最後の行の下に出して、文の範囲に左の線を引く。送る前に口語の短縮形を直す（mtNormalize.ts）。
+//        行の表示の優先順位は resolveLineTranslation（自分の訳 > AI の訳 > 文の訳 > 行の機械翻訳）
+// AI 翻訳（任意）: 設定で自分の Anthropic API キーを入れたときだけ「🤖 AIで訳す（約N円）」を出す。確認のうえ
+//        曲全体（同じ行は1回）を Claude で訳し、行ごとに source "ai"・訳の補足 note つきで保存（aiTranslate.ts）。
+//        AI の訳には「AI」の印と 💡（補足）を出す。文のどの行にも AI・自分の訳があれば、文の機械翻訳は出さない
 // 歌詞は端末で LRCLIB から取得したものを表示するだけ（アプリには同梱しない）。
 // ============================================================================
 
@@ -12,6 +18,19 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { SONGS, SONG_BY_ID, getLemmatizer, prepareLemmatizer, songIndex } from "../../data/music";
 import { isCovered, type Lemmatizer, type Token } from "../../services/lemmatize";
 import { lineHash, lineKey, type LyricLine as Line } from "../../services/lyrics";
+import {
+  JA_MODES,
+  JA_MODE_LABEL,
+  groupIndexByLine,
+  groupLyricLines,
+  lineGroupKey,
+  pendingUnits,
+  resolveLineTranslation,
+  toJaMode,
+  translationUnits,
+  type JaMode,
+  type LineTranslationView,
+} from "../../services/lyricSentences";
 import {
   GAP_LABEL,
   GAP_MODES,
@@ -23,7 +42,17 @@ import {
   type GapMode,
 } from "../../services/musicPractice";
 import { toKana } from "../../services/pronunciation";
-import { translateLines } from "../../services/translate";
+import { translateUnits } from "../../services/translate";
+import {
+  AI_MODEL_INFO,
+  AiTranslateError,
+  estimateAiCost,
+  formatUsd,
+  formatYen,
+  songLinesForAi,
+  toAiModel,
+  translateSongWithClaude,
+} from "../../services/aiTranslate";
 import {
   addTargetId,
   buildVocabItems,
@@ -35,9 +64,12 @@ import {
 } from "../../services/songVocab";
 import { YT_STATE } from "../../services/youtube";
 import { isKnownForLyrics } from "../../srs/scheduler";
-import { useMusic, userWordId } from "../../store/useMusic";
+import { useMusic, userWordId, type TranslationInput } from "../../store/useMusic";
 import { useProgress } from "../../store/useProgress";
+import { useSecrets } from "../../store/useSecrets";
 import { useSettings } from "../../store/useSettings";
+import { useAiRunStore, type AiRun } from "../../store/aiRun";
+import { useOnline } from "../../hooks/useOnline";
 import WordSheet from "../../components/WordSheet";
 import { useMusicPlayer } from "./MusicShell";
 import { useSongLyrics } from "./useSongLyrics";
@@ -82,8 +114,20 @@ interface LineProps {
   timeLabel: string;
   kana: string;
   showKana: boolean;
+  /** この行の下に出す訳（resolveLineTranslation。memo が効くように中身を分けて渡す） */
   ja: string | undefined;
+  jaKind: LineTranslationView["kind"];
+  /** 文の最後の行で、行自身の訳を優先したときの文全体の訳 */
+  groupJa: string | undefined;
+  /** 行自身の訳の補足（AI 翻訳の note）。無ければ undefined */
+  note: string | undefined;
+  /** 補足を開いている */
+  noteOpen: boolean;
+  /** 文ごとの訳の範囲を示す左の線（表示しないときは null） */
+  bracket: LineTranslationView["bracket"];
   jaVisible: boolean;
+  /** 「訳」ボタンで切り替える行（文の途中の行は、訳を出している文の最後の行） */
+  flipTo: number;
   syncMode: boolean;
   repeat: boolean;
   /** この行を「自分で訳す」で訳した */
@@ -93,6 +137,7 @@ interface LineProps {
   onFlip: (i: number) => void;
   onEdit: (i: number) => void;
   onProduce: (i: number) => void;
+  onNote: (i: number) => void;
 }
 
 const LyricLine = memo(function LyricLine(p: LineProps) {
@@ -121,8 +166,17 @@ const LyricLine = memo(function LyricLine(p: LineProps) {
   return (
     <div
       id={`ly-${p.i}`}
-      className={`flex gap-2 rounded-xl px-1.5 py-1.5 transition ${p.active ? "bg-emerald-50 ring-1 ring-emerald-200" : ""}`}
+      className={`relative flex gap-2 rounded-xl px-1.5 py-1.5 transition ${p.active ? "bg-emerald-50 ring-1 ring-emerald-200" : ""}`}
     >
+      {/* 文ごとの訳が覆う行の範囲（行の間のすき間 0.5 も上に伸ばしてつなげる） */}
+      {p.bracket && (
+        <span
+          aria-hidden
+          className={`pointer-events-none absolute left-0 w-[3px] bg-sky-300/70 ${
+            p.bracket === "first" ? "bottom-0 top-2 rounded-t-full" : p.bracket === "last" ? "-top-0.5 bottom-2 rounded-b-full" : "-top-0.5 bottom-0"
+          }`}
+        />
+      )}
       {p.synced && (
         <button
           type="button"
@@ -154,23 +208,56 @@ const LyricLine = memo(function LyricLine(p: LineProps) {
         {p.line.text && (
           <div className="flex items-start gap-1">
             {p.jaVisible ? (
-              <div className={`flex-1 text-xs ${p.ja ? "text-slate-500" : "text-slate-300"}`}>{p.ja || "（和訳なし）"}</div>
+              <div className="min-w-0 flex-1 text-xs">
+                {/* 文の途中の行（訳は文の最後の行に出る）には何も出さない */}
+                {p.jaKind !== "covered" && (
+                  <div className={p.ja ? "text-slate-500" : "text-slate-300"}>
+                    {p.jaKind === "ai" && (
+                      <span className="mr-1 rounded bg-violet-100 px-1 text-[10px] font-bold text-violet-700" title="AI（Claude）の訳">
+                        AI
+                      </span>
+                    )}
+                    {p.ja || "（和訳なし）"}
+                  </div>
+                )}
+                {p.groupJa && <div className="mt-0.5 text-[11px] text-slate-400">文の訳: {p.groupJa}</div>}
+                {p.note && p.noteOpen && (
+                  <div className="mt-1 rounded-lg bg-amber-50 px-2 py-1 text-[11px] leading-relaxed text-amber-800">💡 {p.note}</div>
+                )}
+              </div>
             ) : (
               <div className="flex-1" />
             )}
-            <button type="button" onClick={() => p.onFlip(p.i)} className="shrink-0 px-1 text-[11px] text-brand-blue">
+            <button type="button" onClick={() => p.onFlip(p.flipTo)} className="shrink-0 px-1 text-[11px] text-brand-blue">
               {p.jaVisible ? "訳を隠す" : "訳"}
             </button>
+            {/* 訳の補足（AI 翻訳の note。慣用句・言葉遊び・文化の背景など）。押せる範囲は 44px
+                （下の行に張り出す分も押せるよう relative z-[1] で次の行より上に置く。プレーヤー z-10 より下） */}
+            {p.jaVisible && p.note && (
+              <button
+                type="button"
+                onClick={() => p.onNote(p.i)}
+                aria-expanded={p.noteOpen}
+                title="訳の補足"
+                aria-label={p.noteOpen ? "訳の補足を隠す" : "訳の補足を見る"}
+                className={`relative z-[1] -mb-5 -mt-1 flex h-11 min-w-11 shrink-0 items-start justify-center rounded-lg pt-1 text-[12px] ${
+                  p.noteOpen ? "opacity-100" : "opacity-70"
+                }`}
+              >
+                💡
+              </button>
+            )}
             {p.jaVisible && (
               <button type="button" onClick={() => p.onEdit(p.i)} className="shrink-0 px-1 text-[11px] text-slate-400" title="和訳を編集" aria-label="和訳を編集">
                 ✏️
               </button>
             )}
-            {/* 自分で訳す。押せる範囲は 44px、行の高さはあまり増やさない（下の余白に張り出す） */}
+            {/* 自分で訳す。押せる範囲は 44px、行の高さはあまり増やさない（下の余白に張り出す。行は relative なので、
+                張り出した分が次の行に隠れないよう relative z-[1]） */}
             <button
               type="button"
               onClick={() => p.onProduce(p.i)}
-              className={`-mb-5 -mt-1 flex h-11 min-w-11 shrink-0 items-start justify-center rounded-lg pt-1 text-[11px] ${
+              className={`relative z-[1] -mb-5 -mt-1 flex h-11 min-w-11 shrink-0 items-start justify-center rounded-lg pt-1 text-[11px] ${
                 p.selfDone ? "font-bold text-emerald-600" : "text-slate-400"
               }`}
               title="自分で訳してから機械翻訳と比べる"
@@ -190,12 +277,23 @@ const LyricLine = memo(function LyricLine(p: LineProps) {
 // - edit: 保存済みの訳を直す（従来の ✏️）
 // - produce: ✍ 自分で訳す。空欄で開き、送信したら機械翻訳と並べる（保存済みの機械翻訳があればそれ、
 //   無ければこの1行だけ翻訳する。送信のタップからだけ呼ぶ）。自分の訳を保存するか機械翻訳を採用する
+// 文ごと表示では、文の訳を参考に出す（edit）・文の機械翻訳と比べる（produce。行の機械翻訳が無いとき）
 type EditorProps = { original: string; onClose: () => void } & (
-  | { mode: "edit"; initial: string; onSave: (text: string) => void }
+  | {
+      mode: "edit";
+      initial: string;
+      /** 文ごと表示で、この行を含む文の訳（参考に出す）。無ければ undefined */
+      context?: { pt: string; ja: string };
+      onSave: (text: string) => void;
+    }
   | {
       mode: "produce";
       /** 保存済みの機械翻訳（手で直していない訳）。無ければ null */
       cachedMt: string | null;
+      /** 比べる機械翻訳が文全体の訳のとき、その文（ポルトガル語）。行の訳なら undefined */
+      mtContext?: string;
+      /** 比べる訳（cachedMt）が AI 翻訳の訳（表示の名前を「AI の訳」にする） */
+      mtIsAi?: boolean;
       /** この1行だけ機械翻訳する（送信のタップから呼ぶ。失敗は例外） */
       fetchMt: (signal: AbortSignal) => Promise<string>;
       /** 自分の訳を送信した（比べる画面に進んだ） */
@@ -220,12 +318,19 @@ function TranslationEditor(props: EditorProps) {
   );
 }
 
-function EditBody({ original, initial, onSave, onClose }: Extract<EditorProps, { mode: "edit" }>) {
+function EditBody({ original, initial, context, onSave, onClose }: Extract<EditorProps, { mode: "edit" }>) {
   const [text, setText] = useState(initial);
   return (
     <>
-      <div className="mb-1 text-xs font-bold text-slate-400">和訳を編集</div>
+      <div className="mb-1 text-xs font-bold text-slate-400">和訳を編集（この行の訳）</div>
       <div className="mb-2 text-sm font-medium text-brand-ink">{original}</div>
+      {context && (
+        <div className="mb-2 rounded-xl bg-slate-50 p-2 text-xs">
+          <div className="font-bold text-slate-500">文全体の訳（参考）</div>
+          <div className="text-slate-500">{context.pt}</div>
+          <div className="text-slate-700">{context.ja}</div>
+        </div>
+      )}
       <textarea
         value={text}
         onChange={(e) => setText(e.target.value)}
@@ -247,7 +352,11 @@ function EditBody({ original, initial, onSave, onClose }: Extract<EditorProps, {
 
 type MtState = { status: "loading" } | { status: "ready"; text: string } | { status: "error"; error: string };
 
-function ProduceBody({ original, cachedMt, fetchMt, onSubmit, onSaveOwn, onAdoptMt, onClose }: Extract<EditorProps, { mode: "produce" }>) {
+// AI 翻訳の実行状態（useAiRunStore）は store/aiRun.ts（設定で API キーを削除したときにも止められるように）
+
+function ProduceBody({ original, cachedMt, mtContext, mtIsAi, fetchMt, onSubmit, onSaveOwn, onAdoptMt, onClose }: Extract<EditorProps, { mode: "produce" }>) {
+  // 比べる訳の呼び名（保存済みの AI の訳と比べるときは「AI の訳」）
+  const refName = mtIsAi ? "AI の訳" : "機械翻訳";
   const [text, setText] = useState("");
   const [compare, setCompare] = useState(false);
   const [mt, setMt] = useState<MtState | null>(null);
@@ -285,7 +394,7 @@ function ProduceBody({ original, cachedMt, fetchMt, onSubmit, onSaveOwn, onAdopt
 
   return (
     <>
-      <div className="mb-1 text-xs font-bold text-slate-400">✍ 自分で訳す{compare ? " ・ 機械翻訳と比べる" : ""}</div>
+      <div className="mb-1 text-xs font-bold text-slate-400">✍ 自分で訳す{compare ? ` ・ ${refName}と比べる` : ""}</div>
       <div className="mb-2 text-sm font-medium text-brand-ink">{original}</div>
       {compare && <div className="mb-1 text-[11px] font-bold text-slate-500">あなたの訳（直してから保存できます）</div>}
       <textarea
@@ -302,12 +411,13 @@ function ProduceBody({ original, cachedMt, fetchMt, onSubmit, onSaveOwn, onAdopt
             キャンセル
           </button>
           <button onClick={submit} disabled={!text.trim()} className="btn-primary min-h-11 flex-1 py-2">
-            機械翻訳と比べる
+            {refName}と比べる
           </button>
         </div>
       ) : (
         <>
-          <div className="mb-1 mt-2 text-[11px] font-bold text-slate-500">機械翻訳</div>
+          <div className="mb-1 mt-2 text-[11px] font-bold text-slate-500">{mtContext ? `${refName}（文全体の訳）` : refName}</div>
+          {mtContext && <div className="mb-1 text-[11px] text-slate-400">{mtContext}</div>}
           <div className="rounded-xl bg-slate-50 p-3 text-sm text-slate-700" aria-live="polite">
             {mt?.status === "loading" && <span className="text-slate-400">翻訳中…</span>}
             {mt?.status === "ready" && (mtText || <span className="text-slate-400">（訳が空でした）</span>)}
@@ -326,7 +436,7 @@ function ProduceBody({ original, cachedMt, fetchMt, onSubmit, onSaveOwn, onAdopt
               自分の訳を保存
             </button>
             <button onClick={() => mtText && onAdoptMt(mtText)} disabled={!mtText} className="btn-ghost min-h-11 py-2 text-sm">
-              機械翻訳を採用
+              {refName}を採用
             </button>
           </div>
           <button onClick={onClose} className="mt-1 min-h-11 w-full text-xs text-slate-400">
@@ -480,6 +590,10 @@ export default function SongView() {
   const lyr = useSongLyrics(song);
   const pauseOnWordTap = useSettings((s) => s.pauseOnWordTap);
   const replayAfterLookup = useSettings((s) => s.replayAfterLookup);
+  // AI 翻訳（任意）: 自分の API キー（この端末だけ・バックアップ対象外）とモデル
+  const apiKey = useSecrets((s) => s.anthropicApiKey);
+  const aiModel = toAiModel(useSettings((s) => s.aiTranslateModel));
+  const online = useOnline();
 
   const [lem, setLem] = useState<Lemmatizer | null>(getLemmatizer());
   useEffect(() => {
@@ -503,6 +617,8 @@ export default function SongView() {
   const selfTranslated = songState?.selfTranslated;
   // 行の後の間（保存値が知らない値なら off）
   const gap = toGapMode(prefs.gapMode);
+  // 和訳の単位（保存値が無い・知らない値なら文ごと）
+  const jaMode = toJaMode(prefs.jaMode);
 
   const lines = useMemo(() => lyr.lyrics?.lines ?? [], [lyr.lyrics]);
   const synced = !!lyr.lyrics?.synced;
@@ -551,8 +667,15 @@ export default function SongView() {
   const [follow, setFollow] = useState(true);
   const [showJaAll, setShowJaAll] = useState(prefs.showJa);
   const [jaFlips, setJaFlips] = useState<Set<number>>(new Set());
+  // 訳の補足（💡）を開いている行
+  const [noteOpen, setNoteOpen] = useState<Set<number>>(new Set());
   const [menu, setMenu] = useState(false);
   const [tr, setTr] = useState<{ busy: boolean; error: string | null; redo: boolean }>({ busy: false, error: null, redo: false });
+  // AI 翻訳の実行状態（どの曲のものか vid で持つ。曲を移っても・画面を離れても通信は続け、結果はその曲に保存する）
+  const aiRun = useAiRunStore((st) => st.run);
+  const setAiRun = (run: AiRun | null) => useAiRunStore.setState({ run });
+  const videoIdRef = useRef(videoId);
+  videoIdRef.current = videoId;
   const [rates, setRates] = useState<number[]>([]);
   // 行の後の間の待ち（帯の表示用。id は間ごとに変える）
   const [gapWait, setGapWait] = useState<{ id: number; ms: number } | null>(null);
@@ -600,8 +723,11 @@ export default function SongView() {
     setEditing(null);
     setSyncMode(false);
     setJaFlips(new Set());
+    setNoteOpen(new Set());
     setFollow(true);
     setTr({ busy: false, error: null, redo: false });
+    // AI 翻訳の結果・エラーの表示は曲を移ったら消す（通信中はそのまま。結果はその曲に保存される）
+    if (useAiRunStore.getState().run?.status !== "busy") useAiRunStore.setState({ run: null });
     window.scrollTo({ top: 0 });
   }, [videoId]);
 
@@ -832,6 +958,15 @@ export default function SongView() {
       }),
     []
   );
+  const onNote = useCallback(
+    (i: number) =>
+      setNoteOpen((s) => {
+        const n = new Set(s);
+        n.has(i) ? n.delete(i) : n.add(i);
+        return n;
+      }),
+    []
+  );
   // 和訳のシートを開いたら、行の後の間の自動再開は取り消す（書いている間に曲が進まないように）
   const onEdit = useCallback(
     (i: number) => {
@@ -898,7 +1033,7 @@ export default function SongView() {
   }
 
   // ---------------- 和訳 ----------------
-  // 和訳は行テキストのハッシュで保存（歌詞本文を保存・バックアップに残さない）
+  // 和訳は行テキストのハッシュで保存（歌詞本文を保存・バックアップに残さない）。文ごとの訳は文の本文のハッシュ
   const lineKeys = useMemo(() => lines.map((l) => (l.text ? lineHash(l.text) : "")), [lines]);
   const keyText = useMemo(() => {
     const m = new Map<string, string>();
@@ -906,38 +1041,118 @@ export default function SongView() {
     return m;
   }, [lines, lineKeys]);
   const uniqueKeys = useMemo(() => [...keyText.keys()], [keyText]);
-  const missing = uniqueKeys.filter((k) => !translations[k]?.text);
+  // 文のまとまり（2〜3行に分かれた文）。行 → 文の番号・文のキー
+  const groups = useMemo(() => groupLyricLines(lines.map((l) => ({ text: l.text, time: l.t }))), [lines]);
+  const groupIdx = useMemo(() => groupIndexByLine(groups, lines.length), [groups, lines.length]);
+  const groupKeys = useMemo(() => groups.map(lineGroupKey), [groups]);
+  /** 行 i の文（文ごと表示で2行以上の文のときだけ。それ以外は null） */
+  const multiGroupOf = (i: number) => {
+    const gi = groupIdx[i] ?? -1;
+    const g = gi >= 0 ? groups[gi] : null;
+    return jaMode === "sentence" && g && g.end - g.start > 1 ? { ...g, key: groupKeys[gi] } : null;
+  };
+  // 訳す単位（文ごと = 文、行ごと = 行）と、まだ訳の無い単位
+  const units = useMemo(() => translationUnits(lines, groups, jaMode), [lines, groups, jaMode]);
+  const missing = pendingUnits(units, translations, false);
+  const unitWord = jaMode === "sentence" ? "文" : "行";
   // 自分で訳した行（同じ歌詞の行は1行と数える）
   const selfCount = useMemo(() => selfTranslatedCount(uniqueKeys, selfTranslated), [uniqueKeys, selfTranslated]);
 
   /**
-   * ✍ 自分で訳す: この1行だけ機械翻訳する（送信のタップから呼ぶ）。
-   * 未翻訳の行ならこの訳を保存する（mergeTranslations は手で直した行を上書きしない）
+   * ✍ 自分で訳す: この行（または文）だけ機械翻訳する（送信のタップから呼ぶ）。
+   * 未翻訳ならこの訳を保存する（mergeTranslations は手で直した訳・AI の訳を上書きしない）
    */
-  async function fetchLineMt(key: string, signal: AbortSignal): Promise<string> {
-    const text = keyText.get(key);
+  async function fetchUnitMt(key: string, text: string | undefined, signal: AbortSignal): Promise<string> {
     if (!text) throw new Error("この行は翻訳できません");
-    const [out = ""] = await translateLines([text], signal);
+    const [out = ""] = await translateUnits([text], signal);
     if (out.trim()) mergeTranslations(videoId, { [key]: out });
     return out;
   }
 
   async function makeTranslation(redo: boolean, retry = false) {
-    const keys = redo ? uniqueKeys.filter((k) => !translations[k]?.edited) : missing;
-    if (!keys.length) {
+    // 作り直しでも、自分で直した訳・AI の訳は送らない（上書きもしない）
+    const todo = pendingUnits(units, translations, redo);
+    if (!todo.length) {
       setTr({ busy: false, error: null, redo: false });
       return;
     }
-    if (redo && !retry && !confirm("機械翻訳で作り直します（自分で編集した行はそのまま残ります）。")) return;
+    if (redo && !retry && !confirm(`機械翻訳で${unitWord}ごとに作り直します（自分で編集した訳はそのまま残ります）。`)) return;
     setTr({ busy: true, error: null, redo });
     try {
-      const out = await translateLines(keys.map((k) => keyText.get(k)!));
-      mergeTranslations(videoId, Object.fromEntries(keys.map((k, i) => [k, out[i]])));
+      const out = await translateUnits(todo.map((u) => u.text));
+      mergeTranslations(videoId, Object.fromEntries(todo.map((u, i) => [u.key, out[i]])));
       setTr({ busy: false, error: null, redo: false });
       setShowJaAll(true);
       setPrefs({ showJa: true });
     } catch (e) {
       setTr({ busy: false, error: e instanceof Error ? e.message : "翻訳に失敗しました", redo });
+    }
+  }
+
+  // ---------------- AI 翻訳（任意。自分の API キーがあるときだけ） ----------------
+  // 送る行: 同じ行は1回（繰り返すサビは1回分の料金で全部の箇所に出る）。空行は連の区切り
+  const aiInput = useMemo(() => songLinesForAi(lines), [lines]);
+  const aiLineCount = useMemo(() => aiInput.keys.filter((k) => k !== null).length, [aiInput]);
+  const aiEstimate = useMemo(() => estimateAiCost(aiInput.lines, aiModel), [aiInput, aiModel]);
+  // この曲で AI の訳がある行（同じ行は1行と数える）
+  const aiDone = uniqueKeys.filter((k) => translations[k]?.source === "ai" && !!translations[k]?.text.trim()).length;
+  const aiHere = aiRun && aiRun.vid === videoId ? aiRun : null;
+  const aiBusy = aiRun?.status === "busy";
+
+  async function runAi() {
+    // 通信中（別の曲・前に開いた画面から始めたものも）はもう1回始めない
+    if (!apiKey || !song || !aiLineCount || useAiRunStore.getState().run?.status === "busy") return;
+    const vid = videoId;
+    const input = aiInput;
+    const model = aiModel;
+    const info = AI_MODEL_INFO[model];
+    const est = estimateAiCost(input.lines, model);
+    const msg = [
+      `🤖 AI（Claude ${info.label}）で、この曲の歌詞を曲全体の流れに沿って訳します。`,
+      "",
+      `・送るもの: 歌詞 ${aiLineCount}行（繰り返しの行は1回）・曲名・アーティスト名 → Anthropic`,
+      `・料金の目安: ${formatYen(est.yen)}（${formatUsd(est.usd)}）。あなたの Anthropic アカウントに請求されます（実際の額は終わったら表示）`,
+      "・自分で直した訳はそのまま残ります（機械翻訳の訳は AI の訳に置き換わります）。",
+      "",
+      "よろしいですか？",
+    ].join("\n");
+    if (!confirm(msg)) return;
+    const ctrl = new AbortController();
+    useAiRunStore.setState({ run: { vid, status: "busy", label: info.label, lines: aiLineCount }, ctrl });
+    try {
+      const r = await translateSongWithClaude({
+        apiKey,
+        model,
+        title: song.title,
+        artist: song.artist,
+        lines: input.lines,
+        signal: ctrl.signal,
+      });
+      // 通信中に設定でキーを削除・差し替えた → 結果を保存しない（中止と同じ扱い）
+      if (useSecrets.getState().anthropicApiKey !== apiKey) {
+        setAiRun({ vid, status: "cancelled" });
+        return;
+      }
+      // 行のハッシュをキーに保存（歌詞の本文は保存しない）。自分で直した訳は mergeTranslations が上書きしない
+      const map: Record<string, TranslationInput> = {};
+      r.results.forEach((res, i) => {
+        const k = input.keys[i];
+        if (res && k) map[k] = res.note ? { text: res.ja, note: res.note } : { text: res.ja };
+      });
+      const before = useMusic.getState().songs[vid]?.translations ?? {};
+      const kept = Object.keys(map).filter((k) => before[k]?.edited).length;
+      mergeTranslations(vid, map, "ai");
+      setAiRun({ vid, status: "done", label: info.label, cost: r.cost, lines: Object.keys(map).length - kept, kept, skipped: r.skipped });
+      if (videoIdRef.current === vid) {
+        setShowJaAll(true);
+        setPrefs({ showJa: true });
+      }
+    } catch (e) {
+      const err = e instanceof AiTranslateError ? e : null;
+      if (err?.kind === "aborted") setAiRun({ vid, status: "cancelled" });
+      else setAiRun({ vid, status: "error", error: err?.message ?? "AI翻訳に失敗しました", cost: err?.cost ?? null });
+    } finally {
+      if (useAiRunStore.getState().ctrl === ctrl) useAiRunStore.setState({ ctrl: null });
     }
   }
 
@@ -1070,6 +1285,19 @@ export default function SongView() {
       : null;
 
   const editingKey = editing != null ? lineKeys[editing.i] : null;
+  // 編集・✍ の行の文（文ごと表示で2行以上の文のとき）と、その文の訳・行自身の訳
+  const editingGroup = editing != null ? multiGroupOf(editing.i) : null;
+  const editingGroupTr = editingGroup ? translations[editingGroup.key] : undefined;
+  const editingGroupJa = editingGroupTr?.text?.trim() ? editingGroupTr.text : null;
+  const editingOwn = editingKey ? translations[editingKey] : undefined;
+  // 行自身の機械翻訳（手で直していない訳。AI の訳を含む）
+  const editingOwnMt = editingOwn && !editingOwn.edited && editingOwn.text.trim() ? editingOwn : null;
+  // ✍ で比べる機械翻訳: 行の機械翻訳があればそれ、無ければ（文ごと表示で）文の機械翻訳
+  const produceBySentence = !editingOwnMt && !!editingGroup;
+  // ✏️ の欄の初めの値: 行自身の訳（自分の訳・AI の訳。文の訳が無いときは行の機械翻訳も）。文の訳を出している行の
+  // 行の機械翻訳は見えていないので入れない（空欄で開く。文の訳は参考に出す）
+  const editInitial =
+    editingOwn?.text && (editingOwn.edited || editingOwn.source === "ai" || !editingGroupJa) ? editingOwn.text : "";
 
   return (
     <div className="animate-fade-in space-y-3 pb-4" onClick={() => menu && setMenu(false)}>
@@ -1155,13 +1383,52 @@ export default function SongView() {
       {lyr.status === "ready" && (
         <div className="flex flex-wrap items-center gap-2">
           {missing.length > 0 ? (
-            <button onClick={() => makeTranslation(false)} disabled={tr.busy} className="btn-ghost flex-1 py-2 text-sm">
-              {tr.busy ? "翻訳中…" : `🌐 和訳を作成（機械翻訳・${missing.length}行）`}
+            <button onClick={() => makeTranslation(false)} disabled={tr.busy || aiHere?.status === "busy"} className="btn-ghost flex-1 py-2 text-sm">
+              {tr.busy ? "翻訳中…" : `🌐 和訳を作成（機械翻訳・${missing.length}${unitWord}）`}
             </button>
           ) : (
-            <button onClick={() => makeTranslation(true)} disabled={tr.busy} className="text-xs text-slate-400 underline">
+            <button onClick={() => makeTranslation(true)} disabled={tr.busy || aiHere?.status === "busy"} className="min-h-11 text-xs text-slate-400 underline">
               {tr.busy ? "翻訳中…" : "機械翻訳で作り直す"}
             </button>
+          )}
+          {/* AI 翻訳（自分の API キーを保存しているときだけ。押すと料金の目安を出して確認する） */}
+          {apiKey && uniqueKeys.length > 0 && (
+            <button
+              onClick={() => void runAi()}
+              disabled={!online || aiBusy || tr.busy}
+              title={online ? "Claude で曲全体の流れに沿って訳します（有料・あなたの API キー）" : "オフラインのため使えません"}
+              className="btn min-h-11 flex-1 bg-violet-50 py-2 text-sm text-violet-700 ring-1 ring-violet-200"
+            >
+              {aiHere?.status === "busy"
+                ? "🤖 AIで翻訳中…"
+                : aiBusy
+                  ? "🤖 別の曲を翻訳中…"
+                  : `🤖 AIで${aiDone ? "訳し直す" : "訳す"}（${formatYen(aiEstimate.yen)}）`}
+            </button>
+          )}
+          {/* 和訳の単位: 文ごと（2〜3行に分かれた文をまとめて訳す）/ 行ごと */}
+          {uniqueKeys.length > 0 && (
+            <div
+              role="radiogroup"
+              aria-label="和訳の単位"
+              title="文ごと: 2〜3行に分かれた文をまとめて訳します（訳は文の最後の行の下）"
+              className="flex shrink-0 items-center rounded-lg bg-slate-100 text-xs"
+            >
+              <span className="pl-2 pr-0.5 text-slate-500">訳:</span>
+              {JA_MODES.map((m: JaMode) => (
+                <button
+                  key={m}
+                  type="button"
+                  role="radio"
+                  aria-checked={jaMode === m}
+                  onClick={() => setPrefs({ jaMode: m })}
+                  disabled={tr.busy}
+                  className={`min-h-11 min-w-11 rounded-lg px-2.5 ${jaMode === m ? "bg-brand-green font-bold text-white" : "text-slate-600"}`}
+                >
+                  {JA_MODE_LABEL[m]}
+                </button>
+              ))}
+            </div>
           )}
           {uniqueKeys.length > 0 && (
             <span className={`chip ml-auto ${selfCount ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>
@@ -1174,6 +1441,59 @@ export default function SongView() {
               <button onClick={() => makeTranslation(tr.redo, true)} className="ml-2 underline">
                 再試行
               </button>
+            </div>
+          )}
+          {apiKey && !online && uniqueKeys.length > 0 && (
+            <div className="w-full text-[11px] text-slate-400">オフラインのため、AI 翻訳は使えません（つながると押せます）。</div>
+          )}
+          {aiHere?.status === "busy" && (
+            <div className="flex w-full items-center gap-2 rounded-lg bg-violet-50 pl-3 text-xs text-violet-700" aria-live="polite">
+              <span className="inline-block h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-violet-200 border-t-violet-600" aria-hidden />
+              <span className="min-w-0 flex-1">
+                Claude（{aiHere.label}）が曲全体（{aiHere.lines}行）を訳しています…（1分ほどかかることがあります）
+              </span>
+              <button type="button" onClick={() => useAiRunStore.getState().ctrl?.abort()} className="min-h-11 min-w-11 shrink-0 px-3 font-bold underline">
+                中止
+              </button>
+            </div>
+          )}
+          {aiHere?.status === "done" && (
+            <div className="w-full rounded-lg bg-violet-50 px-3 py-2 text-xs text-violet-800" aria-live="polite">
+              <div className="font-bold">
+                ✓ AI翻訳しました（今回 {formatYen(aiHere.cost.yen)}・{formatUsd(aiHere.cost.usd)}）
+              </div>
+              <div>
+                {aiHere.label}・{aiHere.lines}行を AI の訳にしました
+                {aiHere.kept > 0 ? `（自分で直した ${aiHere.kept}行はそのまま）` : ""}。💡 のある行は補足を見られます。
+              </div>
+              {aiHere.skipped > 0 && (
+                <div className="text-amber-700">{aiHere.skipped}行は AI の訳が返らなかったため、今の訳のままです。</div>
+              )}
+              <div className="text-[11px] text-violet-500">料金は目安です（応答のトークン数から 1ドル＝150円で計算。請求はドル建て）。</div>
+            </div>
+          )}
+          {aiHere?.status === "cancelled" && (
+            <div className="w-full text-xs text-slate-500">AI翻訳を中止しました（保存していません。途中で止めても料金がかかる場合があります）。</div>
+          )}
+          {aiHere?.status === "error" && (
+            <div className="w-full text-xs text-rose-500" role="alert">
+              {aiHere.error}
+              {aiHere.cost ? `（この回の料金 ${formatYen(aiHere.cost.yen)}）` : ""}
+              {apiKey && (
+                <button type="button" onClick={() => void runAi()} disabled={!online || aiBusy} className="ml-2 min-h-11 underline">
+                  再試行
+                </button>
+              )}
+            </div>
+          )}
+          {!apiKey && uniqueKeys.length > 0 && missing.length === 0 && tab === "lyrics" && (
+            <Link to="/settings" className="flex min-h-11 w-full items-center text-[11px] text-slate-400 underline decoration-slate-300 underline-offset-2">
+              🤖 機械翻訳が分かりにくいとき: 設定で自分の Claude の API キーを入れると、曲全体の流れをくみ取った AI 翻訳が使えます（任意・有料）
+            </Link>
+          )}
+          {jaMode === "sentence" && missing.length > 0 && tab === "lyrics" && (
+            <div className="w-full text-[11px] text-slate-400">
+              文ごと: つながった行をまとめて訳し、文の最後の行の下に出します（左の線が訳の範囲）。
             </div>
           )}
           {uniqueKeys.length > 0 && selfCount === 0 && tab === "lyrics" && (
@@ -1228,10 +1548,36 @@ export default function SongView() {
             </div>
           )}
           {lines.map((l, i) => {
-            const ja = l.text ? translations[lineKeys[i]]?.text : undefined;
-            // ✍ で訳している行は、答えが見えないように和訳を隠す
+            const g = multiGroupOf(i);
+            // 文のどの行にも AI の訳・自分の訳があれば、文の機械翻訳は出さない（groupLineKeys）
+            const view = resolveLineTranslation({
+              translations,
+              lineKey: lineKeys[i],
+              mode: jaMode,
+              group: g,
+              index: i,
+              groupLineKeys: g ? lineKeys.slice(g.start, g.end) : undefined,
+            });
+            const shown = (k: number) => (showJaAll ? !jaFlips.has(k) : jaFlips.has(k));
+            // ✍ で訳している行は、答えが見えないように和訳を隠す（その行を含む文の訳も隠す）
             const producing = editing?.mode === "produce" && editing.i === i;
-            const jaVisible = (showJaAll ? !jaFlips.has(i) : jaFlips.has(i)) && !producing;
+            const hideGroup = editing?.mode === "produce" && !!g && editing.i >= g.start && editing.i < g.end;
+            let ja = view.text;
+            let jaKind = view.kind;
+            let groupJa = view.groupText;
+            if (hideGroup) {
+              if (jaKind === "group") {
+                ja = undefined;
+                jaKind = "covered";
+              }
+              groupJa = undefined;
+            }
+            // 文の途中の行（訳は最後の行に出る）の「訳」ボタン・表示は、文の最後の行に合わせる
+            const flipTo = jaKind === "covered" && g ? g.end - 1 : i;
+            const jaVisible = shown(flipTo) && !producing;
+            const bracket = view.bracket && g && shown(g.end - 1) && !hideGroup ? view.bracket : null;
+            // 訳の補足（AI の note）は、行自身の訳を出しているときだけ
+            const note = jaKind === "ai" || jaKind === "user" || jaKind === "mt" ? translations[lineKeys[i]]?.note : undefined;
             return (
               <LyricLine
                 key={i}
@@ -1245,7 +1591,13 @@ export default function SongView() {
                 kana={kana[i]}
                 showKana={prefs.showKana}
                 ja={ja}
+                jaKind={jaKind}
+                groupJa={groupJa}
+                note={note?.trim() ? note : undefined}
+                noteOpen={noteOpen.has(i)}
+                bracket={bracket}
                 jaVisible={jaVisible}
+                flipTo={flipTo}
                 syncMode={syncMode}
                 repeat={repeatIdx === i}
                 selfDone={!!l.text && selfTranslated?.[lineKeys[i]] === true}
@@ -1254,6 +1606,7 @@ export default function SongView() {
                 onFlip={onFlip}
                 onEdit={onEdit}
                 onProduce={onProduce}
+                onNote={onNote}
               />
             );
           })}
@@ -1300,10 +1653,14 @@ export default function SongView() {
           key={`e:${editing.i}`}
           mode="edit"
           original={lines[editing.i].text}
-          initial={translations[editingKey]?.text ?? ""}
+          // 行自身の訳（文の訳を出している行でも、直すのはこの行の訳）
+          initial={editInitial}
+          context={editingGroup && editingGroupJa ? { pt: editingGroup.text, ja: editingGroupJa } : undefined}
           onClose={() => setEditing(null)}
           onSave={(text) => {
-            editTranslation(videoId, editingKey, text);
+            // 空欄で開いた欄を空のまま保存 = キャンセルと同じ（見えていない行の機械翻訳を消さない）。
+            // 入っていた訳を消して保存したときは、これまでどおり削除（未翻訳に戻る）
+            if (text || editInitial) editTranslation(videoId, editingKey, text);
             setEditing(null);
           }}
         />
@@ -1313,9 +1670,21 @@ export default function SongView() {
           key={`p:${editing.i}`}
           mode="produce"
           original={lines[editing.i].text}
-          // 保存済みの機械翻訳（手で直した訳は機械翻訳ではないので使わない）
-          cachedMt={translations[editingKey] && !translations[editingKey].edited && translations[editingKey].text ? translations[editingKey].text : null}
-          fetchMt={(signal) => fetchLineMt(editingKey, signal)}
+          // 保存済みの機械翻訳（手で直した訳は機械翻訳ではないので使わない）。行の訳が無ければ文の訳
+          cachedMt={
+            editingOwnMt
+              ? editingOwnMt.text
+              : produceBySentence && editingGroupTr && !editingGroupTr.edited && editingGroupJa
+                ? editingGroupJa
+                : null
+          }
+          mtContext={produceBySentence && editingGroup ? editingGroup.text : undefined}
+          mtIsAi={!!editingOwnMt && editingOwnMt.source === "ai"}
+          fetchMt={(signal) =>
+            produceBySentence && editingGroup
+              ? fetchUnitMt(editingGroup.key, editingGroup.text, signal)
+              : fetchUnitMt(editingKey, keyText.get(editingKey), signal)
+          }
           onSubmit={() => markSelfTranslated(videoId, editingKey)}
           onClose={() => setEditing(null)}
           onSaveOwn={(text) => {
@@ -1323,7 +1692,10 @@ export default function SongView() {
             setEditing(null);
           }}
           onAdoptMt={(mt) => {
-            adoptMachineTranslation(videoId, editingKey, mt);
+            if (produceBySentence) {
+              // 文の機械翻訳を使う = この行の自分の訳を外して、文の訳を出す（文の訳は取得時・作成時に保存済み）
+              if (editingOwn?.edited) editTranslation(videoId, editingKey, "");
+            } else adoptMachineTranslation(videoId, editingKey, mt, editingOwnMt?.source === "ai" ? "ai" : "mt");
             setEditing(null);
           }}
         />

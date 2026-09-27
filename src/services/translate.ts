@@ -3,7 +3,11 @@
 // 既定: Google 翻訳の無料エンドポイント(gtx, APIキー不要) → 失敗時 MyMemory。
 // 端末からユーザー操作で呼び出し、結果は端末内にだけ保存する。
 // 検証に通らなかった応答は例外にして、呼び出し側が保存しないようにする。
+// 歌詞は translateUnits で送る（口語の短縮形を標準形に直してから。mtNormalize.ts）。
+//   検証: scripts/check-translate.ts（npm run check:translate。偽の fetch で動かし、実際には通信しない）
 // ============================================================================
+
+import { normalizeForMT } from "./mtNormalize";
 
 export interface TranslateProvider {
   readonly name: string;
@@ -140,4 +144,26 @@ export async function translateLines(lines: string[], signal?: AbortSignal): Pro
 export async function translateText(text: string, signal?: AbortSignal): Promise<string> {
   const [out] = await translateLines([text], signal);
   return out;
+}
+
+/** 行の配列を訳す関数（translateLines と同じ形。検証では偽物を渡す） */
+export type TranslateFn = (lines: string[], signal?: AbortSignal) => Promise<string[]>;
+
+/**
+ * 歌詞の「訳す単位」（行、または文ごとにまとめた行）を翻訳する。
+ * 送る前に意味の決まる口語の短縮形を標準形に直し（normalizeForMT。tô → estou など）、空白を1つにそろえる。
+ * 戻り値は units と同じ長さ・同じ順序（元の units に対応）。同じ本文は1回だけ送り、空の単位は送らずに "" を返す。
+ */
+export async function translateUnits(
+  units: readonly string[],
+  signal?: AbortSignal,
+  translate: TranslateFn = translateLines
+): Promise<string[]> {
+  const prepared = units.map((u) => normalizeForMT(u).replace(/\s+/g, " ").trim());
+  const uniq = [...new Set(prepared.filter(Boolean))];
+  if (!uniq.length) return units.map(() => "");
+  const out = await translate(uniq, signal);
+  if (out.length !== uniq.length) throw new Error("翻訳の行数が一致しません");
+  const byText = new Map(uniq.map((u, i) => [u, typeof out[i] === "string" ? out[i].trim() : ""]));
+  return prepared.map((p) => (p ? byText.get(p) ?? "" : ""));
 }

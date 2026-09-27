@@ -11,6 +11,17 @@ import type { HandsfreeDirection, ProductionAnswerMode, StudyDirection, StudyVie
 import { HANDSFREE_GAPS_SEC } from "../services/handsfree";
 import UpdateBanner from "../components/UpdateBanner";
 import { checkForUpdate, type UpdateCheckResult } from "../pwa/usePwa";
+import { looksLikeAnthropicKey, maskApiKey, normalizeApiKey, useSecrets } from "../store/useSecrets";
+import { abortAiRun } from "../store/aiRun";
+import { useOnline } from "../hooks/useOnline";
+import {
+  AI_MODELS,
+  AI_MODEL_INFO,
+  formatYen,
+  testClaudeConnection,
+  toAiModel,
+  typicalSongCost,
+} from "../services/aiTranslate";
 
 function Row({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
@@ -342,6 +353,215 @@ function SpeechInputSettings() {
   );
 }
 
+type KeyTest = { status: "idle" } | { status: "busy" } | { status: "ok"; msg: string } | { status: "error"; msg: string };
+
+/**
+ * キーの欄を CSS（-webkit-text-security）で伏せ字にできるか。できるときは type="password" を使わない
+ * （パスワード欄にすると、Chrome がキーを Google パスワード マネージャーに保存しようとし、保存すると
+ * Google アカウント経由で他の端末にも同期されてしまう。「この端末にだけ保存」と合わない）。
+ * できないブラウザ（一部の Firefox など）だけ type="password" で伏せる
+ */
+const CAN_MASK_WITH_CSS = typeof CSS !== "undefined" && typeof CSS.supports === "function" && CSS.supports("-webkit-text-security", "disc");
+
+/**
+ * 🤖 AI翻訳（Claude）の設定（任意）。利用者自身の Anthropic API キーを入れたときだけ、曲の画面に「🤖 AIで訳す」が出る。
+ * キーは useSecrets（bp-secrets-v1。この端末だけ・バックアップ対象外）に保存し、画面には末尾4文字だけ出す。
+ * モデル（aiTranslateModel）は普通の設定（バックアップに入る）。接続テストは小さなリクエストを1回送る
+ */
+function AiTranslateSettings() {
+  const savedKey = useSecrets((st) => st.anthropicApiKey);
+  const setKey = useSecrets((st) => st.setAnthropicApiKey);
+  const clearKey = useSecrets((st) => st.clearAnthropicApiKey);
+  const model = toAiModel(useSettings((st) => st.aiTranslateModel));
+  const set = useSettings((st) => st.set);
+  const online = useOnline();
+  // 入力中のキー（保存したら消す。保存済みのキーは入力欄に戻さない）
+  const [draft, setDraft] = useState("");
+  const [show, setShow] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
+  const [test, setTest] = useState<KeyTest>({ status: "idle" });
+  const ctrl = useRef<AbortController | null>(null);
+  // 画面を離れたら接続テストの通信も止める
+  useEffect(() => () => ctrl.current?.abort(), []);
+
+  const draftKey = normalizeApiKey(draft);
+
+  function save() {
+    if (!draftKey) return;
+    ctrl.current?.abort();
+    // 別のキーに替えたら、前のキーで通信中の AI 翻訳も止める
+    if (draftKey !== savedKey) abortAiRun();
+    setKey(draftKey);
+    setDraft("");
+    setShow(false);
+    setTest({ status: "idle" });
+    setNote(
+      looksLikeAnthropicKey(draftKey)
+        ? "キーを保存しました。「接続テスト」で使えるか確かめられます。"
+        : "保存しました。ただし Anthropic の API キーは普通 sk-ant- で始まります。別のキーでないか確かめてください。"
+    );
+  }
+
+  function remove() {
+    if (!confirm("保存した API キーをこの端末から削除します。AI 翻訳は使えなくなります（これまでの訳は残ります）。よろしいですか？")) return;
+    ctrl.current?.abort();
+    // 曲の画面で通信中の AI 翻訳も止める（削除したキーでの通信を続けない）
+    abortAiRun();
+    clearKey();
+    setTest({ status: "idle" });
+    setNote("キーを削除しました。");
+  }
+
+  async function runTest() {
+    if (!savedKey) return;
+    ctrl.current?.abort();
+    const c = new AbortController();
+    ctrl.current = c;
+    setTest({ status: "busy" });
+    try {
+      const r = await testClaudeConnection({ apiKey: savedKey, model, signal: c.signal });
+      if (!c.signal.aborted) {
+        setTest({ status: "ok", msg: `接続できました（${AI_MODEL_INFO[r.model].label}・今回 ${formatYen(r.cost.yen)}）` });
+      }
+    } catch (e) {
+      if (!c.signal.aborted) setTest({ status: "error", msg: e instanceof Error ? e.message : "接続できませんでした" });
+    }
+  }
+
+  return (
+    <section className="card space-y-2 p-3">
+      <h2 className="px-1 text-sm font-bold text-slate-500">🤖 AI翻訳（Claude）</h2>
+      <div className="space-y-1.5 px-1 text-xs leading-relaxed text-slate-500">
+        <p>
+          曲の歌詞の和訳を、Claude（Anthropic の AI）で作れます。曲全体の流れ・口語・比喩をくみ取った自然な訳になり、慣用句や文化の背景には 💡
+          の補足が付きます。<span className="font-bold text-slate-600">任意の機能です</span>
+          （キーを入れなければ、これまでどおり無料の機械翻訳だけを使います）。
+        </p>
+        <ul className="list-disc space-y-1 pl-4">
+          <li>
+            <span className="font-bold text-slate-600">歌詞の行・曲名・アーティスト名が Anthropic に送られて翻訳されます。</span>
+            送るのは、曲の画面で「🤖 AIで訳す」を押して確認したときだけです。
+          </li>
+          <li>APIキーはこの端末にだけ保存します（バックアップ・エクスポートに含めません）。</li>
+          <li>
+            利用料はあなたの Anthropic アカウントに請求されます。1曲あたりの目安（40行の曲）:{" "}
+            {AI_MODELS.map((m) => `${AI_MODEL_INFO[m].label} ${formatYen(typicalSongCost(m).yen)}`).join(" / ")}
+            （1ドル＝150円で計算した目安）。
+          </li>
+          <li>Anthropic Console で月の利用上限を設定しておくと安心です。</li>
+        </ul>
+      </div>
+      <details className="rounded-lg bg-slate-50 px-3 py-1 text-xs text-slate-500">
+        <summary className="cursor-pointer py-2 font-medium text-slate-600">APIキーの作り方</summary>
+        <ol className="mb-2 list-decimal space-y-1 pl-5">
+          <li>
+            <a href="https://console.anthropic.com" target="_blank" rel="noreferrer" className="text-brand-blue underline">
+              console.anthropic.com
+            </a>{" "}
+            でアカウントを作ってログインします。
+          </li>
+          <li>支払い設定（Billing）でクレジットを購入します（支払い設定が必要です）。月の利用上限（Limits）もここで決められます。</li>
+          <li>「API Keys」→「Create Key」でキーを作り、表示されたキー（sk-ant- で始まる）をコピーします。キーは作ったときに一度しか表示されません。</li>
+          <li>下の欄に貼り付けて「保存」し、「接続テスト」で確かめます。</li>
+        </ol>
+      </details>
+
+      <div className="space-y-2 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-500">
+        <div className="flex items-center justify-between gap-2">
+          <span className="font-medium text-slate-600">APIキー</span>
+          <span className={`chip ${savedKey ? "bg-emerald-100 text-emerald-700" : "bg-slate-200 text-slate-600"}`}>
+            {savedKey ? `保存済み ${maskApiKey(savedKey)}` : "未設定"}
+          </span>
+        </div>
+        <div className="flex gap-2">
+          {/* パスワード欄にしない（CAN_MASK_WITH_CSS）。伏せ字は CSS で、「表示」で外す。
+              パスワード マネージャーの拡張機能にも保存・入力させない（data-lpignore / data-1p-ignore） */}
+          <input
+            type={show || CAN_MASK_WITH_CSS ? "text" : "password"}
+            name="anthropic-api-key-input"
+            data-lpignore="true"
+            data-1p-ignore=""
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            placeholder={savedKey ? "別のキーに替えるときだけ入力" : "sk-ant-…"}
+            autoComplete="off"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
+            aria-label="Anthropic の API キー"
+            className={`min-h-11 min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2 font-mono text-sm text-brand-ink ${
+              !show && CAN_MASK_WITH_CSS ? "[-webkit-text-security:disc]" : ""
+            }`}
+          />
+          <button
+            type="button"
+            onClick={() => setShow((v) => !v)}
+            aria-pressed={show}
+            aria-label={show ? "入力したキーを隠す" : "入力したキーを表示"}
+            className="btn-ghost min-h-11 min-w-11 shrink-0 px-2 text-xs"
+          >
+            {show ? "隠す" : "表示"}
+          </button>
+        </div>
+        <div className="flex gap-2">
+          <button type="button" onClick={save} disabled={!draftKey} className="btn-primary min-h-11 flex-1 text-sm">
+            保存
+          </button>
+          <button
+            type="button"
+            onClick={remove}
+            disabled={!savedKey}
+            className="btn min-h-11 flex-1 bg-rose-50 text-sm text-rose-600 ring-1 ring-rose-200"
+          >
+            削除
+          </button>
+        </div>
+        {note && <p aria-live="polite">{note}</p>}
+      </div>
+
+      <Row label="モデル" hint={`1曲あたりの目安 ${formatYen(typicalSongCost(model).yen)}（40行の曲）`}>
+        <select
+          value={model}
+          onChange={(e) => {
+            set({ aiTranslateModel: toAiModel(e.target.value) });
+            setTest({ status: "idle" });
+          }}
+          aria-label="AI翻訳のモデル"
+          className="min-h-11 max-w-[200px] rounded-lg border border-slate-200 px-2 py-1.5"
+        >
+          {AI_MODELS.map((m) => (
+            <option key={m} value={m}>
+              {AI_MODEL_INFO[m].label}（{AI_MODEL_INFO[m].hint}）{formatYen(typicalSongCost(m).yen)}/曲
+            </option>
+          ))}
+        </select>
+      </Row>
+
+      <button
+        type="button"
+        onClick={() => void runTest()}
+        disabled={!savedKey || !online || test.status === "busy"}
+        className="btn-ghost min-h-11 w-full text-sm"
+      >
+        {test.status === "busy" ? "接続テスト中…" : "接続テスト"}
+      </button>
+      {!savedKey && <p className="px-1 text-[11px] text-slate-400">キーを保存すると、接続テストができます。</p>}
+      {savedKey && !online && <p className="px-1 text-[11px] text-slate-400">オフラインのため、接続テストはできません。</p>}
+      {test.status === "ok" && (
+        <p aria-live="polite" className="rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
+          ✓ {test.msg}
+        </p>
+      )}
+      {test.status === "error" && (
+        <p role="alert" className="rounded-lg bg-rose-50 px-3 py-2 text-xs leading-relaxed text-rose-600">
+          {test.msg}
+        </p>
+      )}
+      <p className="px-1 text-[11px] text-slate-400">接続テストは、選んだモデルに短いメッセージを1回送ります（料金はごくわずか）。</p>
+    </section>
+  );
+}
+
 export default function Settings() {
   const s = useSettings();
 
@@ -648,6 +868,9 @@ export default function Settings() {
         </Row>
       </section>
 
+      {/* 歌詞の AI 翻訳（任意。自分の Anthropic API キー） */}
+      <AiTranslateSettings />
+
       {/* 音声 */}
       <section className="card p-3">
         <Row
@@ -686,7 +909,7 @@ export default function Settings() {
         <h2 className="px-1 text-sm font-bold text-slate-500">データとバックアップ</h2>
         <DataProtection onMessage={flash} />
         <p className="px-1 text-xs text-slate-400">
-          進捗（産出カード・日ごとの学習ログ・活用ドリルの成績を含む）・曲の和訳・曲から追加した単語・設定を保存します（歌詞そのもの・音声の選択・音声認識のオン／オフは含みません）。スマホでは共有メニューから
+          進捗（産出カード・日ごとの学習ログ・活用ドリルの成績を含む）・曲の和訳・曲から追加した単語・設定を保存します（歌詞そのもの・音声の選択・音声認識のオン／オフ・AI翻訳の API キーは含みません）。スマホでは共有メニューから
           Google ドライブやメールに保存できます（ファイルは .txt ですが、そのままインポートできます）。PC ではファイル（.json）をダウンロードします。
         </p>
         <LastBackup />

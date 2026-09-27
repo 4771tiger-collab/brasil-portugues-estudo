@@ -171,6 +171,9 @@ export type HandsfreeDirection = "pt2ja" | "ja2pt";
 /** 産出カード（和→葡）の答え方の既定（self: 言ってから答えを見て自分で評価 / type: 入力して採点） */
 export type ProductionAnswerMode = "self" | "type";
 
+/** 歌詞の AI 翻訳（Claude）に使うモデル（ID は日付の付かない形のまま API に送る） */
+export type AiTranslateModel = "claude-haiku-4-5" | "claude-sonnet-5" | "claude-opus-5";
+
 /** 設定 */
 export interface Settings {
   rate: number; // 既定の再生速度
@@ -214,4 +217,9 @@ export interface Settings {
    * オンラインのときだけ）を読んでからオンにする。端末ごとの同意なのでバックアップには入れない
    */
   speechInputEnabled: boolean;
+  /**
+   * 歌詞の AI 翻訳（Claude）に使うモデル。既定 claude-haiku-4-5（安い）。
+   * API キーそのものは設定ではなく useSecrets（別のキー・バックアップ対象外）に置く
+   */
+  aiTranslateModel: AiTranslateModel;
 }

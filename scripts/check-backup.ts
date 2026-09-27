@@ -15,6 +15,7 @@ import {
   readDrill,
   readMusic,
   readSelfTranslated,
+  readTranslation,
   type BackupData,
   type ParseResult,
   type ProgressPart,
@@ -32,6 +33,7 @@ import {
   mergeSelfTranslated,
   mergeStreak,
   mergeTranslations,
+  translationRank,
   unionBy,
 } from "../src/store/merge";
 import type { AddedWord, MusicExport } from "../src/store/useMusic";
@@ -489,6 +491,47 @@ console.log("=== parseBackup: カード・曲のデータの検査 ===");
   const ms = readMusic({ songs: { vidA: { offsetMs: 5, translations: {}, selfTranslated: { abc123: true, "linha inventada": true } }, vidB: { selfTranslated: {} } } });
   eq(ms?.songs, { vidA: { offsetMs: 5, translations: {}, selfTranslated: { abc123: true } }, vidB: { offsetMs: 0, translations: {} } }, "readMusic: selfTranslated を読み、空なら項目を置かない");
   ok(!JSON.stringify(ms).includes("linha inventada"), "readMusic: selfTranslated の行の本文のキーを持ち込まない");
+
+  // 和訳の改善: 各訳の任意フィールド source（"mt" | "ai" | "user"）・note（訳の補足）をそのまま通す
+  eq(readTranslation({ text: "訳", edited: false, source: "ai", note: "補足" }), { text: "訳", edited: false, source: "ai", note: "補足" }, "readTranslation: source・note を通す");
+  eq(readTranslation({ text: "訳", edited: true, source: "user" }), { text: "訳", edited: true, source: "user" }, "readTranslation: source user");
+  eq(readTranslation({ text: "訳", source: "mt" }), { text: "訳", edited: false, source: "mt" }, "readTranslation: edited が無ければ false");
+  eq(
+    [
+      readTranslation({ text: "訳", edited: false, source: "deepl", note: "" }),
+      readTranslation({ text: "訳", edited: false, source: 1, note: 5 }),
+      readTranslation({ text: "訳", edited: false, note: "   " }),
+    ],
+    [
+      { text: "訳", edited: false },
+      { text: "訳", edited: false },
+      { text: "訳", edited: false },
+    ],
+    "readTranslation: 知らない source・空や文字列でない note は落とす（項目を置かない）"
+  );
+  eq([readTranslation(null), readTranslation({ text: 3 }), readTranslation("訳")], [null, null, null], "readTranslation: text が文字列でない → null");
+  const mt = readMusic({
+    songs: {
+      vidA: {
+        offsetMs: 0,
+        translations: {
+          k1: { text: "文の訳", edited: false, source: "mt" },
+          k2: { text: "AI の訳", edited: false, source: "ai", note: "補足", extra: "linha inventada" },
+          k3: { text: "古い訳", edited: false },
+        },
+      },
+    },
+  });
+  eq(
+    mt?.songs.vidA.translations,
+    {
+      k1: { text: "文の訳", edited: false, source: "mt" },
+      k2: { text: "AI の訳", edited: false, source: "ai", note: "補足" },
+      k3: { text: "古い訳", edited: false },
+    },
+    "readMusic: 和訳の source・note を通し、出どころの無い古い訳はそのまま（知らない項目は落とす）"
+  );
+  ok(!JSON.stringify(mt).includes("linha inventada"), "readMusic: 和訳の知らない項目（歌詞など）を持ち込まない");
 }
 
 console.log("=== pickSettings ===");
@@ -646,6 +689,25 @@ console.log("=== composeBackup（v3 の書き出し） ===");
   ok(!!d && describeBackup(d).includes("自分で訳した行 1行"), "describeBackup: 自分で訳した行の数");
   const plain = data(parseBackup(JSON.stringify({ ...V3 })), "selfTranslated の無いファイル");
   ok(!!plain && !describeBackup(plain).includes("自分で訳した行"), "describeBackup: 自分で訳した行が無ければ出さない");
+}
+{
+  // 和訳の改善: 訳の source・note（任意フィールド）を書き出して読み戻す。version は 3 のまま
+  const G = lineHash("Uma linha inventada Outra linha inventada");
+  const translations = {
+    abc123: { text: "訳の例", edited: true, source: "user" as const },
+    [G]: { text: "文の訳", edited: false, source: "mt" as const },
+    def456: { text: "AI の訳", edited: false, source: "ai" as const, note: "補足" },
+  };
+  const out = composeBackup({
+    progress: { version: 1, ...PROGRESS },
+    music: { ...MUSIC, songs: { vidA: { offsetMs: 0, translations } } },
+    settings: V3.settings,
+    app: { version: "0.1.0", build: "abc1234" },
+  });
+  eq(out.version, 3, "和訳の source・note があっても version は 3");
+  eq((out.music as MusicExport).songs.vidA.translations, translations, "書き出し: 和訳の source・note・文のキー");
+  const d = data(parseBackup(JSON.stringify(out)), "和訳の source・note の往復");
+  eq(d?.music?.songs.vidA.translations, translations, "往復: 和訳の source・note・文のキー");
 }
 
 // ---------------------------------------------------------------------------
@@ -959,6 +1021,49 @@ console.log("=== merge: 曲のデータ（和訳・同期・曲の単語） ==="
   eq(ms.songs.vidD, RS.songs.vidD, "songs: ファイルにだけある曲の印も入る");
   eq(JSON.stringify([LS, RS]), beforeS, "mergeMusic: 元のデータを書き換えない");
   eq(mergeMusic(ms, RS), ms, "mergeMusic: 同じファイルをもう一度統合しても同じ");
+
+  // 和訳の出どころ（source）: 自分で直した訳 > AI の訳 > 機械翻訳・古い訳。同じ強さなら端末側
+  const T = (text: string, edited: boolean, source?: "mt" | "ai" | "user", note?: string) => ({
+    text,
+    edited,
+    ...(source ? { source } : {}),
+    ...(note ? { note } : {}),
+  });
+  eq(
+    [T("a", true, "user"), T("a", true), T("a", false, "ai"), T("a", false, "mt"), T("a", false), T("a", false, "user")].map(translationRank),
+    [2, 2, 1, 0, 0, 0],
+    "translationRank: edited 2 > ai 1 > mt・出どころなし 0"
+  );
+  const LT = {
+    a: T("端末mt", false, "mt"),
+    b: T("端末ai", false, "ai", "端末の補足"),
+    c: T("端末user", true, "user"),
+    d: T("端末ai", false, "ai"),
+    e: T("端末古い", false),
+    f: T("端末mt", false, "mt"),
+  };
+  const RT = {
+    a: T("ファイルai", false, "ai", "補足"),
+    b: T("ファイルmt", false, "mt"),
+    c: T("ファイルai", false, "ai"),
+    d: T("ファイルuser", true, "user"),
+    e: T("ファイルmt", false, "mt"),
+    g: T("ファイルだけ", false, "mt"),
+  };
+  eq(
+    mergeTranslations(LT, RT),
+    {
+      a: T("ファイルai", false, "ai", "補足"),
+      b: T("端末ai", false, "ai", "端末の補足"),
+      c: T("端末user", true, "user"),
+      d: T("ファイルuser", true, "user"),
+      e: T("端末古い", false),
+      f: T("端末mt", false, "mt"),
+      g: T("ファイルだけ", false, "mt"),
+    },
+    "mergeTranslations: 強い方（自分の訳 > AI > 機械翻訳）。同じ強さは端末側。note は訳と一緒に動く"
+  );
+  eq(mergeTranslations({ k: T("端末", true) }, { k: T("ファイル", true, "user") }), { k: T("端末", true) }, "mergeTranslations: 両方とも自分で直した訳 → 端末側（従来どおり）");
 }
 
 console.log("=== merge: 活用ドリルの成績（形ごとに last → seen → correct → 端末側） ===");
@@ -1461,6 +1566,111 @@ console.log("=== 音声認識の設定（T2-8）: 書き出し・取り込みで
 
   useProgress.getState().resetAll();
   S().set({ speechInputEnabled: false, rate: 1 });
+}
+
+// ---------------------------------------------------------------------------
+// 和訳の改善: 訳の source・note はストアの書き出し → 取り込み（置き換え・統合）で残る。文ごとの訳（文のキー）も同じ
+console.log("=== 和訳の source・note（書き出し・置き換え・統合） ===");
+{
+  const { exportAll, importAll } = await import("../src/store/backup");
+  const { useProgress } = await import("../src/store/useProgress");
+  const { useMusic } = await import("../src/store/useMusic");
+  const M = () => useMusic.getState();
+  const A = lineHash("Uma linha inventada");
+  const G = lineHash("Uma linha inventada Outra linha inventada");
+  useProgress.getState().resetAll();
+  useMusic.setState({
+    songs: {
+      vidT: {
+        offsetMs: 0,
+        translations: {
+          [A]: { text: "AI の訳", edited: false, source: "ai", note: "補足" },
+          [G]: { text: "文の訳", edited: false, source: "mt" },
+        },
+      },
+    },
+    addedWords: [],
+    userWords: [],
+  });
+  const json = exportAll();
+  ok(!json.includes("inventada"), "書き出しに行の本文が入らない（和訳のキーはハッシュ）");
+  useMusic.setState({ songs: {} });
+  ok(importAll(json, "replace").ok, "置き換えで取り込む");
+  eq(M().songs.vidT?.translations, { [A]: { text: "AI の訳", edited: false, source: "ai", note: "補足" }, [G]: { text: "文の訳", edited: false, source: "mt" } }, "置き換え: source・note・文の訳を復元");
+  // 統合: 端末側の機械翻訳より、ファイル側の AI の訳を取る。端末側の自分の訳はそのまま
+  useMusic.setState({
+    songs: { vidT: { offsetMs: 0, translations: { [A]: { text: "端末の機械翻訳", edited: false, source: "mt" }, [G]: { text: "端末の自分の訳", edited: true, source: "user" } } } },
+  });
+  ok(importAll(json, "merge").ok, "統合で取り込む");
+  eq(
+    M().songs.vidT?.translations,
+    { [A]: { text: "AI の訳", edited: false, source: "ai", note: "補足" }, [G]: { text: "端末の自分の訳", edited: true, source: "user" } },
+    "統合: 機械翻訳 < AI の訳、自分の訳は端末側のまま"
+  );
+  useMusic.setState({ songs: {}, addedWords: [], userWords: [] });
+  useProgress.getState().resetAll();
+}
+
+// ---------------------------------------------------------------------------
+// AI 翻訳（Claude）: モデルの設定はバックアップに入る。API キー（useSecrets・bp-secrets-v1）は
+// 書き出しにも、置き換え・統合の取り込みにも一切入らない（ファイルに紛れ込んでいても端末のキーは変わらない）
+console.log("=== AI 翻訳の API キー: 書き出さない・取り込まない ===");
+{
+  eq(
+    ["claude-haiku-4-5", "claude-sonnet-5", "claude-opus-5"].map((m) => pickSettings({ aiTranslateModel: m }).aiTranslateModel),
+    ["claude-haiku-4-5", "claude-sonnet-5", "claude-opus-5"],
+    "pickSettings: aiTranslateModel の3つのモデルを読む"
+  );
+  eq(
+    [pickSettings({ aiTranslateModel: "claude-opus-5-20260101" }), pickSettings({ aiTranslateModel: 1 }), pickSettings({ anthropicApiKey: "sk-ant-x" })],
+    [{}, {}, {}],
+    "pickSettings: 知らないモデル・数・API キーの項目は読まない"
+  );
+
+  const FAKE = "sk-ant-test-FAKE-KEY-never-export-7777";
+  const { exportAll, importAll } = await import("../src/store/backup");
+  const { useProgress } = await import("../src/store/useProgress");
+  const { useSettings } = await import("../src/store/useSettings");
+  const { useSecrets } = await import("../src/store/useSecrets");
+  const S = () => useSettings.getState();
+  const K = () => useSecrets.getState().anthropicApiKey;
+  useProgress.getState().resetAll();
+  useProgress.getState().rate("words:0010", "good");
+  useSecrets.getState().setAnthropicApiKey(FAKE);
+  S().set({ aiTranslateModel: "claude-sonnet-5" });
+  ok((mem.get("bp-secrets-v1") ?? "").includes(FAKE), "前提: キーは bp-secrets-v1 に保存されている");
+
+  const json = exportAll();
+  ok(!json.includes(FAKE), "書き出しに API キーが入らない");
+  ok(!json.includes("anthropicApiKey") && !json.includes("bp-secrets"), "書き出しにキーの項目名・秘密のストアが入らない");
+  ok(!json.includes("sk-ant-"), "書き出しに sk-ant- で始まる文字列が入らない");
+  eq((JSON.parse(json) as { settings: Record<string, unknown> }).settings.aiTranslateModel, "claude-sonnet-5", "書き出し: モデルの設定（秘密ではない）は入る");
+
+  // キーを紛れ込ませたファイル（最上位・settings・music）を取り込んでも、端末のキーは変わらない
+  const forged = JSON.parse(json) as Record<string, unknown>;
+  const OTHER = "sk-ant-test-FORGED-KEY-from-file-8888";
+  forged.anthropicApiKey = OTHER;
+  forged.secrets = { anthropicApiKey: OTHER };
+  forged["bp-secrets-v1"] = { state: { anthropicApiKey: OTHER } };
+  forged.settings = { ...(forged.settings as Record<string, unknown>), anthropicApiKey: OTHER, aiTranslateModel: "claude-opus-5" };
+  (forged.music as Record<string, unknown>).anthropicApiKey = OTHER;
+  S().set({ aiTranslateModel: "claude-haiku-4-5" });
+  ok(importAll(JSON.stringify(forged), "replace").ok, "置き換えで取り込む");
+  eq(K(), FAKE, "置き換え: 端末の API キーは変わらない");
+  eq(S().aiTranslateModel, "claude-opus-5", "置き換え: モデルの設定はファイルの内容");
+  ok(!("anthropicApiKey" in S()), "置き換え: 設定にキーの項目が入らない");
+  S().set({ aiTranslateModel: "claude-haiku-4-5" });
+  ok(importAll(JSON.stringify(forged), "merge").ok, "統合で取り込む");
+  eq([K(), S().aiTranslateModel], [FAKE, "claude-haiku-4-5"], "統合: キーも設定も端末側のまま");
+  ok(!(mem.get("bp-secrets-v1") ?? "").includes(OTHER) && !(mem.get("bp-settings-v1") ?? "").includes(OTHER), "ファイルのキーは端末のどこにも保存されない");
+  ok(!exportAll().includes(FAKE), "取り込んだ後の書き出しにもキーが入らない");
+
+  // キーが無くても書き出し・取り込みはこれまでどおり
+  useSecrets.getState().clearAnthropicApiKey();
+  ok(importAll(exportAll(), "replace").ok && K() === null, "キーを削除した後も書き出し・取り込みはでき、キーは null のまま");
+
+  useProgress.getState().resetAll();
+  S().set({ aiTranslateModel: "claude-haiku-4-5" });
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

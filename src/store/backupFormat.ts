@@ -10,6 +10,10 @@
 //     設定に replayAfterLookup を足した（どちらも version は 3 のまま。無ければ端末側のまま）。
 //     T2-1 で産出カード（cards のキー "<語のID>@p"。普通のカードと同じ形）と、設定 productionEnabled・
 //     dailyProductionNewLimit・productionAnswerMode を足した（version は 3 のまま。無ければ端末側のまま）。
+//     和訳の改善で music.songs[].translations の各訳に任意フィールド source（"mt" | "ai" | "user"）・note（訳の補足）を
+//     足した。文ごとの訳も同じ translations に文のハッシュをキーに入る（どちらも version は 3 のまま。無ければ項目を置かない）。
+//     AI 翻訳（Claude）で設定 aiTranslateModel を足した（version は 3 のまま。無ければ端末側のまま）。
+//     AI 翻訳の API キーは別のストア（useSecrets・bp-secrets-v1）にあり、書き出さず・読み込まない。
 // v4 以降（新しいアプリで作ったファイル）: 警告を出し、このアプリが知っている項目だけ読む。
 // 歌詞の本文・歌詞キャッシュ（lyricsCache）は書き出さず、読み込みでも拾わない。
 // ============================================================================
@@ -21,6 +25,7 @@ import type { DrillExport, DrillStat } from "./useDrill";
 import { readHistory, type History } from "./history";
 import { DRILL_KEY_RE } from "../services/conjugationDrill";
 import { isLineHash } from "../services/lyrics";
+import { TRANSLATION_SOURCES, type TranslationSource } from "../services/lyricSentences";
 import { isProdKey } from "../srs/cardKey";
 
 export const BACKUP_VERSION = 3;
@@ -98,6 +103,9 @@ const SETTINGS_SCHEMA: { [K in keyof Settings]-?: SettingKind } = {
   // T2-8 で追加（音声認識の「言ってみる」）。音声を Google に送ることへの同意は端末ごとに設定画面で行うため、
   // バックアップに入れない（取り込んでも、別の端末で説明を読まずにオンにならない）
   speechInputEnabled: null,
+  // 歌詞の AI 翻訳（Claude）のモデル（任意フィールド。無い古いファイルでは端末側の値のまま）。
+  // API キーは設定ではなく useSecrets（bp-secrets-v1）にあり、書き出しにも読み込みにも一切入らない
+  aiTranslateModel: ["claude-haiku-4-5", "claude-sonnet-5", "claude-opus-5"],
 };
 
 function settingOk(kind: SettingKind, v: unknown): boolean {
@@ -167,6 +175,17 @@ export function readSelfTranslated(v: unknown): Record<string, true> | null {
 }
 
 /**
+ * 和訳1件。text が文字列のものだけ読み、edited は true のときだけ true。
+ * 任意フィールド source（知っている値のときだけ）・note（空でない文字列のときだけ）はそのまま通す。
+ */
+export function readTranslation(t: unknown): LineTranslation | null {
+  if (!isObj(t) || typeof t.text !== "string") return null;
+  const source = TRANSLATION_SOURCES.includes(t.source as TranslationSource) ? (t.source as TranslationSource) : undefined;
+  const note = typeof t.note === "string" && t.note.trim() ? t.note : undefined;
+  return { text: t.text, edited: t.edited === true, ...(source ? { source } : {}), ...(note ? { note } : {}) };
+}
+
+/**
  * 曲のデータ。songs は既知の項目（offsetMs・translations・selfTranslated）だけで組み直す
  * （歌詞の本文など、知らない項目を端末に持ち込まないため）。
  * addedWords・userWords は必須の項目を確かめ、それ以外はそのまま通す。
@@ -180,7 +199,8 @@ export function readMusic(v: unknown): MusicExport | null {
       const translations: Record<string, LineTranslation> = {};
       if (isObj(s.translations)) {
         for (const [k, t] of Object.entries(s.translations)) {
-          if (isObj(t) && typeof t.text === "string") translations[k] = { text: t.text, edited: t.edited === true };
+          const tr = readTranslation(t);
+          if (tr) translations[k] = tr;
         }
       }
       const selfTranslated = readSelfTranslated(s.selfTranslated);

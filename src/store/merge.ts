@@ -8,7 +8,8 @@
 //   streak は「両方の連続区間」と「学習ログで学習日だった日」をつないで数え直す（mergeStreak）
 // - customPassages・pinnedNew・userWords: 和集合（同じ ID は端末側）。pinnedNew は評価済みになった語を外す
 // - history: 日ごと・項目ごとに大きい方
-// - 曲: offsetMs は端末側、和訳は edited の方（どちらも同じなら端末側）。selfTranslated（自分で訳した行の印）は和集合。
+// - 曲: offsetMs は端末側、和訳はキーごとに「自分で直した訳（edited）> AI の訳（source "ai"）> それ以外」の強い方
+//   （同じ強さなら端末側）。selfTranslated（自分で訳した行の印）は和集合。
 //   addedWords は (id, videoId) の和集合で、addedAt は古い方、createdCard は OR
 // - drill（活用ドリルの成績）: 形ごとに last が新しい方（同じなら seen、correct が大きい方、それも同じなら端末側）
 // - daily（今日のカウンタ）と設定は端末側のまま（呼び出し側で扱う）
@@ -209,7 +210,15 @@ export function mergeProgress(local: ProgressPart, remote: ProgressPart, today: 
 // 曲のデータ
 // ---------------------------------------------------------------------------
 
-/** 行ごとの和訳: 端末側が手で直したものはそのまま。そうでなく、ファイル側が手で直したものならファイル側 */
+/** 和訳の強さ: 自分で直した訳 2 > AI の訳 1 > 機械翻訳・出どころの無い古い訳 0 */
+export function translationRank(t: LineTranslation): number {
+  return t.edited ? 2 : t.source === "ai" ? 1 : 0;
+}
+
+/**
+ * 和訳（行ごと・文ごと）: キーごとに強い方（translationRank）。同じ強さなら端末側。
+ * 端末側が手で直したものはそのまま（edited 優先）。
+ */
 export function mergeTranslations(
   local: Record<string, LineTranslation>,
   remote: Record<string, LineTranslation>
@@ -217,7 +226,7 @@ export function mergeTranslations(
   const out = { ...local };
   for (const [k, r] of Object.entries(remote)) {
     const l = out[k];
-    if (!l || (!l.edited && r.edited)) out[k] = r;
+    if (!l || translationRank(r) > translationRank(l)) out[k] = r;
   }
   return out;
 }

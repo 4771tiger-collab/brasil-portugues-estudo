@@ -1,6 +1,8 @@
 // ============================================================================
 // 音楽タブの状態（端末内に保存）
 // - 曲ごとの同期オフセット・和訳（行テキストのハッシュをキーに保存。行番号基準にせず、歌詞本文も残さない）
+//   文ごとの和訳（複数行をまとめて訳したもの）も同じ translations に、文の本文のハッシュ（lineGroupKey）をキーに置く
+//   AI 翻訳（Claude。aiTranslate.ts）の訳も行のハッシュをキーに source "ai"・note（訳の補足）つきで置く
 // - 「自分で訳す」をした行の印 selfTranslated（B3-08。行のハッシュだけ）
 // - 曲から「単語帳に追加」した語と、辞書に無い語をユーザーが意味入力して追加した語
 // 歌詞そのものは lyricsCache.ts（別キー・バックアップ対象外）に置く。
@@ -12,6 +14,7 @@ import { persist } from "zustand/middleware";
 import type { UserWordRaw } from "../data/loadWords";
 import { userWordMap } from "../data/loadWords";
 import { isLineHash, lineHash } from "../services/lyrics";
+import type { JaMode, TranslationSource } from "../services/lyricSentences";
 import type { GapMode } from "../services/musicPractice";
 import { canHaveProd, prodKey } from "../srs/cardKey";
 import { useProgress } from "./useProgress";
@@ -19,11 +22,27 @@ import { useProgress } from "./useProgress";
 export interface LineTranslation {
   text: string;
   edited: boolean;
+  /**
+   * 訳の出どころ（任意フィールド。無い古い記録は機械翻訳か自分の訳 = edited で見分ける）:
+   * mt = 無料の機械翻訳 / ai = AI 翻訳 / user = 自分で書いた・直した訳
+   */
+  source?: TranslationSource;
+  /** 訳の補足（任意フィールド。AI 翻訳の注など） */
+  note?: string;
+}
+
+/** mergeTranslations に渡す訳1件（AI 翻訳の訳の補足つき） */
+export interface TranslationInput {
+  text: string;
+  note?: string;
 }
 
 export interface SongState {
   offsetMs: number;
-  /** key = lineHash(歌詞の行)（歌詞本文を保存しないためハッシュ） */
+  /**
+   * key = lineHash(歌詞の行)、または文ごとの訳は lineGroupKey(文)（どちらも歌詞本文を保存しないためハッシュ。
+   * 1行だけの文のキーはその行のキーと同じ）
+   */
   translations: Record<string, LineTranslation>;
   /**
    * 「自分で訳してから機械翻訳と比べる」をした行（B3-08 で足した任意フィールド）。
@@ -51,6 +70,8 @@ export interface MusicPrefs {
   rate: number;
   /** 1行停止・行リピートで、行の後に置く間（B3-08。無い古い保存データは DEFAULT_PREFS の off で補う） */
   gapMode: GapMode;
+  /** 和訳の単位: 文ごと（既定）/ 行ごと（無い古い保存データは DEFAULT_PREFS の sentence で補う） */
+  jaMode: JaMode;
 }
 
 export interface MusicExport {
@@ -64,11 +85,20 @@ interface MusicState extends MusicExport {
 
   setPrefs: (patch: Partial<MusicPrefs>) => void;
   setOffset: (videoId: string, offsetMs: number) => void;
-  /** 機械翻訳の結果を反映（ユーザーが編集した行は上書きしない） */
-  mergeTranslations: (videoId: string, map: Record<string, string>) => void;
+  /**
+   * 翻訳の結果を反映（source 既定は "mt"）。ユーザーが編集した訳は上書きしない。
+   * 機械翻訳（mt）で AI の訳を上書きすることもしない（作り直しで訳が粗くならないように）。空の訳は反映しない。
+   * 値は訳の文字列か { text, note }（AI 翻訳の訳の補足。空の note は付けない）。上書きした訳の古い note は残さない
+   */
+  mergeTranslations: (
+    videoId: string,
+    map: Record<string, string | TranslationInput>,
+    source?: Exclude<TranslationSource, "user">
+  ) => void;
+  /** 自分の訳を保存（edited・source "user"。訳の補足 note は残す）。空なら削除（未翻訳に戻る） */
   editTranslation: (videoId: string, key: string, text: string) => void;
   /** 「機械翻訳を採用」: 手で直した行でも機械翻訳の訳（edited: false）に置き換える。空なら何もしない */
-  adoptMachineTranslation: (videoId: string, key: string, text: string) => void;
+  adoptMachineTranslation: (videoId: string, key: string, text: string, source?: Exclude<TranslationSource, "user">) => void;
   /** 「自分で訳す」をした行に印を付ける（key は lineHash。ハッシュの形でなければ何もしない） */
   markSelfTranslated: (videoId: string, key: string) => void;
   addWord: (id: string, videoId: string, surface: string) => void;
@@ -88,7 +118,15 @@ interface MusicState extends MusicExport {
   importData: (data: Partial<MusicExport>) => void;
 }
 
-const DEFAULT_PREFS: MusicPrefs = { showKana: true, showJa: true, autoScroll: true, playMode: "all", rate: 1, gapMode: "off" };
+const DEFAULT_PREFS: MusicPrefs = {
+  showKana: true,
+  showJa: true,
+  autoScroll: true,
+  playMode: "all",
+  rate: 1,
+  gapMode: "off",
+  jaMode: "sentence",
+};
 
 /** ハッシュ済みのキー（cyrb53 の base36・11文字以下）か */
 const isHashKey = isLineHash;
@@ -127,13 +165,21 @@ export const useMusic = create<MusicState>()(
         set({ songs: { ...get().songs, [videoId]: { ...s, offsetMs } } });
       },
 
-      mergeTranslations: (videoId, map) => {
+      mergeTranslations: (videoId, map, source = "mt") => {
         const s = song(get(), videoId);
         const translations = { ...s.translations };
-        for (const [k, text] of Object.entries(map)) {
-          if (translations[k]?.edited) continue;
-          translations[k] = { text, edited: false };
+        let changed = false;
+        for (const [k, raw] of Object.entries(map)) {
+          const obj = typeof raw === "object" && raw !== null ? raw : null;
+          const text = typeof raw === "string" ? raw.trim() : typeof obj?.text === "string" ? obj.text.trim() : "";
+          const note = typeof obj?.note === "string" ? obj.note.trim() : "";
+          const cur = translations[k];
+          if (!text || cur?.edited) continue;
+          if (source === "mt" && cur?.source === "ai") continue;
+          translations[k] = { text, edited: false, source, ...(note ? { note } : {}) };
+          changed = true;
         }
+        if (!changed) return;
         set({ songs: { ...get().songs, [videoId]: { ...s, translations } } });
       },
 
@@ -141,15 +187,19 @@ export const useMusic = create<MusicState>()(
         const s = song(get(), videoId);
         const translations = { ...s.translations };
         // 空で保存したら削除（未翻訳に戻り、機械翻訳で作り直せる）
-        if (text.trim()) translations[key] = { text: text.trim(), edited: true };
-        else delete translations[key];
+        if (text.trim()) {
+          const note = translations[key]?.note;
+          translations[key] = { text: text.trim(), edited: true, source: "user", ...(note ? { note } : {}) };
+        } else delete translations[key];
         set({ songs: { ...get().songs, [videoId]: { ...s, translations } } });
       },
 
-      adoptMachineTranslation: (videoId, key, text) => {
+      adoptMachineTranslation: (videoId, key, text, source = "mt") => {
         if (!text.trim()) return;
         const s = song(get(), videoId);
-        const translations = { ...s.translations, [key]: { text: text.trim(), edited: false } };
+        // 訳の補足（note）は行についての説明なので残す
+        const note = s.translations[key]?.note;
+        const translations = { ...s.translations, [key]: { text: text.trim(), edited: false, source, ...(note ? { note } : {}) } };
         set({ songs: { ...get().songs, [videoId]: { ...s, translations } } });
       },
 
