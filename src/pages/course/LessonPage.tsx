@@ -26,7 +26,7 @@ import { PITCH_PARTNER, PITCH_YOU, speakPt } from "../../components/speak/speakP
 
 const STEPS = [
   { label: "聞く", hint: "文字を見ずに、会話を聞いてみる" },
-  { label: "まねる", hint: "お手本のすぐ後に、声に出してまねる" },
+  { label: "まねる", hint: "この課の文を、お手本のすぐ後にまねて言う" },
   { label: "言う", hint: "日本語を見て、ポルトガル語で言う" },
   { label: "演じる", hint: "相手のセリフを聞いて、自分の役を言う" },
 ] as const;
@@ -244,70 +244,69 @@ function ListenStep({ lesson, onNext }: { lesson: Lesson; onNext: () => void }) 
 }
 
 // ---------------------------------------------------------------------------
-// ② まねる（自分のセリフを、お手本のあとに声に出す）
+// ② まねる（この課の文を、お手本のあとに声に出す。次の「言う」で日本語から思い出す文を、先に口に乗せておく）
 // ---------------------------------------------------------------------------
 function RepeatStep({ lesson, onNext }: { lesson: Lesson; onNext: () => void }) {
   const showKana = useSettings((s) => s.showKana);
-  const targets = useMemo(() => lesson.lines.map((l, i) => ({ l, i })).filter((x) => x.l.who === "you"), [lesson]);
+  const targets = lesson.phrases;
   const [k, setK] = useState(0);
   const [score, setScore] = useState<SpeechSentenceScore | null>(null);
   const t = targets[k];
-  const prev = t && t.i > 0 ? lesson.lines[t.i - 1] : null;
 
-  // その行に来たら、お手本を1回流す
+  // その文に来たら、お手本を1回流す
   useEffect(() => {
     if (!t) return;
     setScore(null);
-    void speakPt(t.l.pt);
+    void speakPt(t.pt);
     return () => audio.cancel();
   }, [t]);
 
   if (!t) return null;
+  const answers = [t.pt, ...(t.alt ?? [])];
   function next() {
     useProgress.getState().logActivity("speak", 1, 0);
     if (k + 1 >= targets.length) onNext();
     else setK(k + 1);
   }
-  const onHeard = (r: SpeechResult) => setScore(scoreSpeechSentence(r.transcripts, t.l.pt));
+  const onHeard = (r: SpeechResult) => setScore(scoreSpeechSentence(r.transcripts, answers));
 
   return (
     <div className="space-y-4">
       <p className="text-center text-xs tabular-nums text-slate-500">
-        あなたのセリフ {k + 1} / {targets.length}
+        この課の文 {k + 1} / {targets.length}
       </p>
-      {prev && prev.who === "partner" && (
-        <button type="button" onClick={() => void speakPt(prev.pt, { pitch: PITCH_PARTNER })} className="block w-full rounded-xl bg-slate-100 px-3 py-2 text-left">
-          <span className="block text-[11px] font-bold text-slate-500">{lesson.partner}（タップで再生）</span>
-          <span className="block text-sm text-slate-600" lang="pt-BR">
-            {prev.pt}
-          </span>
-        </button>
-      )}
       <div className="card space-y-3 p-5 text-center">
+        <p className="text-sm text-slate-500">{t.ja}</p>
         <p className="text-2xl font-bold leading-snug text-brand-ink" lang="pt-BR">
-          {t.l.pt}
+          {t.pt}
         </p>
-        {showKana && <p className="text-sm text-slate-400">{toKana(t.l.pt)}</p>}
-        <p className="text-sm text-slate-500">{t.l.ja}</p>
+        {showKana && <p className="text-sm text-slate-400">{toKana(t.pt)}</p>}
         <div className="flex items-center justify-center gap-2">
-          <button type="button" onClick={() => void speakPt(t.l.pt)} className="btn-ghost min-h-11 px-3 text-sm">
+          <button type="button" onClick={() => void speakPt(t.pt)} className="btn-ghost min-h-11 px-3 text-sm">
             <Volume2 size={18} aria-hidden />
             お手本
           </button>
-          <button type="button" onClick={() => void speakPt(t.l.pt, { slow: true })} className="btn-ghost min-h-11 px-3 text-sm">
+          <button type="button" onClick={() => void speakPt(t.pt, { slow: true })} className="btn-ghost min-h-11 px-3 text-sm">
             <Snail size={18} aria-hidden />
             ゆっくり
           </button>
         </div>
+        {t.alt?.length ? (
+          <p className="text-xs text-slate-500" lang="pt-BR">
+            <span lang="ja">ほかの言い方: </span>
+            {t.alt.slice(0, 3).join(" ／ ")}
+          </p>
+        ) : null}
+        {t.note && <p className="rounded-lg bg-slate-50 px-3 py-2 text-left text-xs leading-relaxed text-slate-600">💡 {t.note}</p>}
         {score && <ScoreView score={score} compact />}
       </div>
       {micSupported() ? (
-        <MicButton onResult={onHeard} timeoutMs={sentenceListenTimeoutMs(t.l.pt)} hint="お手本をまねて、声に出して言おう（押すと採点）" />
+        <MicButton onResult={onHeard} timeoutMs={sentenceListenTimeoutMs(answers)} hint="お手本をまねて、声に出して言おう（押すと採点）" />
       ) : (
         <p className="text-center text-sm text-slate-500">お手本をまねて、声に出して2〜3回言ってみよう。</p>
       )}
       <button type="button" onClick={next} className="btn-primary min-h-14 w-full text-base">
-        {k + 1 >= targets.length ? "次へ：日本語を見て言う" : "言えた → 次のセリフ"}
+        {k + 1 >= targets.length ? "次へ：日本語を見て言う" : "声に出した → 次の文"}
         <ArrowRight size={18} aria-hidden />
       </button>
     </div>

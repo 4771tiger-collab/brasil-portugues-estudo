@@ -180,6 +180,7 @@ export function screenNameFor(pathname: string, songTitle?: string | null): stri
   if (p.startsWith("/course/")) return "レッスン";
   if (p.startsWith("/course")) return "レッスンの一覧";
   if (p.startsWith("/talk")) return "会話（AI と話す）";
+  if (p.startsWith("/speak/handsfree")) return "耳だけ口慣らし";
   if (p.startsWith("/speak")) return "口慣らし";
   if (p.startsWith("/phrases")) return "フレーズ帳";
   if (p.startsWith("/music/")) return songTitle ? `音楽「${songTitle}」` : "音楽（曲の画面）";

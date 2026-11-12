@@ -297,7 +297,7 @@ function Conversation({ sc, onAgain }: { sc: TalkScenario; onAgain: () => void }
 
   const lastAi = [...turns].reverse().find((t) => t.who === "ai");
   return (
-    <div className="mx-auto max-w-xl space-y-3 pb-56">
+    <div className="mx-auto max-w-xl space-y-3 pb-64">
       {/* 見出し: 場面・ミッション */}
       <div className="flex items-start gap-1">
         <button type="button" onClick={back} aria-label="会話をやめる" className="-ml-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-slate-500 active:scale-90">
@@ -421,14 +421,16 @@ function Conversation({ sc, onAgain }: { sc: TalkScenario; onAgain: () => void }
             </div>
           ) : null}
 
-          <div className="flex items-center justify-between gap-2">
+          {/* 🎤（聞き取り中の文字・マイクの案内・エラーをボタンの下に出すので、横幅いっぱいに置く） */}
+          {micSupported() && !typing && (
+            <MicButton size="md" disabled={busy} timeoutMs={TALK_LISTEN_MS} onResult={(r) => setDraft(r.transcripts[0] ?? "")} hint={draft ? "言い直すときは、もう一度押す" : "押して話す（ポルトガル語で）"} />
+          )}
+
+          <div className="flex items-center gap-2">
             <button type="button" onClick={() => setPanel((p) => (p === "hints" ? null : "hints"))} aria-pressed={panel === "hints"} className="flex min-h-11 flex-1 items-center justify-center gap-1 rounded-xl bg-slate-100 text-xs font-bold text-slate-600">
               <Lightbulb size={16} className="text-amber-500" aria-hidden />
               ヒント
             </button>
-            {micSupported() && !typing && (
-              <MicButton size="md" disabled={busy} timeoutMs={TALK_LISTEN_MS} onResult={(r) => setDraft(r.transcripts[0] ?? "")} className="shrink-0 [&>p]:hidden" />
-            )}
             <button type="button" onClick={() => setPanel((p) => (p === "say" ? null : "say"))} aria-pressed={panel === "say"} className="flex min-h-11 flex-1 items-center justify-center gap-1 rounded-xl bg-slate-100 text-xs font-bold text-slate-600">
               <Languages size={16} className="text-brand-blue" aria-hidden />
               なんて言う？

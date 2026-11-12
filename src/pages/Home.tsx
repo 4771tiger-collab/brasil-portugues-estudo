@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
-import { ArrowRight, Check, ChevronRight, Flame, ListMusic, Music, Play } from "lucide-react";
+import { ArrowRight, Check, ChevronRight, Flame, Headphones, ListMusic, Music, Play } from "lucide-react";
 import { LESSONS } from "../data/course";
 import { ALL_WORDS, STATS } from "../data/loadWords";
 import { currentStreak, studiedToday, useProgress } from "../store/useProgress";
@@ -161,6 +161,13 @@ export default function Home() {
           </div>
         </div>
         <p className="text-center text-[11px] text-slate-400">言える文＝日本語を見てすぐ言えて、復習の間隔が7日以上になった文</p>
+        {menu.stats.started > 0 && (
+          <Link to="/speak/handsfree" className="flex min-h-11 items-center gap-2 rounded-lg bg-teal-50 px-3 py-2 text-xs text-teal-800">
+            <Headphones size={16} className="shrink-0" aria-hidden />
+            <span className="min-w-0 flex-1">耳だけ口慣らし（画面を見ずに、歩きながら声に出す）</span>
+            <ChevronRight size={16} className="shrink-0 text-teal-600" aria-hidden />
+          </Link>
+        )}
         <div className="grid grid-cols-2 gap-3 border-t border-slate-100 pt-3">
           <div className="text-xs leading-relaxed text-slate-500">
             <div className="mb-0.5 font-bold text-slate-600">今日</div>

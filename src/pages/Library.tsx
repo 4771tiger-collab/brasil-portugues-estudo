@@ -16,6 +16,7 @@ const GROUPS: { title: string; note: string; items: Item[] }[] = [
     note: "言える文を増やし、口の動きを慣らす",
     items: [
       { to: "/phrases", title: "フレーズ帳・言いたいことメモ", feature: "phrases", desc: "口慣らしに出る文の一覧。言いたい文を足せます。" },
+      { to: "/speak/handsfree", title: "耳だけ口慣らし", feature: "handsfree", desc: "日本語 → 言う間 → お手本 を自動で。歩きながら声に出せます。" },
       { to: "/practice/pattern", title: "パターンプラクティス", feature: "pattern", desc: "文型の語を入れ替えて言う。和文を見て言う発話ドリルも。" },
       { to: "/practice/shadowing", title: "シャドーイング", feature: "shadowing", desc: "お手本を追いかけて発話＋録音で聞き比べ。会話のロールプレイも。" },
     ],

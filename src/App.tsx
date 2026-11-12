@@ -8,6 +8,7 @@ import CourseHome from "./pages/course/CourseHome";
 import LessonPage from "./pages/course/LessonPage";
 import SpeakReview from "./pages/speak/SpeakReview";
 import Phrases from "./pages/speak/Phrases";
+import SpeakHandsfree from "./pages/speak/SpeakHandsfree";
 import TalkHome from "./pages/talk/TalkHome";
 import TalkSession from "./pages/talk/TalkSession";
 import PatternPractice from "./pages/PatternPractice";
@@ -38,6 +39,7 @@ export default function App() {
           <Route path="/course" element={<CourseHome />} />
           <Route path="/course/:id" element={<LessonPage />} />
           <Route path="/speak/review" element={<SpeakReview />} />
+          <Route path="/speak/handsfree" element={<SpeakHandsfree />} />
           <Route path="/phrases" element={<Phrases />} />
           <Route path="/talk" element={<TalkHome />} />
           <Route path="/talk/:id" element={<TalkSession />} />

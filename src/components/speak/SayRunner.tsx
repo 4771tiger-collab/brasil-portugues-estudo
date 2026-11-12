@@ -3,7 +3,7 @@ import type { Rating, SrsCard } from "../../data/types";
 import { useProgress } from "../../store/useProgress";
 import { useSpeak, type SpeakDaily } from "../../store/useSpeak";
 import type { SayItem } from "../../speak/catalog";
-import UndoToast from "../UndoToast";
+import { Undo2 } from "lucide-react";
 import SayCard, { SAY_RATINGS } from "./SayCard";
 
 /** 「言えなかった」文を同じ回の最後にもう一度出す回数の上限（文ごと） */
@@ -48,13 +48,12 @@ interface Props {
  * 口慣らしの文を順に出して、評価を記録する（復習セッションと、レッスンの「言う」ステップで共通）。
  * - 評価は useSpeak（文のカード）に書き、声に出した回数を学習ログ（speak）に足す。
  * - 「言えなかった」文は同じ回の最後にもう一度出す（言えるまで。文ごとに SAY_REPEAT_MAX 回まで）。
- * - 評価の直後は取り消せる（1段）。
+ * - 直前の評価は取り消せる（1段。次の文を評価するまで）。
  */
 export default function SayRunner({ items, onDone, hideIntervals }: Props) {
   const [queue, setQueue] = useState<Entry[]>(() => items.map((item) => ({ item, rep: 0 })));
   const [idx, setIdx] = useState(0);
   const [undo, setUndo] = useState<Undo | null>(null);
-  const [toastKey, setToastKey] = useState(0);
   const stats = useRef({ good: 0, hard: 0, again: 0, missed: [] as SayItem[] });
   const doneRef = useRef(false);
   const cur = queue[idx];
@@ -97,7 +96,6 @@ export default function SayRunner({ items, onDone, hideIntervals }: Props) {
         rep: e.rep,
         label: SAY_RATINGS.find((b) => b.rating === rating)?.label ?? "",
       });
-      setToastKey((k) => k + 1);
       if (idx + 1 >= next.length) finish();
       else setIdx(idx + 1);
     },
@@ -130,17 +128,15 @@ export default function SayRunner({ items, onDone, hideIntervals }: Props) {
           {idx + 1} / {total}
         </span>
       </div>
+      {/* 直前の評価の取り消し（次の文を評価するまで出す。評価ボタンに重ならないよう、上に置く） */}
+      {undo && (
+        <button type="button" onClick={doUndo} className="mx-auto flex min-h-9 items-center gap-1 rounded-full bg-slate-100 px-3 text-xs font-semibold text-slate-600 active:scale-95">
+          <Undo2 size={14} aria-hidden />
+          前の文の「{undo.label}」を取り消す
+        </button>
+      )}
       {cur.rep > 0 && <p className="text-center text-xs font-bold text-rose-500">もう一度（さっき言えなかった文）</p>}
       <SayCard key={`${cur.item.id}#${cur.rep}`} item={cur.item} card={card} onRate={rate} hideIntervals={hideIntervals} />
-      {undo && (
-        <UndoToast
-          key={toastKey}
-          message={`「${undo.label}」にしました`}
-          onUndo={doUndo}
-          onClose={() => setUndo(null)}
-          bottom="calc(1rem + env(safe-area-inset-bottom))"
-        />
-      )}
     </div>
   );
 }
