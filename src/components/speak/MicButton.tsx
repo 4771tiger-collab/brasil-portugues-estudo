@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Mic, Square } from "lucide-react";
 import { useSettings } from "../../store/useSettings";
 import { useSpeechInput } from "../../hooks/useSpeechInput";
@@ -36,6 +36,9 @@ export default function MicButton({ onResult, onStart, timeoutMs, disabled = fal
   const online = useOnline();
   const sp = useSpeechInput(timeoutMs ? { timeoutMs } : {});
   const [consent, setConsent] = useState(false);
+  // 聞き取りの結果は、届いた時点の onResult に渡す（押した時点の関数を覚えたままにしない）
+  const onResultRef = useRef(onResult);
+  onResultRef.current = onResult;
   if (!speechInput.isSupported()) return null;
   const listening = sp.status === "listening";
 
@@ -45,7 +48,7 @@ export default function MicButton({ onResult, onStart, timeoutMs, disabled = fal
     audio.cancel();
     // start は同期に認識エンジンを始める（タップの処理の中）
     void sp.start().then((r) => {
-      if (r) onResult(r);
+      if (r) onResultRef.current(r);
     });
   }
 

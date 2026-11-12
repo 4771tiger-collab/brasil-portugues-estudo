@@ -33,6 +33,9 @@ const STEPS = [
 
 const pitchOf = (l: LessonLine) => (l.who === "you" ? PITCH_YOU : PITCH_PARTNER);
 
+/** 相手のセリフの読み上げが、これより短く終わったら「音声が出ていない」とみなす（ms） */
+const MIN_SPOKEN_MS = 300;
+
 /** 会話を1行ずつ順に読み上げる（役で声の高さを変える）。cur = 今読んでいる行 */
 function useDialoguePlayer() {
   const ctrl = useRef<AbortController | null>(null);
@@ -301,7 +304,8 @@ function RepeatStep({ lesson, onNext }: { lesson: Lesson; onNext: () => void }) 
         {score && <ScoreView score={score} compact />}
       </div>
       {micSupported() ? (
-        <MicButton onResult={onHeard} timeoutMs={sentenceListenTimeoutMs(answers)} hint="お手本をまねて、声に出して言おう（押すと採点）" />
+        // 文ごとに 🎤 を作り直す（前の文の聞き取りを止め、遅れて届いた結果を次の文に出さない）
+        <MicButton key={t.id} onResult={onHeard} timeoutMs={sentenceListenTimeoutMs(answers)} hint="お手本をまねて、声に出して言おう（押すと採点）" />
       ) : (
         <p className="text-center text-sm text-slate-500">お手本をまねて、声に出して2〜3回言ってみよう。</p>
       )}
@@ -327,6 +331,8 @@ function PlayStep({ lesson, onNext }: { lesson: Lesson; onNext: () => void }) {
   const [hintJa, setHintJa] = useState(true);
   /** 今流れている相手のセリフの文字を出す（既定は隠す＝耳で聞く） */
   const [peek, setPeek] = useState(false);
+  /** 相手のセリフの音声がすぐ終わった（音声が出ていない見込み）→ 文字を出して、自分で次へ進む */
+  const [manual, setManual] = useState(false);
   const activeRef = useRef<HTMLDivElement>(null);
   const line = lines[pos];
   const finished = pos >= lines.length;
@@ -344,9 +350,18 @@ function PlayStep({ lesson, onNext }: { lesson: Lesson; onNext: () => void }) {
     if (!line || line.who !== "partner") return;
     let cancelled = false;
     setPeek(false);
+    setManual(false);
     void (async () => {
+      const started = Date.now();
       await speakPt(line.pt, { pitch: PITCH_PARTNER });
       if (cancelled) return;
+      // 音声がすぐ終わった（オフラインの音声・読み上げが始まらなかった・別の読み上げに割り込まれた）ときは、
+      // 聞かせないまま先へ進めない。文字を出して、自分で「次へ」を押してもらう
+      if (Date.now() - started < MIN_SPOKEN_MS) {
+        setPeek(true);
+        setManual(true);
+        return;
+      }
       try {
         await delay(350);
       } catch {
@@ -397,8 +412,14 @@ function PlayStep({ lesson, onNext }: { lesson: Lesson; onNext: () => void }) {
         </button>
       </div>
 
+      {/* 済んだ行はタップで聞き直せる。相手のセリフが流れている間は押せなくする（割り込むと、今のセリフを聞かないまま進んでしまう） */}
       {lines.slice(0, Math.min(pos, lines.length)).map((l, i) => (
-        <Bubble key={`${run}-${i}`} line={l} partner={lesson.partner} onClick={() => void speakPt(l.pt, { pitch: pitchOf(l) })} />
+        <Bubble
+          key={`${run}-${i}`}
+          line={l}
+          partner={lesson.partner}
+          onClick={line?.who === "partner" && !manual ? undefined : () => void speakPt(l.pt, { pitch: pitchOf(l) })}
+        />
       ))}
 
       {line && line.who === "partner" && (
@@ -415,6 +436,17 @@ function PlayStep({ lesson, onNext }: { lesson: Lesson; onNext: () => void }) {
               </p>
             )}
           </Bubble>
+          {manual && (
+            <div className="mt-2 flex gap-2">
+              <button type="button" onClick={() => void speakPt(line.pt, { pitch: PITCH_PARTNER })} className="btn-ghost min-h-12 px-4" aria-label="相手のセリフを聞く">
+                <Volume2 size={18} aria-hidden />
+              </button>
+              <button type="button" onClick={() => setPos((p) => p + 1)} className="btn-primary min-h-12 flex-1">
+                次へ
+                <ArrowRight size={18} aria-hidden />
+              </button>
+            </div>
+          )}
         </div>
       )}
 
@@ -432,7 +464,7 @@ function PlayStep({ lesson, onNext }: { lesson: Lesson; onNext: () => void }) {
           {score && <ScoreView score={score} compact />}
           {!shown ? (
             <div className="space-y-2">
-              {micSupported() && <MicButton onResult={onHeard} timeoutMs={sentenceListenTimeoutMs(answers)} hint="押して、自分のセリフを言う" />}
+              {micSupported() && <MicButton key={`${run}-${pos}`} onResult={onHeard} timeoutMs={sentenceListenTimeoutMs(answers)} hint="押して、自分のセリフを言う" />}
               <button type="button" onClick={() => reveal(true)} className={`${micSupported() ? "btn-ghost" : "btn-primary"} min-h-12 w-full`}>
                 <Eye size={18} aria-hidden />
                 言ってから 答えを見る
@@ -547,9 +579,13 @@ function LessonRunner({ lesson }: { lesson: Lesson }) {
   useImmersive(running);
   useActivityTimer("lesson", running);
   const loggedRef = useRef(false);
+  const stepRef = useRef(step);
+  stepRef.current = step;
 
   const go = useCallback(
     (n: number) => {
+      // 今のステップのタブを押しても、何もしない（読み上げを止めて行を飛ばさない）
+      if (n === stepRef.current) return;
       audio.cancel();
       setStep(n);
       window.scrollTo({ top: 0 });

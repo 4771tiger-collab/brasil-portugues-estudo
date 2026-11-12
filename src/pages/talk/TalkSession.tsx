@@ -29,6 +29,7 @@ import {
 import { useProgress } from "../../store/useProgress";
 import { useSettings } from "../../store/useSettings";
 import { useSpeak } from "../../store/useSpeak";
+import { samePhraseText } from "../../speak/speakData";
 import PtInput from "../../components/PtInput";
 import AiSetupCard from "../../components/speak/AiSetupCard";
 import MicButton, { micSupported } from "../../components/speak/MicButton";
@@ -90,7 +91,10 @@ export default function TalkSession() {
 
 /** 直された文を「口慣らし」に足すボタン（足したら「追加済み」） */
 function AddToSay({ ja, pt, note, from }: { ja: string; pt: string; note?: string; from: "talk" | "ai" }) {
-  const [added, setAdded] = useState(false);
+  // もう足してある文（会話の途中で足した文を、ふりかえりでもう一度足さない）
+  const exists = useSpeak((s) => s.phrases.some((p) => samePhraseText(p.pt, pt)));
+  const [justAdded, setAdded] = useState(false);
+  const added = exists || justAdded;
   if (!ja || !pt) return null;
   return (
     <button
@@ -130,7 +134,9 @@ function FeedbackView({ fb }: { fb: TalkFeedback | null | undefined }) {
 
 /** 相手（AI）の吹き出し: 読み上げ・ゆっくり・訳。hide のときはタップするまで文字を出さない（耳で聞く練習） */
 function AiBubble({ turn, role, hide, onJa }: { turn: Extract<TalkTurn, { who: "ai" }>; role: string; hide: boolean; onJa: () => Promise<string> }) {
-  const [shown, setShown] = useState(!hide);
+  // 「耳だけ」を切ったら、隠していた吹き出しも出す（タップで出した吹き出しは、出したまま）
+  const [revealed, setShown] = useState(false);
+  const shown = !hide || revealed;
   const [ja, setJa] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   async function toggleJa() {
@@ -218,7 +224,6 @@ function Conversation({ sc, onAgain }: { sc: TalkScenario; onAgain: () => void }
     if (!n) return;
     loggedRef.current = true;
     useSpeak.getState().logTalk({ id: sc.id, turns: n, sec: lap(3600) });
-    useProgress.getState().logActivity("talk", n, 0);
   }, [sc.id, lap]);
 
   const ask = useCallback(
@@ -280,8 +285,12 @@ function Conversation({ sc, onAgain }: { sc: TalkScenario; onAgain: () => void }
     audio.cancel();
     setDraft("");
     setPanel(null);
-    const next: TalkTurn[] = [...turnsRef.current, { who: "me", text: t }];
+    // 返事をもらえなかった前の発言（エラーのあと、再試行せずに言い直したとき）は「フィードバックなし」にして、待ちの表示を残さない
+    const earlier = turnsRef.current.map((x) => (x.who === "me" && x.feedback === undefined ? { ...x, feedback: null } : x));
+    const next: TalkTurn[] = [...earlier, { who: "me", text: t }];
     setTurns(next);
+    // 話した回数は、発言のたびに学習ログへ（画面を閉じても残る。学習日にも数える）
+    useProgress.getState().logActivity("talk", 1, 0);
     void ask(next);
   }
 

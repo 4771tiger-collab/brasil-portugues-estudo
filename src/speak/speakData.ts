@@ -85,6 +85,17 @@ export function newPhraseId(now: number = Date.now(), rand: number = Math.random
 
 export const isMyPhraseId = (id: string): boolean => id.startsWith(MY_PREFIX) && id.length > MY_PREFIX.length;
 
+/** 同じ文か（大文字と小文字・前後と連続の空白・文末の句読点の違いは同じとみなす） */
+export function samePhraseText(a: string, b: string): boolean {
+  const norm = (s: string) =>
+    s
+      .toLowerCase()
+      .replace(/\s+/g, " ")
+      .trim()
+      .replace(/[.!?…]+$/u, "");
+  return norm(a) === norm(b);
+}
+
 /** 自分で足した文1つ。ID・和文・ポルトガル語がそろっていなければ null */
 export function readUserPhrase(v: unknown): UserPhrase | null {
   if (!isObj(v) || typeof v.id !== "string" || !isMyPhraseId(v.id)) return null;

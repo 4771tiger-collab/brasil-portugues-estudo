@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { Bot, ChevronDown, Globe, Pencil, Plus, Trash2, Volume2 } from "lucide-react";
 import { UNITS } from "../../data/course";
@@ -42,6 +42,8 @@ function AddForm() {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
   const ctrlRef = useRef<AbortController | null>(null);
+  // 画面を離れたら、訳の依頼を止める（別の画面で、遅れて届いた訳を読み上げない）
+  useEffect(() => () => ctrlRef.current?.abort(), []);
   const full = count >= USER_PHRASE_MAX;
 
   async function translate() {

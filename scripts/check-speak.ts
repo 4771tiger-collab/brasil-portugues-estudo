@@ -31,6 +31,7 @@ import {
   newPhraseId,
   readSpeak,
   readUserPhrase,
+  samePhraseText,
   type SpeakExport,
   type UserPhrase,
 } from "../src/speak/speakData";
@@ -54,7 +55,7 @@ import { AiError, type GenerateJsonOptions, type GenerateJsonResult } from "../s
 import { scoreSpeechSentence } from "../src/services/grade";
 import { addDays, newCard, review, todayStr } from "../src/srs/scheduler";
 import { composeBackup, describeBackup, parseBackup, pickSettings } from "../src/store/backupFormat";
-import { readDayLog } from "../src/store/history";
+import { countsAsStudy, isStudyDay, readDayLog } from "../src/store/history";
 
 let fail = 0;
 let pass = 0;
@@ -206,6 +207,8 @@ console.log("=== 保存データの読み込み（readSpeak / readUserPhrase） 
     ok(!JSON.stringify(d).includes("会話の中身"), "知らない最上位の項目（会話の中身）は持ち込まない");
   }
   eq(readUserPhrase({ id: "my:x", ja: "a".repeat(500), pt: "b" })?.ja.length, 200, "長すぎる文は 200 文字で切る");
+  ok(samePhraseText("Vou, sim.", " vou,  sim ") && samePhraseText("Tudo bem?", "tudo bem") && samePhraseText("Oi!", "Oi"), "同じ文: 大文字と小文字・空白・文末の句読点の違いは同じとみなす");
+  ok(!samePhraseText("Vou, sim.", "Vou sim.") && !samePhraseText("Eu vou.", "Eu fui."), "同じ文: 文の中の違いは別の文");
   ok(isMyPhraseId(newPhraseId()) && newPhraseId(1, 0.1) !== newPhraseId(2, 0.1), "新しい ID は my: で始まり、時刻で変わる");
   const many = { talks: Array.from({ length: TALK_LOG_MAX + 20 }, (_, i) => ({ at: addDays(TD, -i), id: "x", turns: 1, sec: i })) };
   const t = readSpeak(many)?.talks ?? [];
@@ -270,6 +273,20 @@ console.log("=== バックアップの形式（speak・設定・学習ログの�
   eq(pickSettings({ speakDailyLimit: 33, talkAutoSpeak: "yes", talkLevel: 9 }), {}, "話す練習の設定は、選択肢に無い値を読まない");
   eq(pickSettings({ speakDailyLimit: 100, talkAutoSpeak: true, talkLevel: -1 }), { speakDailyLimit: 100, talkAutoSpeak: true, talkLevel: -1 }, "選択肢にある値は読む");
   eq(readDayLog({ reviews: 1, act: { speak: { n: 12, sec: 300 }, lesson: { n: 1, sec: 600 }, talk: { n: 5, sec: 200 }, hack: { n: 1, sec: 1 } } })?.act, { speak: { n: 12, sec: 300 }, lesson: { n: 1, sec: 600 }, talk: { n: 5, sec: 200 } }, "学習ログ: speak・lesson・talk の活動を読む（知らない活動は落とす）");
+}
+
+console.log("=== 学習日（連続記録）に数える活動 ===");
+{
+  // 時間だけの記録（画面を開いていた秒数）は、話す練習では学習日に数えない。回数が 1 以上になったら数える
+  for (const k of ["speak", "lesson", "talk"]) {
+    ok(!countsAsStudy(k, { n: 0, sec: 600 }), `${k}: 時間だけ（n = 0）は学習日に数えない`);
+    ok(countsAsStudy(k, { n: 1, sec: 0 }), `${k}: 回数が 1 以上なら数える`);
+  }
+  ok(countsAsStudy("listen", { n: 0, sec: 30 }) && countsAsStudy("pattern", { n: 1, sec: 0 }), "これまでの練習（listen・pattern など）は、回数か秒数があれば数える");
+  ok(!countsAsStudy("music", { n: 0, sec: 179 }) && countsAsStudy("music", { n: 0, sec: 180 }), "音楽は 3 分以上");
+  ok(!countsAsStudy("speak", undefined), "記録が無ければ数えない");
+  ok(!isStudyDay({ reviews: 0, newWords: 0, again: 0, act: { lesson: { n: 0, sec: 40 }, talk: { n: 0, sec: 20 } } }), "レッスン・会話の画面を開いただけの日は学習日ではない");
+  ok(isStudyDay({ reviews: 0, newWords: 0, again: 0, act: { lesson: { n: 0, sec: 40 }, speak: { n: 3, sec: 0 } } }), "文を声に出した日は学習日");
 }
 
 console.log("=== AI との会話: 場面・むずかしさ ===");
@@ -462,6 +479,8 @@ console.log("=== useSpeak（文のカード・自分の文・レッスン・会�
   ok(!!id && isMyPhraseId(id ?? ""), "addPhrase: ID を返す");
   eq(S().phrases[0]?.ja, "日本ではITの仕事をしていました", "addPhrase: 空白を整えて先頭に足す");
   ok(!!id && S().cards[id]?.due === today && S().cards[id]?.last === null, "addPhrase: 足した文は今日から口慣らしに出る");
+  eq(S().addPhrase({ ja: "別の和文でも", pt: "no japão eu trabalhava com tecnologia", from: "talk" }), id, "addPhrase: 同じポルトガル語の文は足さず、その文の ID を返す");
+  eq(S().phrases.length, 1, "addPhrase: 同じ文は1つだけ");
   eq(S().addPhrase({ ja: "", pt: "x", from: "manual" }), null, "addPhrase: 和文が空なら足さない");
   eq(S().addPhrase({ ja: "x", pt: "  ", from: "manual" }), null, "addPhrase: ポルトガル語が空なら足さない");
   if (id) {
@@ -524,6 +543,12 @@ console.log("=== バックアップ（ストア）: 書き出し・置き換え�
   S().completeLesson("u1l1");
   const mine = S().addPhrase({ ja: "テスト", pt: "Teste.", from: "talk" });
   S().logTalk({ id: "u1l1", turns: 3, sec: 60 });
+  // 画面を開いていた時間だけの記録では、学習日（連続記録）にならない
+  useProgress.setState({ lastStudyDate: null, streak: 0 });
+  useProgress.getState().logActivity("lesson", 0, 5);
+  useProgress.getState().logActivity("talk", 0, 5);
+  useProgress.getState().logActivity("speak", 0, 5);
+  eq(useProgress.getState().lastStudyDate, null, "レッスン・会話・口慣らしの画面を開いただけ（時間だけの記録）では学習日にならない");
   useProgress.getState().logActivity("speak", 7, 120);
   useProgress.getState().logActivity("lesson", 1, 600);
   useProgress.getState().logActivity("talk", 3, 60);

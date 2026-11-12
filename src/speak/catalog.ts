@@ -82,7 +82,7 @@ export function dueItems(cards: SpeakCards, catalog: Catalog, today: string, rem
     const it = catalog.get(id);
     if (it) due.push({ it, c });
   }
-  due.sort((a, b) => (a.c.due < b.c.due ? -1 : a.c.due > b.c.due ? 1 : a.c.intervalDays - b.c.intervalDays || (a.it.id < b.it.id ? -1 : 1)));
+  due.sort((a, b) => (a.c.due < b.c.due ? -1 : a.c.due > b.c.due ? 1 : a.c.intervalDays - b.c.intervalDays || (a.it.id < b.it.id ? -1 : a.it.id > b.it.id ? 1 : 0)));
   return due.slice(0, Math.max(0, Math.floor(remaining))).map((x) => x.it);
 }
 
@@ -104,7 +104,8 @@ export function extraItems(cards: SpeakCards, catalog: Catalog, today: string, n
     const it = catalog.get(id);
     if (it) pool.push({ it, c });
   }
-  pool.sort((a, b) => a.c.intervalDays - b.c.intervalDays || ((a.c.last ?? "") < (b.c.last ?? "") ? -1 : 1) || (a.it.id < b.it.id ? -1 : 1));
+  const cmp = (x: string, y: string) => (x < y ? -1 : x > y ? 1 : 0);
+  pool.sort((a, b) => a.c.intervalDays - b.c.intervalDays || cmp(a.c.last ?? "", b.c.last ?? "") || cmp(a.it.id, b.it.id));
   return pool.slice(0, Math.max(0, n)).map((x) => x.it);
 }
 

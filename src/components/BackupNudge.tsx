@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useProgress } from "../store/useProgress";
+import { useSpeak } from "../store/useSpeak";
 import {
   BACKUP_NUDGE_DAYS,
   BACKUP_NUDGE_REVIEWS,
@@ -30,7 +31,10 @@ function reasonText(r: BackupNudgeReason): string {
  * 「保存する」は設定画面と同じ（スマホは共有シート、PC や共有できない環境ではダウンロード）。
  */
 export default function BackupNudge() {
-  const totalReviews = useProgress((s) => s.totalReviews);
+  const wordReviews = useProgress((s) => s.totalReviews);
+  // 話す練習だけの記録（口慣らしの文・終えたレッスン・自分で足した文）も「守るべき学習データ」に数える
+  const hasSpeak = useSpeak((s) => s.phrases.length > 0 || Object.values(s.lessons).some((l) => l.doneAt) || Object.values(s.cards).some((c) => c.last));
+  const totalReviews = Math.max(wordReviews, hasSpeak ? 1 : 0);
   const lastBackupAt = useMeta((s) => s.lastBackupAt);
   const reviewsAtLastBackup = useMeta((s) => s.reviewsAtLastBackup);
   const [hidden, setHidden] = useState(snoozedThisLaunch);

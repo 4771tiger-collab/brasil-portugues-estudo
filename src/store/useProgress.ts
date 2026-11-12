@@ -4,8 +4,8 @@ import type { Passage, Rating, SrsCard } from "../data/types";
 import { addDays, newCard, quizDecision, review, todayStr } from "../srs/scheduler";
 import { isProdKey } from "../srs/cardKey";
 import {
-  MUSIC_STUDY_SEC,
   addActivity,
+  countsAsStudy,
   pruneHistory,
   readHistory,
   updateDay,
@@ -204,7 +204,8 @@ const nonNeg = (v: number): number => (Number.isFinite(v) && v > 0 ? v : 0);
 /**
  * 練習・音楽の記録1回分の状態変化（純関数）。logActivity の本体。
  * history[today].act[kind] に n と sec を足し、学習日を記録する（音楽はその日の合計が
- * MUSIC_STUDY_SEC 秒以上になったときだけ）。daily.studied は変えない。
+ * MUSIC_STUDY_SEC 秒以上になったときだけ。speak / lesson / talk は回数が 1 以上になったときだけ。
+ * history.countsAsStudy）。daily.studied は変えない。
  * n も sec も 0 なら何もしない（null）。
  */
 export function applyActivity(
@@ -218,7 +219,8 @@ export function applyActivity(
   const ds = nonNeg(sec);
   if (!dn && !ds) return null;
   const history = updateDay(state.history, today, (d) => addActivity(d, kind, dn, ds));
-  const studied = kind !== "music" || (history[today].act.music?.sec ?? 0) >= MUSIC_STUDY_SEC;
+  // 音楽は合計 3 分以上、時間で記録する話す練習（speak / lesson / talk）は回数が 1 以上になってから学習日に数える
+  const studied = countsAsStudy(kind, history[today].act[kind]);
   return { history, ...(studied ? recordStudyDay(state, today) : {}) };
 }
 

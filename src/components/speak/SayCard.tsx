@@ -7,7 +7,7 @@ import { audio } from "../../services/audio";
 import { scoreSpeechSentence, hintText, type SpeechSentenceScore } from "../../services/grade";
 import { sentenceListenTimeoutMs, type SpeechResult } from "../../services/speechInput";
 import { toKana } from "../../services/pronunciation";
-import { sentenceContext } from "../../services/ai/teacherContext";
+import { sentenceContext, useTeacherUi } from "../../services/ai/teacherContext";
 import { answersOf, ratingFromPercent, type SayItem } from "../../speak/catalog";
 import AskTeacherButton from "../teacher/AskTeacherButton";
 import MicButton, { micSupported } from "./MicButton";
@@ -51,6 +51,8 @@ export default function SayCard({ item, card, onRate, hideIntervals = false }: P
   const mic = micSupported();
   const revealedRef = useRef(revealed);
   revealedRef.current = revealed;
+  const hintRef = useRef(hint);
+  hintRef.current = hint;
 
   // 次の文に替わったら最初の状態に戻す（親は key を変えて作り直してもよい）
   useEffect(() => {
@@ -70,7 +72,7 @@ export default function SayCard({ item, card, onRate, hideIntervals = false }: P
     const s = scoreSpeechSentence(r.transcripts, answers);
     setScore(s);
     if (!revealedRef.current) {
-      setSuggested(ratingFromPercent(s.percent, hint > 0));
+      setSuggested(ratingFromPercent(s.percent, hintRef.current > 0));
       reveal();
     }
   }
@@ -78,7 +80,9 @@ export default function SayCard({ item, card, onRate, hideIntervals = false }: P
   // キー操作（PC）
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (e.metaKey || e.ctrlKey || e.altKey || e.repeat) return;
+      // 先生のシートを開いている間は、後ろのカードを操作しない
+      if (useTeacherUi.getState().open) return;
       const t = e.target as HTMLElement | null;
       if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
       // ボタンにフォーカスがあるときの Space / Enter は、そのボタンの操作（ヒントなど）に任せる
@@ -143,7 +147,8 @@ export default function SayCard({ item, card, onRate, hideIntervals = false }: P
 
       {!revealed ? (
         <div className="space-y-3">
-          {mic && <MicButton onResult={onHeard} timeoutMs={timeoutMs} hint="押して話す → 採点して答えを表示" />}
+          {/* 答えの前と後で別の 🎤 にする（key）。答えを見ると前の 🎤 が外れて聞き取りを止めるので、お手本の読み上げを拾わない */}
+          {mic && <MicButton key="before" onResult={onHeard} timeoutMs={timeoutMs} hint="押して話す → 採点して答えを表示" />}
           <div className="flex gap-2">
             <button
               type="button"
@@ -162,7 +167,7 @@ export default function SayCard({ item, card, onRate, hideIntervals = false }: P
         </div>
       ) : (
         <div className="space-y-3">
-          {mic && <MicButton size="md" onResult={onHeard} timeoutMs={timeoutMs} hint="もう一度言ってみる" />}
+          {mic && <MicButton key="after" size="md" onResult={onHeard} timeoutMs={timeoutMs} hint="もう一度言ってみる" />}
           <div className="grid grid-cols-3 gap-2">
             {SAY_RATINGS.map((b, i) => (
               <button

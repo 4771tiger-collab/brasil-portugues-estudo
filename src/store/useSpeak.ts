@@ -17,6 +17,7 @@ import {
   mergeSpeak,
   newPhraseId,
   readSpeak,
+  samePhraseText,
   readUserPhrase,
   type LessonProgress,
   type PhraseSource,
@@ -42,7 +43,7 @@ interface SpeakState extends SpeakData {
   restoreCard: (id: string, prev: SrsCard | undefined, daily: SpeakDaily) => void;
   /** まだカードの無い文に、今日が期限のカードを作る（レッスンを終えたとき） */
   ensureCards: (ids: readonly string[]) => void;
-  /** 自分の文を足す。足した文の ID を返す（上限・空のときは null） */
+  /** 自分の文を足す。足した文の ID を返す（上限・空のときは null。同じポルトガル語の文があれば、その文の ID） */
   addPhrase: (p: { ja: string; pt: string; note?: string; alt?: string[]; from: PhraseSource }) => string | null;
   updatePhrase: (id: string, patch: { ja?: string; pt?: string; note?: string }) => void;
   removePhrase: (id: string) => void;
@@ -112,9 +113,12 @@ export const useSpeak = create<SpeakState>()(
 
       addPhrase: (p) => {
         const s = get();
-        if (s.phrases.length >= USER_PHRASE_MAX) return null;
         const phrase = readUserPhrase({ ...p, id: newPhraseId(), createdAt: todayStr() });
         if (!phrase) return null;
+        // 同じポルトガル語の文がもうあれば、足さずにその文の ID を返す（会話の途中とふりかえりで2回足さない）
+        const same = s.phrases.find((x) => samePhraseText(x.pt, phrase.pt));
+        if (same) return same.id;
+        if (s.phrases.length >= USER_PHRASE_MAX) return null;
         // 足した文は今日から口慣らしに出す
         set({ phrases: [phrase, ...s.phrases], cards: { ...s.cards, [phrase.id]: newCard() } });
         return phrase.id;

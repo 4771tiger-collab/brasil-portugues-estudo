@@ -8,6 +8,7 @@ import { useWakeLock } from "../../hooks/useWakeLock";
 import { audio, delay } from "../../services/audio";
 import { answerShown, runHandsfree, type HandsfreePhase } from "../../services/handsfree";
 import { dueItems, extraItems, type SayItem } from "../../speak/catalog";
+import { useProgress } from "../../store/useProgress";
 import { useSettings } from "../../store/useSettings";
 import { useSpeak } from "../../store/useSpeak";
 import NextMenu from "../../components/speak/NextMenu";
@@ -50,7 +51,8 @@ export default function SpeakHandsfree() {
   const ctrlRef = useRef<AbortController | null>(null);
   const idxRef = useRef(0);
   useWakeLock(playing);
-  useActivityTimer("speak", playing);
+  // 耳だけ復習（単語）と同じ「listen」に記録する（声に出したかは確かめられないので、口慣らしの回数には数えない）
+  useActivityTimer("listen", playing);
 
   function stop() {
     ctrlRef.current?.abort();
@@ -85,6 +87,7 @@ export default function SpeakHandsfree() {
         onStep: (_i, st) => setPhase(st.phase),
         onWordDone: (i) => {
           idxRef.current = i + 1;
+          useProgress.getState().logActivity("listen", 1, 0);
         },
       },
       ctrl.signal
