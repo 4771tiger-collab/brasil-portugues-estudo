@@ -1,0 +1,239 @@
+{
+  "id": "u4",
+  "title": "過去のことを話す",
+  "goal": "昨日・週末・旅行・経験・子どもの頃のことを話し、出来事を伝えて相づちが打てる",
+  "lessons": [
+    {
+      "id": "u4l1",
+      "title": "昨日したことを話す",
+      "goal": "昨日したことをたずねたり、自分のしたことを順に話したりできる",
+      "scene": "朝、会社のコーヒーコーナーで同僚のルーカスと顔を合わせ、昨日の話になる。",
+      "partner": "Lucas（同僚）",
+      "lines": [
+        { "who": "partner", "pt": "Bom dia, Yuki! O que você fez ontem?", "ja": "おはよう、ユキ！昨日は何したの？" },
+        { "who": "you", "pt": "Trabalhei até tarde. Depois fiquei em casa.", "ja": "遅くまで働いたよ。そのあとは家にいた。" },
+        { "who": "partner", "pt": "Até tarde? Você teve muito trabalho?", "ja": "遅くまで？仕事が多かったの？" },
+        { "who": "you", "pt": "Tive. Tive uma reunião até as oito.", "ja": "うん。8時まで会議があったんだ。" },
+        { "who": "partner", "pt": "Nossa, que dia longo! E em casa, o que você fez?", "ja": "うわ、長い一日だったね！家では何をしたの？" },
+        { "who": "you", "pt": "Fiz macarrão e dormi cedo. E você, o que fez?", "ja": "パスタを作って、早く寝たよ。ルーカスは何したの？" },
+        { "who": "partner", "pt": "Eu fui para a academia e depois vi um filme.", "ja": "僕はジムに行って、そのあと映画を見たよ。" },
+        { "who": "you", "pt": "Que legal! O filme é bom?", "ja": "いいね！その映画、面白い？" },
+        { "who": "partner", "pt": "É ótimo! Você tem que ver.", "ja": "最高だよ！絶対見たほうがいい。" },
+        { "who": "you", "pt": "Então vou ver no fim de semana!", "ja": "じゃあ週末に見るよ！" }
+      ],
+      "phrases": [
+        { "id": "u4l1p1", "ja": "昨日は何をしたの？", "pt": "O que você fez ontem?", "note": "fez は fazer（する）の過去で、você の形。eu の形は fiz です。" },
+        { "id": "u4l1p2", "ja": "遅くまで働いたよ。", "pt": "Trabalhei até tarde.", "alt": ["Eu trabalhei até tarde."] },
+        { "id": "u4l1p3", "ja": "そのあとは家にいたよ。", "pt": "Depois fiquei em casa.", "alt": ["Depois eu fiquei em casa."], "note": "fiquei は ficar（いる・とどまる）の過去。つづりは qu になります。" },
+        { "id": "u4l1p4", "ja": "8時まで会議があったんだ。", "pt": "Tive uma reunião até as oito.", "alt": ["Tive uma reunião até às oito.", "Tive uma reunião até as oito horas."], "note": "tive は ter の過去（eu）。「〜があった」の意味でよく使います。" },
+        { "id": "u4l1p5", "ja": "パスタを作って、早く寝た。", "pt": "Fiz macarrão e dormi cedo.", "alt": ["Eu fiz macarrão e dormi cedo."], "note": "fiz は fazer の過去（eu）。「作った」にも「した」にも使います。" },
+        { "id": "u4l1p6", "ja": "昨日の夜は映画を見たよ。", "pt": "Ontem à noite vi um filme.", "alt": ["Ontem à noite eu vi um filme.", "Ontem à noite assisti um filme.", "Ontem à noite assisti a um filme."] },
+        { "id": "u4l1p7", "ja": "昨日はカポエイラの練習に行った。", "pt": "Ontem fui para o treino de capoeira.", "alt": ["Ontem eu fui para o treino de capoeira.", "Ontem fui ao treino de capoeira."] },
+        { "id": "u4l1p8", "ja": "昨日は同僚と昼ごはんを食べた。", "pt": "Ontem almocei com um colega.", "alt": ["Ontem eu almocei com um colega.", "Ontem almocei com uma colega."] }
+      ],
+      "tips": [
+        { "title": "-ar 動詞の過去は eu -ei ／ você -ou", "body": "「〜した」は語尾を変えるだけです。trabalhar → eu trabalhei ／ você trabalhou。jantar → jantei ／ jantou、chegar → cheguei ／ chegou。-ei は「エイ」、-ou は「オウ」とはっきり言います。質問は「Você trabalhou ontem?」、答えは「Trabalhei.」。" },
+        { "title": "よく使う動詞の過去形", "body": "毎日使う動詞は形ごと覚えましょう（eu ／ você の順）。fazer: fiz ／ fez、ir: fui ／ foi、ter: tive ／ teve、ver: vi ／ viu、ficar: fiquei ／ ficou、dormir: dormi ／ dormiu。「O que você fez?」には「Fiz…」「Fui…」「Fiquei…」と eu の形で答えます。" }
+      ],
+      "talk": {
+        "role": "同僚の Lucas",
+        "setting": "朝、会社のコーヒーコーナーで顔を合わせる。昨日の仕事のあとに何をしたかを、お互いに話す。",
+        "opener": "Bom dia, Yuki! O que você fez ontem?",
+        "missions": ["昨日したことを二つ言う", "何時まで働いたかを言う", "相手が昨日何をしたか聞く"]
+      }
+    },
+    {
+      "id": "u4l2",
+      "title": "週末の感想を言う",
+      "goal": "週末がどうだったかをたずね、したことと感想を言うことができる",
+      "scene": "月曜の夜、カポエイラの練習が始まる前に、仲間のカミラと週末の話をする。",
+      "partner": "Camila（カポエイラ仲間）",
+      "lines": [
+        { "who": "partner", "pt": "Oi, Yuki! Como foi o fim de semana?", "ja": "やあ、ユキ！週末はどうだった？" },
+        { "who": "you", "pt": "Foi ótimo! Fui para a praia com uns amigos.", "ja": "最高だったよ！友達と海に行ったんだ。" },
+        { "who": "partner", "pt": "Que legal! Você gostou da praia?", "ja": "いいね！海はよかった？" },
+        { "who": "you", "pt": "Gostei muito! Comi um peixe muito gostoso lá.", "ja": "すごくよかった！向こうでとてもおいしい魚を食べたよ。" },
+        { "who": "partner", "pt": "Que delícia! E no domingo?", "ja": "おいしそう！日曜は？" },
+        { "who": "you", "pt": "No domingo fiquei em casa e descansei. E o seu, como foi?", "ja": "日曜は家にいて休んだよ。カミラの週末はどうだった？" },
+        { "who": "partner", "pt": "Foi meio corrido. Trabalhei no sábado.", "ja": "ちょっとバタバタだった。土曜は仕事だったの。" },
+        { "who": "you", "pt": "No sábado? Que pena!", "ja": "土曜に？それは残念！" },
+        { "who": "partner", "pt": "Pois é. Mas no domingo descansei bastante.", "ja": "そうなの。でも日曜はたっぷり休んだよ。" },
+        { "who": "you", "pt": "Que bom! Vamos treinar?", "ja": "よかった！じゃあ練習しようか？" }
+      ],
+      "phrases": [
+        { "id": "u4l2p1", "ja": "週末はどうだった？", "pt": "Como foi o fim de semana?", "alt": ["Como foi seu fim de semana?", "Como foi o seu fim de semana?"] },
+        { "id": "u4l2p2", "ja": "最高だった！すごく気に入ったよ。", "pt": "Foi ótimo! Gostei muito." },
+        { "id": "u4l2p3", "ja": "友達と海に行ったんだ。", "pt": "Fui para a praia com uns amigos.", "alt": ["Fui à praia com uns amigos.", "Fui para a praia com amigos."], "note": "話し言葉では「Fui na praia」もよく聞きます。" },
+        { "id": "u4l2p4", "ja": "とてもおいしい魚を食べたよ。", "pt": "Comi um peixe muito gostoso.", "alt": ["Comi um peixe delicioso.", "Eu comi um peixe muito gostoso."], "note": "comi は comer（食べる）の過去（eu）。você の形は comeu です。" },
+        { "id": "u4l2p5", "ja": "日曜は家にいて休んだ。", "pt": "No domingo fiquei em casa e descansei.", "alt": ["No domingo eu fiquei em casa e descansei."] },
+        { "id": "u4l2p6", "ja": "のんびりだったよ。特別なことは何もしなかった。", "pt": "Foi tranquilo. Não fiz nada de especial." },
+        { "id": "u4l2p7", "ja": "土曜の夜は友達と出かけた。", "pt": "No sábado à noite saí com uns amigos.", "alt": ["No sábado à noite eu saí com uns amigos.", "Sábado à noite saí com uns amigos."], "note": "saí は sair（出かける）の過去（eu）。「サイー」と最後を強く言います。" },
+        { "id": "u4l2p8", "ja": "で、そっちはどうだった？（週末のことを聞き返す）", "pt": "E o seu, como foi?", "alt": ["E o seu fim de semana, como foi?"], "note": "o seu は「あなたの（週末）」。名詞をくり返さずに聞き返せます。" }
+      ],
+      "tips": [
+        { "title": "感想は Foi + 形容詞", "body": "出来事の感想は ser の過去 foi で言います。Foi ótimo（最高）、Foi legal（よかった）、Foi tranquilo（のんびり）、Foi cansativo（疲れた）、Foi mais ou menos（まあまあ）。ir の過去と同じ形です（eu fui ／ você foi）。Fui para a praia.（行った）と Foi ótimo.（〜だった）は文脈で分かります。" },
+        { "title": "Gostou? には Gostei! と動詞で答える", "body": "gostar の過去は eu gostei ／ você gostou。「Você gostou?」と聞かれたら、「Sim」よりも「Gostei!」「Gostei muito!」と動詞で返すのが自然です。「〜が気に入った」は Gostei de + 名詞（Gostei da praia.）。いまひとつなら Não gostei muito." }
+      ],
+      "talk": {
+        "role": "カポエイラ仲間の Camila",
+        "setting": "月曜の夜、練習が始まる前に教室で会う。お互いの週末について話す。",
+        "opener": "Oi, Yuki! Como foi o fim de semana?",
+        "missions": ["週末にしたことを言う", "感想をひとこと言う", "相手の週末について聞く"]
+      }
+    },
+    {
+      "id": "u4l3",
+      "title": "旅行の話をする",
+      "goal": "行き先・日数・したことを言って、旅行の話をすることができる",
+      "scene": "連休明けの朝、アパートのエレベーター前で隣のアナに会い、旅行の話をする。",
+      "partner": "Ana（隣の人）",
+      "lines": [
+        { "who": "partner", "pt": "Oi, Yuki! Você viajou no feriado?", "ja": "あら、ユキ！連休は旅行したの？" },
+        { "who": "you", "pt": "Viajei! Fui para Salvador.", "ja": "したよ！サルヴァドールに行ったんだ。" },
+        { "who": "partner", "pt": "Que legal! Quantos dias você ficou lá?", "ja": "いいわね！向こうには何日いたの？" },
+        { "who": "you", "pt": "Fiquei quatro dias. Voltei ontem à noite.", "ja": "4日いたよ。昨日の夜、帰ってきたんだ。" },
+        { "who": "partner", "pt": "E o que você fez lá?", "ja": "それで、向こうでは何をしたの？" },
+        { "who": "you", "pt": "Conheci o Pelourinho e vi uma roda de capoeira.", "ja": "ペロウリーニョを訪れて、カポエイラのホーダを見たよ。" },
+        { "who": "partner", "pt": "Que maravilha! E a comida, você gostou?", "ja": "すてきね！食べ物は気に入った？" },
+        { "who": "you", "pt": "Adorei! Comi acarajé pela primeira vez.", "ja": "すごく気に入った！初めてアカラジェを食べたよ。" },
+        { "who": "partner", "pt": "Hum, eu adoro acarajé! Você tirou muitas fotos?", "ja": "ん〜、私アカラジェ大好き！写真はたくさん撮った？" },
+        { "who": "you", "pt": "Tirei! Quer ver?", "ja": "撮ったよ！見る？" }
+      ],
+      "phrases": [
+        { "id": "u4l3p1", "ja": "連休にサルヴァドールへ旅行したよ。", "pt": "Viajei para Salvador no feriado.", "alt": ["No feriado viajei para Salvador.", "Eu viajei para Salvador no feriado."] },
+        { "id": "u4l3p2", "ja": "向こうに4日間いたよ。", "pt": "Fiquei quatro dias lá.", "alt": ["Fiquei lá quatro dias.", "Eu fiquei quatro dias lá."], "note": "ficar は「滞在する」の意味でも使います。" },
+        { "id": "u4l3p3", "ja": "昨日の夜、帰ってきたよ。", "pt": "Voltei ontem à noite.", "alt": ["Eu voltei ontem à noite."] },
+        { "id": "u4l3p4", "ja": "歴史地区を訪れたよ。（初めて行って知った）", "pt": "Conheci o centro histórico.", "alt": ["Eu conheci o centro histórico."], "note": "conhecer + 場所 は「（初めて）訪れる」。人なら「知り合う」: Conheci muita gente legal." },
+        { "id": "u4l3p5", "ja": "初めてアカラジェを食べた。", "pt": "Comi acarajé pela primeira vez.", "alt": ["Eu comi acarajé pela primeira vez."] },
+        { "id": "u4l3p6", "ja": "写真をたくさん撮ったよ。", "pt": "Tirei muitas fotos.", "alt": ["Eu tirei muitas fotos."], "note": "「写真を撮る」は tirar foto と言います。" },
+        { "id": "u4l3p7", "ja": "旅行は最高だった。また行きたい。", "pt": "A viagem foi ótima. Quero voltar.", "alt": ["A viagem foi ótima. Quero ir de novo."], "note": "viagem は女性名詞なので ótima。「また行きたい」は Quero voltar（戻りたい）が自然。" },
+        { "id": "u4l3p8", "ja": "旅行はどうだった？", "pt": "Como foi a viagem?", "alt": ["Como foi sua viagem?", "Como foi a sua viagem?"] }
+      ],
+      "tips": [
+        { "title": "-er・-ir 動詞の過去は eu -i", "body": "-er 動詞は eu -i ／ você -eu: comer → comi ／ comeu、conhecer → conheci ／ conheceu。-ir 動詞は eu -i ／ você -iu: sair → saí ／ saiu。-ar 動詞は viajar → viajei ／ viajou、voltar → voltei ／ voltou、ficar → fiquei ／ ficou（つづりに注意）。" },
+        { "title": "行き先は para、冠詞が付く地名に注意", "body": "「〜に行った・旅行した」は Fui para…、Viajei para…。都市名はふつう冠詞なし（para Salvador、para São Paulo）ですが、o Rio、a Bahia、o Japão のように冠詞が付く地名は para o Rio、para a Bahia、para o Japão になります。乗り物は de を使って Fui de avião.（飛行機で行った）。" }
+      ],
+      "talk": {
+        "role": "隣に住む Ana",
+        "setting": "連休明けにアパートのエレベーター前で会う。Ana が連休の旅行について、いろいろ聞いてくる。",
+        "opener": "Oi, Yuki! Você viajou no feriado?",
+        "missions": ["行き先と日数を言う", "旅先でしたことを言う", "旅行の感想を言う"]
+      }
+    },
+    {
+      "id": "u4l4",
+      "title": "経験を話す",
+      "goal": "「〜したことある？」とたずね、ある・ない・まだ、と答えることができる",
+      "scene": "昼休み、会社の近くの食堂で、同僚のルーカスとブラジルでの経験の話になる。",
+      "partner": "Lucas（同僚）",
+      "lines": [
+        { "who": "partner", "pt": "Yuki, você já foi para o Rio?", "ja": "ユキ、リオには行ったことある？" },
+        { "who": "you", "pt": "Ainda não. Mas quero muito ir.", "ja": "まだないんだ。でもすごく行きたい。" },
+        { "who": "partner", "pt": "Você tem que ir! E você já comeu feijoada?", "ja": "行かなきゃ！フェイジョアーダは食べたことある？" },
+        { "who": "you", "pt": "Já comi. Gostei muito!", "ja": "あるよ。すごく気に入った！" },
+        { "who": "partner", "pt": "E já viu um jogo de futebol no estádio?", "ja": "じゃあ、スタジアムでサッカーの試合を見たことは？" },
+        { "who": "you", "pt": "Nunca vi. E você, já foi para o Japão?", "ja": "一度もない。ルーカスは日本に行ったことある？" },
+        { "who": "partner", "pt": "Nunca fui. Mas é meu sonho!", "ja": "一度もないよ。でも夢なんだ！" },
+        { "who": "you", "pt": "Sério? Então vamos juntos um dia!", "ja": "本当？じゃあいつか一緒に行こうよ！" }
+      ],
+      "phrases": [
+        { "id": "u4l4p1", "ja": "リオには行ったことある？", "pt": "Você já foi para o Rio?", "alt": ["Você já foi ao Rio?", "Você já esteve no Rio?"], "note": "já + 過去形で「〜したことがある？」。Rio には冠詞 o が付きます。" },
+        { "id": "u4l4p2", "ja": "まだないんだ。でもすごく行きたい。", "pt": "Ainda não. Mas quero muito ir." },
+        { "id": "u4l4p3", "ja": "サルヴァドールには行ったことがあるよ。", "pt": "Já fui para Salvador.", "alt": ["Eu já fui para Salvador.", "Já fui a Salvador."] },
+        { "id": "u4l4p4", "ja": "リオには一度も行ったことがない。", "pt": "Nunca fui para o Rio.", "alt": ["Eu nunca fui para o Rio.", "Nunca fui ao Rio."], "note": "nunca だけで否定になります（não は付けません）。" },
+        { "id": "u4l4p5", "ja": "フェイジョアーダは食べたことがあるよ。", "pt": "Já comi feijoada.", "alt": ["Eu já comi feijoada."] },
+        { "id": "u4l4p6", "ja": "スタジアムでサッカーの試合を見たことは一度もない。", "pt": "Nunca vi um jogo de futebol no estádio.", "alt": ["Eu nunca vi um jogo de futebol no estádio."] },
+        { "id": "u4l4p7", "ja": "この映画はもう見た？", "pt": "Você já viu esse filme?", "alt": ["Você já viu este filme?", "Você já assistiu esse filme?"], "note": "já は「もう」の意味にもなります。viu は ver の過去（você）。" },
+        { "id": "u4l4p8", "ja": "まだ見てないんだ。", "pt": "Ainda não vi.", "alt": ["Eu ainda não vi."], "note": "ainda não + 過去形で「まだ〜していない」。" }
+      ],
+      "tips": [
+        { "title": "já・nunca・ainda não", "body": "経験は過去形に一語足すだけです。já＝〜したことがある・もう（Já fui.）、nunca＝一度もない（Nunca fui.）、ainda não＝まだ（Ainda não fui.）。どれも動詞の前に置きます。nunca は否定の語なので não は付けません。「まだだけど行きたい」は Ainda não, mas quero ir." },
+        { "title": "答えは動詞を eu の形でくり返す", "body": "você の形で聞かれたら eu の形で返します。Você já foi…? → Já fui.／Você já comeu…? → Já comi.／Você já viu…? → Já vi.（まだなら Ainda não vi.）。「〜にいたことがある？」は estar の過去を使って Você já esteve no Japão? → Já estive. とも言えます。" }
+      ],
+      "talk": {
+        "role": "同僚の Lucas",
+        "setting": "昼休みに会社の近くの食堂で話す。ブラジルで行った所や食べた物などの経験を、お互いにたずね合う。",
+        "opener": "Yuki, você já foi para o Rio?",
+        "missions": ["行ったことがある所を言う", "まだしていないことを言う", "相手の経験を一つたずねる"]
+      }
+    },
+    {
+      "id": "u4l5",
+      "title": "子どもの頃の話をする",
+      "goal": "子どもの頃に住んでいた所や、よくしていたことを話すことができる",
+      "scene": "カポエイラの練習のあと、子どもクラスを眺めながら、カミラと昔の話をする。",
+      "partner": "Camila（カポエイラ仲間）",
+      "lines": [
+        { "who": "partner", "pt": "Olha as crianças treinando! Que fofas!", "ja": "見て、子どもたちが練習してる！かわいい！" },
+        { "who": "you", "pt": "É verdade! Quando eu era criança, eu jogava futebol.", "ja": "ほんとだね！子どもの頃は、サッカーをやってたよ。" },
+        { "who": "partner", "pt": "É mesmo? Onde você morava?", "ja": "そうなの？どこに住んでたの？" },
+        { "who": "you", "pt": "Eu morava em Tóquio, com meus pais e minha irmã.", "ja": "東京に住んでたよ。両親と姉と一緒に。" },
+        { "who": "partner", "pt": "E você gostava de morar lá?", "ja": "そこに住むのは好きだった？" },
+        { "who": "you", "pt": "Gostava muito! E você, onde morava?", "ja": "すごく好きだった！カミラはどこに住んでたの？" },
+        { "who": "partner", "pt": "Eu morava numa cidade pequena, no interior.", "ja": "私は田舎の小さな町に住んでたの。" },
+        { "who": "you", "pt": "Como era a cidade?", "ja": "どんな町だった？" },
+        { "who": "partner", "pt": "Era bem tranquila. Eu brincava na rua todo dia.", "ja": "すごくのんびりしてた。毎日、道で遊んでたよ。" },
+        { "who": "you", "pt": "Que delícia! Eu brincava no parque perto de casa.", "ja": "いいなあ！こっちは家の近くの公園で遊んでたよ。" }
+      ],
+      "phrases": [
+        { "id": "u4l5p1", "ja": "子どもの頃、サッカーをやっていた。", "pt": "Quando eu era criança, eu jogava futebol.", "alt": ["Quando eu era criança, jogava futebol.", "Eu jogava futebol quando era criança."], "note": "Quando eu era criança は「子どもの頃」の決まった言い方。era は ser の不完了過去。" },
+        { "id": "u4l5p2", "ja": "東京に住んでいたよ。両親と姉と一緒に。", "pt": "Eu morava em Tóquio, com meus pais e minha irmã.", "alt": ["Morava em Tóquio, com meus pais e minha irmã.", "Eu morava em Tóquio, com meus pais e minha irmã mais velha."] },
+        { "id": "u4l5p3", "ja": "子どもの頃はどこに住んでいたの？", "pt": "Onde você morava quando era criança?", "alt": ["Quando você era criança, onde você morava?"] },
+        { "id": "u4l5p4", "ja": "家の近くの公園で遊んでいた。", "pt": "Eu brincava no parque perto de casa.", "alt": ["Brincava no parque perto de casa."], "note": "子どもが「遊ぶ」は brincar。スポーツやゲームを「する」は jogar。" },
+        { "id": "u4l5p5", "ja": "漫画を読むのが好きだった。", "pt": "Eu gostava de ler mangá.", "alt": ["Gostava de ler mangá."] },
+        { "id": "u4l5p6", "ja": "（子どもの頃は）友達がたくさんいた。", "pt": "Eu tinha muitos amigos.", "alt": ["Tinha muitos amigos."], "note": "tinha は ter の不完了過去。年齢にも使います: Eu tinha dez anos." },
+        { "id": "u4l5p7", "ja": "どんな町だったの？（昔のことを聞く）", "pt": "Como era a cidade?", "alt": ["Como era a sua cidade?", "Como era sua cidade?"] },
+        { "id": "u4l5p8", "ja": "恥ずかしがり屋の子どもだったよ。", "pt": "Eu era uma criança tímida.", "alt": ["Era uma criança tímida."], "note": "criança は女性名詞なので、話す人が男性でも uma criança tímida です。" }
+      ],
+      "tips": [
+        { "title": "「〜していた」は -ava（eu も você も同じ）", "body": "昔の習慣や、ずっと続いていた状態は不完了過去で言います。-ar 動詞は語尾が -ava: morar → morava、jogar → jogava、gostar → gostava、brincar → brincava。eu も você も同じ形なので、Eu morava…、Você morava…? と主語を付けるとはっきりします。" },
+        { "title": "era・tinha と、一度きりの過去", "body": "ser は era（Eu era criança.）、ter は tinha（Eu tinha dez anos.＝10歳だった）。これも eu と você が同じ形です。一度の出来事は完了過去、くり返していたことは不完了過去で言います: Ontem joguei futebol.（昨日した）／ Eu jogava futebol.（昔よくしていた）。" }
+      ],
+      "talk": {
+        "role": "カポエイラ仲間の Camila",
+        "setting": "練習のあと、子どもクラスを眺めながら座って話す。お互いの子どもの頃について聞き合う。",
+        "opener": "Yuki, onde você morava quando era criança?",
+        "missions": ["昔住んでいた所を言う", "よくしていたことを言う", "相手の子どもの頃を聞く"]
+      }
+    },
+    {
+      "id": "u4l6",
+      "title": "出来事を伝える",
+      "goal": "起きた出来事を伝え、相手の話に驚きや共感の相づちを打つことができる",
+      "scene": "夕方、アパートの廊下で隣のアナに会い、今日あった出来事を話す。",
+      "partner": "Ana（隣の人）",
+      "lines": [
+        { "who": "you", "pt": "Ana, sabe o que aconteceu hoje?", "ja": "アナ、今日何があったと思う？" },
+        { "who": "partner", "pt": "Não. O que aconteceu?", "ja": "ううん。何があったの？" },
+        { "who": "you", "pt": "Perdi minha carteira no metrô.", "ja": "地下鉄で財布をなくしたんだ。" },
+        { "who": "partner", "pt": "Nossa, sério? E aí?", "ja": "ええっ、本当？それで？" },
+        { "who": "you", "pt": "Voltei para a estação. Uma moça achou e entregou lá.", "ja": "駅に戻ったんだ。女の人が見つけて、届けてくれてた。" },
+        { "who": "partner", "pt": "Ai, que bom! Que sorte!", "ja": "ああ、よかった！運がいいわね！" },
+        { "who": "you", "pt": "Fiquei muito feliz! E o seu dia, como foi?", "ja": "すごくうれしかったよ！アナの一日はどうだった？" },
+        { "who": "partner", "pt": "Ah, meu celular quebrou hoje de manhã.", "ja": "ああ、今朝スマホが壊れちゃったの。" },
+        { "who": "you", "pt": "Sério? Que chato!", "ja": "本当？それは嫌だね！" },
+        { "who": "partner", "pt": "Pois é. Amanhã vou comprar outro.", "ja": "そうなのよ。明日、新しいのを買うわ。" }
+      ],
+      "phrases": [
+        { "id": "u4l6p1", "ja": "今日、何があったと思う？（話を切り出す）", "pt": "Sabe o que aconteceu hoje?", "alt": ["Você sabe o que aconteceu hoje?"], "note": "話を切り出す決まり文句。相手は「Não. O que aconteceu?」と返してくれます。" },
+        { "id": "u4l6p2", "ja": "地下鉄で財布をなくしたんだ。", "pt": "Perdi minha carteira no metrô.", "alt": ["Perdi a minha carteira no metrô.", "Perdi a carteira no metrô."] },
+        { "id": "u4l6p3", "ja": "何があったの？（驚いて聞き返す）", "pt": "O que aconteceu?" },
+        { "id": "u4l6p4", "ja": "本当？それは嫌だね！（ついてない話を聞いて）", "pt": "Sério? Que chato!", "note": "Que chato! は「嫌だね・ついてないね」。相手に同情するときの定番です。" },
+        { "id": "u4l6p5", "ja": "うわあ！いいね！（うれしい話に驚いて）", "pt": "Nossa! Que legal!", "note": "Nossa! は驚きのひとこと。いい話にも悪い話にも使えます。" },
+        { "id": "u4l6p6", "ja": "ああ、それはよかった！（ほっとする話を聞いて）", "pt": "Ah, que bom!", "alt": ["Que bom!", "Ai, que bom!"] },
+        { "id": "u4l6p7", "ja": "今朝、バスに乗り遅れた。", "pt": "Perdi o ônibus hoje de manhã.", "alt": ["Hoje de manhã perdi o ônibus.", "Hoje de manhã eu perdi o ônibus."], "note": "perder + 乗り物 は「乗り遅れる」の意味になります。" },
+        { "id": "u4l6p8", "ja": "すごくうれしくなったよ！（財布が見つかって）", "pt": "Fiquei muito feliz!", "alt": ["Eu fiquei muito feliz!"], "note": "ficar + 形容詞 で「〜になった」。Fiquei triste.（悲しくなった）" }
+      ],
+      "tips": [
+        { "title": "ひとことの相づちで会話がはずむ", "body": "驚いたら Nossa!（うわ）、Sério?（本当？）。いい話には Que legal!（いいね）、Que bom!（よかった）、Que sorte!（運がいい）。悪い話には Que chato!（嫌だね）、Que pena!（残念）。続きを聞きたいときは E aí?（それで？）。相手の話のあとに、すぐ一言返しましょう。" },
+        { "title": "perdi は「なくした」と「乗り遅れた」", "body": "perder は eu perdi ／ você perdeu。物なら「なくした」（Perdi minha chave.）、乗り物なら「乗り遅れた」（Perdi o ônibus.）。「何があったの？」は O que aconteceu?。気持ちの変化は ficar で言えます: Fiquei feliz.（うれしくなった）／ Você ficou triste?（悲しくなった？）" }
+      ],
+      "talk": {
+        "role": "隣に住む Ana",
+        "setting": "夕方、アパートの廊下で会う。今日あった出来事をお互いに話し、相手の話に相づちを打つ。",
+        "opener": "Oi, Yuki! Como foi o seu dia?",
+        "missions": ["今日あった出来事を伝える", "相手の話に相づちを打つ", "何があったのか聞き返す"]
+      }
+    }
+  ]
+}

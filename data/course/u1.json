@@ -1,0 +1,234 @@
+{
+  "id": "u1",
+  "title": "はじめの一歩",
+  "goal": "あいさつ・自己紹介・注文・道を聞くなど、最低限のやりとりができる",
+  "lessons": [
+    {
+      "id": "u1l1",
+      "title": "あいさつする",
+      "goal": "会ったとき・別れるときのあいさつと、調子のやりとりができる",
+      "scene": "朝、アパートの入口で隣に住むアナとばったり会う。",
+      "partner": "Ana（隣の人）",
+      "lines": [
+        { "who": "partner", "pt": "Oi! Bom dia!", "ja": "あら！おはよう！" },
+        { "who": "you", "pt": "Bom dia! Tudo bem?", "ja": "おはよう！元気？" },
+        { "who": "partner", "pt": "Tudo bem, e você?", "ja": "元気よ。あなたは？" },
+        { "who": "you", "pt": "Tudo ótimo, obrigado.", "ja": "すごく元気、ありがとう。" },
+        { "who": "partner", "pt": "Que bom! Você vai trabalhar agora?", "ja": "よかった！これから仕事？" },
+        { "who": "you", "pt": "Vou, sim. Até mais tarde!", "ja": "うん、そう。またあとでね！" },
+        { "who": "partner", "pt": "Até mais! Bom trabalho!", "ja": "またね！お仕事がんばって！" },
+        { "who": "you", "pt": "Obrigado! Tchau!", "ja": "ありがとう！じゃあね！" }
+      ],
+      "phrases": [
+        { "id": "u1l1p1", "ja": "おはよう！元気？", "pt": "Bom dia! Tudo bem?" },
+        { "id": "u1l1p2", "ja": "元気だよ。あなたは？", "pt": "Tudo bem, e você?" },
+        { "id": "u1l1p3", "ja": "すごく元気、ありがとう。", "pt": "Tudo ótimo, obrigado.", "alt": ["Tudo ótimo, obrigada."], "note": "ありがとうは、男性が言うなら obrigado、女性なら obrigada。" },
+        { "id": "u1l1p4", "ja": "こんにちは！（午後のあいさつ）", "pt": "Boa tarde!" },
+        { "id": "u1l1p5", "ja": "こんばんは！調子はどう？", "pt": "Boa noite! Como vai?", "alt": ["Boa noite! Como você está?"] },
+        { "id": "u1l1p6", "ja": "またあとでね！", "pt": "Até mais tarde!", "alt": ["Até mais!", "Até logo!"] },
+        { "id": "u1l1p7", "ja": "じゃあね！よい一日を！", "pt": "Tchau! Tenha um bom dia!" }
+      ],
+      "tips": [
+        { "title": "Tudo bem? は質問にも答えにもなる", "body": "「Tudo bem?」と聞かれたら、同じ「Tudo bem.」や「Tudo ótimo.」で返せます。ブラジルでは会うたびに交わす、あいさつの一部です。" },
+        { "title": "obrigado と obrigada", "body": "話す人の性別で変わります（相手の性別ではありません）。男性は obrigado、女性は obrigada。" }
+      ],
+      "talk": {
+        "role": "隣に住む Ana",
+        "setting": "朝、アパートの入口でばったり会う。短く立ち話をして別れる。",
+        "opener": "Oi! Bom dia! Tudo bem?",
+        "missions": ["あいさつを返す", "相手の調子をたずねる", "別れのあいさつをする"]
+      }
+    },
+    {
+      "id": "u1l2",
+      "title": "自己紹介する",
+      "goal": "名前と出身を伝えて、初対面のあいさつができる",
+      "scene": "アナの家の集まりで、アナの友達のハファエルに初めて会う。",
+      "partner": "Rafael（アナの友達）",
+      "lines": [
+        { "who": "partner", "pt": "Oi, tudo bem? Você é amigo da Ana?", "ja": "やあ、元気？アナの友達？" },
+        { "who": "you", "pt": "Sou, sim. Meu nome é Yuki.", "ja": "はい、そうです。私の名前はユキです。" },
+        { "who": "partner", "pt": "Prazer, Yuki! Eu sou o Rafael.", "ja": "よろしく、ユキ！僕はハファエル。" },
+        { "who": "you", "pt": "Prazer, Rafael!", "ja": "はじめまして、ハファエル！" },
+        { "who": "partner", "pt": "De onde você é?", "ja": "どこの出身？" },
+        { "who": "you", "pt": "Sou do Japão, de Tóquio. E você?", "ja": "日本の東京出身です。あなたは？" },
+        { "who": "partner", "pt": "Sou daqui de São Paulo. Você fala português muito bem!", "ja": "僕は地元のサンパウロだよ。ポルトガル語、すごく上手だね！" },
+        { "who": "you", "pt": "Obrigado! Falo só um pouco.", "ja": "ありがとう！少し話せるだけです。" }
+      ],
+      "phrases": [
+        { "id": "u1l2p1", "ja": "私の名前はユキです。", "pt": "Meu nome é Yuki.", "alt": ["O meu nome é Yuki.", "Eu me chamo Yuki.", "Me chamo Yuki.", "Eu sou o Yuki.", "Eu sou a Yuki."], "note": "「Eu sou o Yuki.」（女性なら a Yuki）と名乗ることも多い。" },
+        { "id": "u1l2p2", "ja": "はじめまして！（初対面のあいさつ）", "pt": "Prazer!", "alt": ["Muito prazer!", "Prazer em te conhecer!", "Prazer em conhecer você!"] },
+        { "id": "u1l2p3", "ja": "お名前は何ですか？", "pt": "Qual é o seu nome?", "alt": ["Qual é seu nome?", "Como é o seu nome?", "Como você se chama?"] },
+        { "id": "u1l2p4", "ja": "日本の東京出身です。", "pt": "Sou do Japão, de Tóquio.", "alt": ["Eu sou do Japão, de Tóquio."] },
+        { "id": "u1l2p5", "ja": "どこの出身ですか？", "pt": "De onde você é?", "alt": ["Você é de onde?"] },
+        { "id": "u1l2p6", "ja": "私は日本人です。", "pt": "Sou japonês.", "alt": ["Sou japonesa.", "Eu sou japonês.", "Eu sou japonesa."], "note": "男性は japonês、女性は japonesa。" },
+        { "id": "u1l2p7", "ja": "アナの友達です。", "pt": "Sou amigo da Ana.", "alt": ["Sou amiga da Ana.", "Eu sou amigo da Ana.", "Eu sou amiga da Ana."], "note": "女性が言うなら amiga。da は de + a（人の名前にも a / o を付けることが多い）。" },
+        { "id": "u1l2p8", "ja": "こちらこそ。（はじめましてと言われて）", "pt": "O prazer é meu.", "alt": ["O prazer é todo meu.", "Igualmente."] }
+      ],
+      "tips": [
+        { "title": "Sou de + 場所 で出身を言う", "body": "出身は「Sou de + 場所」。国名にはふつう冠詞が付くので、de と合体します: de + o Japão → do Japão、de + o Brasil → do Brasil。町の名前はたいていそのまま: de Tóquio、de São Paulo。" },
+        { "title": "Prazer! は握手といっしょに", "body": "初対面では「Prazer!」と言いながら握手します（くだけた場では、頬に軽くキスやハグをすることも）。言われたら、同じ「Prazer!」か「O prazer é meu.」で返せば十分です。" }
+      ],
+      "talk": {
+        "role": "アナの友達 Rafael",
+        "setting": "アナの家の集まりで初めて会う。お互いに名前と出身を伝え合う。",
+        "opener": "Oi, tudo bem? Eu sou o Rafael.",
+        "missions": ["名前を言う", "出身を伝える", "相手の出身をたずねる"]
+      }
+    },
+    {
+      "id": "u1l3",
+      "title": "聞き返す・助けを求める",
+      "goal": "分からないときに聞き返して、ゆっくり話してもらったり意味を聞いたりできる",
+      "scene": "カポエイラの練習のあと、仲間のカミラが早口で明日の予定を教えてくれるが、聞き取れない。",
+      "partner": "Camila（カポエイラ仲間）",
+      "lines": [
+        { "who": "partner", "pt": "Yuki, amanhã não tem treino porque é feriado.", "ja": "ユキ、明日は祝日だから練習はないよ。" },
+        { "who": "you", "pt": "Desculpa, não entendi. Pode repetir?", "ja": "ごめん、分からなかった。もう一度言ってくれる？" },
+        { "who": "partner", "pt": "Claro! Amanhã é feriado, então não tem treino.", "ja": "もちろん！明日は祝日だから、練習はないの。" },
+        { "who": "you", "pt": "Mais devagar, por favor. Falo só um pouco de português.", "ja": "もっとゆっくりお願い。ポルトガル語は少ししか話せないんだ。" },
+        { "who": "partner", "pt": "Ah, desculpa! Amanhã é feriado e não tem treino.", "ja": "あ、ごめん！明日は祝日で、練習はないよ。" },
+        { "who": "you", "pt": "O que significa feriado?", "ja": "「フェリアード」ってどういう意味？" },
+        { "who": "partner", "pt": "É um dia sem trabalho e sem aula.", "ja": "仕事も授業もない日のことだよ。" },
+        { "who": "you", "pt": "Ah, entendi! Pode escrever aqui, por favor?", "ja": "ああ、分かった！ここに書いてくれる？" },
+        { "who": "partner", "pt": "Claro! Vou escrever aqui no seu celular.", "ja": "もちろん！ユキのスマホに書くね。" },
+        { "who": "you", "pt": "Muito obrigado, Camila!", "ja": "どうもありがとう、カミラ！" }
+      ],
+      "phrases": [
+        { "id": "u1l3p1", "ja": "すみません、分かりませんでした。", "pt": "Desculpa, não entendi.", "alt": ["Desculpe, não entendi."], "note": "entendi は「分かった」という過去の形。聞き取れなかったら、すぐこの一言。" },
+        { "id": "u1l3p2", "ja": "もう一度言ってもらえますか？", "pt": "Pode repetir, por favor?", "alt": ["Pode repetir?", "Você pode repetir, por favor?", "Pode falar de novo, por favor?", "Pode falar de novo?"] },
+        { "id": "u1l3p3", "ja": "もっとゆっくりお願いします。", "pt": "Mais devagar, por favor.", "alt": ["Pode falar mais devagar, por favor?", "Pode falar mais devagar?", "Fala mais devagar, por favor."] },
+        { "id": "u1l3p4", "ja": "ポルトガル語は少ししか話せません。", "pt": "Falo só um pouco de português.", "alt": ["Eu falo só um pouco de português.", "Só falo um pouco de português.", "Eu só falo um pouco de português.", "Falo só um pouquinho de português."] },
+        { "id": "u1l3p5", "ja": "「フェリアード」はどういう意味ですか？", "pt": "O que significa feriado?", "alt": ["O que quer dizer feriado?", "O que é feriado?"], "note": "feriado は「祝日」。分からなかった語をそのまま入れて聞けばよい。" },
+        { "id": "u1l3p6", "ja": "これはポルトガル語で何と言いますか？", "pt": "Como se diz isso em português?", "alt": ["Como se fala isso em português?", "Como fala isso em português?", "Como é isso em português?"], "note": "isso（これ）の代わりに、英語や日本語の単語を入れてもよい。" },
+        { "id": "u1l3p7", "ja": "ここに書いてもらえますか？", "pt": "Pode escrever aqui, por favor?", "alt": ["Pode escrever aqui?", "Você pode escrever aqui, por favor?", "Pode escrever aqui para mim?"] },
+        { "id": "u1l3p8", "ja": "ああ、分かりました！ありがとう。", "pt": "Ah, entendi! Obrigado.", "alt": ["Ah, entendi! Obrigada.", "Ah, agora entendi! Obrigado.", "Ah, agora entendi! Obrigada."] }
+      ],
+      "tips": [
+        { "title": "Pode + 動詞? でお願いできる", "body": "「Pode + 動詞の原形?」で「〜してもらえますか」になります。Pode repetir?（もう一度）、Pode escrever?（書いて）、Pode falar mais devagar?（もっとゆっくり話して）。por favor を添えると丁寧です。" },
+        { "title": "分からないまま流さない", "body": "聞き取れなかったら、すぐ「Desculpa, não entendi.」。短く「Como?」（え？）だけでも聞き返せます。Desculpa はくだけた形、Desculpe は少し丁寧な形で、どちらを使っても失礼になりません。" }
+      ],
+      "talk": {
+        "role": "カポエイラ仲間の Camila",
+        "setting": "練習のあと、カミラが早口で明日の予定を教えてくれる。分からないところを聞き返しながら、内容をつかむ。",
+        "opener": "Yuki, amanhã não tem treino porque é feriado.",
+        "missions": ["もう一度言ってもらう", "ゆっくり話してもらう", "言葉の意味をたずねる"]
+      }
+    },
+    {
+      "id": "u1l4",
+      "title": "カフェで注文する",
+      "goal": "飲み物と食べ物を注文して、値段を聞き、支払い方法を伝えることができる",
+      "scene": "朝、仕事の前に近所のカフェに寄る。カウンターで注文して支払う。",
+      "partner": "店員",
+      "lines": [
+        { "who": "partner", "pt": "Bom dia! O que você vai querer?", "ja": "おはようございます！何になさいますか？" },
+        { "who": "you", "pt": "Bom dia! Eu queria um café com leite, por favor.", "ja": "おはようございます！カフェオレを1つお願いします。" },
+        { "who": "partner", "pt": "Mais alguma coisa?", "ja": "ほかに何かありますか？" },
+        { "who": "you", "pt": "Um pão de queijo também, por favor.", "ja": "ポン・デ・ケイジョも1つください。" },
+        { "who": "partner", "pt": "É para comer aqui ou para viagem?", "ja": "店内で召し上がりますか、お持ち帰りですか？" },
+        { "who": "you", "pt": "É para comer aqui. Quanto é?", "ja": "ここで食べます。いくらですか？" },
+        { "who": "partner", "pt": "São quinze reais.", "ja": "15レアルです。" },
+        { "who": "you", "pt": "Pode ser no cartão?", "ja": "カードでもいいですか？" },
+        { "who": "partner", "pt": "Pode, sim. Débito ou crédito?", "ja": "はい、大丈夫ですよ。デビットですか、クレジットですか？" },
+        { "who": "you", "pt": "Crédito, por favor.", "ja": "クレジットでお願いします。" }
+      ],
+      "phrases": [
+        { "id": "u1l4p1", "ja": "カフェオレを1つお願いします。", "pt": "Eu queria um café com leite, por favor.", "alt": ["Queria um café com leite, por favor.", "Eu quero um café com leite, por favor.", "Quero um café com leite, por favor.", "Um café com leite, por favor."] },
+        { "id": "u1l4p2", "ja": "ポン・デ・ケイジョも1つください。", "pt": "Um pão de queijo também, por favor.", "alt": ["E um pão de queijo, por favor.", "Eu queria um pão de queijo também.", "Queria um pão de queijo também."] },
+        { "id": "u1l4p3", "ja": "ここで食べます。（持ち帰りかと聞かれて）", "pt": "É para comer aqui.", "alt": ["Para comer aqui.", "Para comer aqui, por favor.", "Vou comer aqui."] },
+        { "id": "u1l4p4", "ja": "いくらですか？（レジで合計を聞く）", "pt": "Quanto é?", "alt": ["Quanto deu?", "Quanto ficou?", "Quanto é tudo?"], "note": "レジでは Quanto deu?（いくらになりましたか）もよく使う。" },
+        { "id": "u1l4p5", "ja": "カードでもいいですか？", "pt": "Pode ser no cartão?", "alt": ["Posso pagar no cartão?", "Posso pagar com cartão?", "Aceita cartão?"] },
+        { "id": "u1l4p6", "ja": "ピックスで払ってもいいですか？", "pt": "Posso pagar no Pix?", "alt": ["Posso pagar com Pix?", "Posso pagar por Pix?", "Pode ser no Pix?", "Aceita Pix?"], "note": "Pix はブラジルのスマホ即時決済。QRコードを読み取って払う。" },
+        { "id": "u1l4p7", "ja": "ガスなしの水を1本ください。", "pt": "Uma água sem gás, por favor.", "alt": ["Eu queria uma água sem gás, por favor.", "Queria uma água sem gás, por favor.", "Eu quero uma água sem gás, por favor."], "note": "água は女性名詞なので uma。炭酸入りは com gás。" },
+        { "id": "u1l4p8", "ja": "持ち帰りでお願いします。", "pt": "É para viagem, por favor.", "alt": ["Para viagem, por favor.", "É para levar, por favor.", "Para levar, por favor."], "note": "para viagem は「持ち帰り」の決まった言い方。para levar とも言う。" }
+      ],
+      "tips": [
+        { "title": "Eu queria… でやわらかく注文", "body": "注文は「Eu queria + ほしい物」が丁寧で自然です（queria は quero「ほしい」をやわらげた形）。「Um café, por favor.」のように物の名前だけでも大丈夫。男性名詞には um、女性名詞には uma を付けます: um café / uma água。" },
+        { "title": "レジで聞かれること", "body": "カード払いでは「Débito ou crédito?」と聞かれます。「Crédito.」と一言で答えれば十分。「CPF na nota?」（レシートに納税者番号を入れるか）と聞かれたら、「Não, obrigado.」で断れます。" }
+      ],
+      "talk": {
+        "role": "カフェの店員",
+        "setting": "朝、近所のカフェのカウンター。飲み物と食べ物を注文して、支払いまで済ませる。",
+        "opener": "Bom dia! O que você vai querer?",
+        "missions": ["飲み物と食べ物を注文する", "値段を聞く", "支払い方法を伝える"]
+      }
+    },
+    {
+      "id": "u1l5",
+      "title": "買い物で値段を聞く",
+      "goal": "値段や品物があるかを聞いて、ほしい数を伝えて買うことができる",
+      "scene": "日曜の朝、近所の露店市（フェイラ）の果物屋でマンゴーを買う。",
+      "partner": "果物屋の店員",
+      "lines": [
+        { "who": "partner", "pt": "Bom dia! A manga está bem doce hoje.", "ja": "おはよう！今日のマンゴーはすごく甘いよ。" },
+        { "who": "you", "pt": "Bom dia! Quanto custa a manga?", "ja": "おはようございます！マンゴーはいくらですか？" },
+        { "who": "partner", "pt": "Cinco reais cada. Três por doze.", "ja": "1個5レアル。3個なら12レアルだよ。" },
+        { "who": "you", "pt": "Vou levar três. Tem abacaxi?", "ja": "3つ買います。パイナップルはありますか？" },
+        { "who": "partner", "pt": "Tem, sim. Oito reais cada.", "ja": "あるよ。1個8レアル。" },
+        { "who": "you", "pt": "Então vou levar um abacaxi também.", "ja": "じゃあ、パイナップルも1つ買います。" },
+        { "who": "partner", "pt": "Mais alguma coisa?", "ja": "ほかに何か？" },
+        { "who": "you", "pt": "Só isso. Quanto é?", "ja": "これだけです。いくらですか？" },
+        { "who": "partner", "pt": "Deu vinte reais.", "ja": "20レアルになるよ。" },
+        { "who": "you", "pt": "Aqui está. Obrigado!", "ja": "はい、どうぞ。ありがとう！" }
+      ],
+      "phrases": [
+        { "id": "u1l5p1", "ja": "マンゴーはいくらですか？", "pt": "Quanto custa a manga?", "alt": ["Quanto é a manga?", "Quanto está a manga?"] },
+        { "id": "u1l5p2", "ja": "これはいくらですか？", "pt": "Quanto custa isso?", "alt": ["Quanto é isso?", "Quanto custa isso aqui?", "Quanto custa?"] },
+        { "id": "u1l5p3", "ja": "パイナップルはありますか？", "pt": "Tem abacaxi?", "alt": ["Você tem abacaxi?", "Vocês têm abacaxi?"] },
+        { "id": "u1l5p4", "ja": "3つ買います。", "pt": "Vou levar três.", "alt": ["Eu vou levar três.", "Vou querer três."], "note": "Vou levar は直訳で「持っていきます」。買うと決めたときの決まり文句。" },
+        { "id": "u1l5p5", "ja": "これだけです。（ほかに何かと聞かれて）", "pt": "Só isso.", "alt": ["É só isso.", "Só isso, obrigado.", "Só isso, obrigada."] },
+        { "id": "u1l5p6", "ja": "マンゴーを2個ください。", "pt": "Eu queria duas mangas, por favor.", "alt": ["Queria duas mangas, por favor.", "Eu quero duas mangas, por favor.", "Quero duas mangas, por favor.", "Duas mangas, por favor."], "note": "manga は女性名詞なので duas。男性名詞なら dois（dois abacaxis）。" },
+        { "id": "u1l5p7", "ja": "ちょっと高いですね。", "pt": "Está um pouco caro.", "alt": ["Está um pouco caro, né?", "É um pouco caro.", "Está meio caro."] },
+        { "id": "u1l5p8", "ja": "もっと安いのはありますか？", "pt": "Tem um mais barato?", "alt": ["Tem algum mais barato?", "Tem mais barato?", "Tem uma mais barata?"] }
+      ],
+      "tips": [
+        { "title": "1〜10 と値段の言い方", "body": "1〜10 は um, dois, três, quatro, cinco, seis, sete, oito, nove, dez。値段は「数 + reais」（1レアルだけ um real）。1 と 2 は女性名詞の前で uma・duas に変わります: uma manga、duas mangas。" },
+        { "title": "Tem…? は「ありますか」", "body": "物があるか聞くときは「Tem + 物?」。答えは「Tem.」（あります）か「Não tem.」（ありません）。ブラジルの話し言葉では「ある・いる」にこの tem を使います。例: Tem abacaxi? — Tem, sim." }
+      ],
+      "talk": {
+        "role": "露店市の果物屋の店員",
+        "setting": "日曜の朝の露店市（フェイラ）。果物の値段を聞いて、数を決めて買う。",
+        "opener": "Bom dia! A manga está bem doce hoje.",
+        "missions": ["値段を聞く", "ほしい数を伝える", "ほかの果物があるか聞く"]
+      }
+    },
+    {
+      "id": "u1l6",
+      "title": "道をたずねる",
+      "goal": "場所や行き方をたずねて、遠いかどうかを確かめ、お礼を言うことができる",
+      "scene": "サンパウロの街なかで、地下鉄の駅への行き方を通りがかりの人にたずねる。",
+      "partner": "通りがかりの人",
+      "lines": [
+        { "who": "you", "pt": "Com licença! Onde fica o metrô?", "ja": "すみません！地下鉄の駅はどこですか？" },
+        { "who": "partner", "pt": "O metrô? Vai reto e vira à direita na esquina.", "ja": "地下鉄？まっすぐ行って、角を右に曲がって。" },
+        { "who": "you", "pt": "Desculpa, pode repetir? Mais devagar, por favor.", "ja": "すみません、もう一度言ってもらえますか？もっとゆっくりお願いします。" },
+        { "who": "partner", "pt": "Claro! Vai reto e, na esquina, vira à direita.", "ja": "もちろん！まっすぐ行って、角で、右に曲がるんです。" },
+        { "who": "you", "pt": "À direita, entendi. É longe daqui?", "ja": "右ですね、分かりました。ここから遠いですか？" },
+        { "who": "partner", "pt": "Não, é pertinho. Uns cinco minutos a pé.", "ja": "いいえ、すぐ近くですよ。歩いて5分くらい。" },
+        { "who": "you", "pt": "Que bom! Obrigado pela ajuda.", "ja": "よかった！助けてくれてありがとうございます。" },
+        { "who": "partner", "pt": "De nada! Tenha um bom dia!", "ja": "どういたしまして！よい一日を！" }
+      ],
+      "phrases": [
+        { "id": "u1l6p1", "ja": "すみません、地下鉄の駅はどこですか？（通りがかりの人に声をかける）", "pt": "Com licença, onde fica o metrô?", "alt": ["Com licença, onde é o metrô?", "Com licença, onde fica a estação de metrô?", "Por favor, onde fica o metrô?"], "note": "fica は「〜にある」。駅は estação だが、o metrô だけで通じる。" },
+        { "id": "u1l6p2", "ja": "ここから遠いですか？", "pt": "É longe daqui?", "alt": ["Fica longe daqui?", "É longe?"] },
+        { "id": "u1l6p3", "ja": "歩いて行けますか？", "pt": "Dá para ir a pé?", "alt": ["Dá para ir andando?", "Posso ir a pé?"], "note": "Dá para + 動詞? は「〜できますか」の決まり文句。a pé は「歩いて」。" },
+        { "id": "u1l6p4", "ja": "右ですか、左ですか？", "pt": "É à direita ou à esquerda?", "alt": ["À direita ou à esquerda?", "Fica à direita ou à esquerda?"], "note": "direita が右、esquerda が左。à は「ア」と短く1音で言う。" },
+        { "id": "u1l6p5", "ja": "助けてくれてありがとうございます。", "pt": "Obrigado pela ajuda.", "alt": ["Obrigada pela ajuda.", "Muito obrigado pela ajuda.", "Muito obrigada pela ajuda."] },
+        { "id": "u1l6p6", "ja": "トイレはどこですか？", "pt": "Onde fica o banheiro?", "alt": ["Onde é o banheiro?"] },
+        { "id": "u1l6p7", "ja": "この近くに薬局はありますか？", "pt": "Tem uma farmácia aqui perto?", "alt": ["Tem farmácia aqui perto?", "Tem alguma farmácia aqui perto?", "Tem uma farmácia perto daqui?", "Tem uma farmácia por aqui?"] },
+        { "id": "u1l6p8", "ja": "道に迷いました。", "pt": "Estou perdido.", "alt": ["Estou perdida.", "Eu estou perdido.", "Eu estou perdida."], "note": "女性が言うなら perdida。「迷っている状態です」という言い方。" }
+      ],
+      "tips": [
+        { "title": "Onde fica…? で場所を聞く", "body": "場所は「Onde fica + 場所?」で聞けます（fica は「〜にある」）。知らない人に声をかけるときは、まず「Com licença!」。例: Com licença, onde fica o banheiro?" },
+        { "title": "道案内でよく聞く言葉", "body": "vai reto（まっすぐ行く）、vira à direita（右に曲がる）、vira à esquerda（左に曲がる）、na esquina（角で）、perto（近い）、longe（遠い）。全部聞き取れなくても、direita か esquerda かが分かれば歩き出せます。" }
+      ],
+      "talk": {
+        "role": "通りがかりの人",
+        "setting": "サンパウロの街なか。地下鉄の駅への行き方をたずねて、遠いかどうかも確かめる。",
+        "opener": "Oi, tudo bem? Precisa de ajuda?",
+        "missions": ["駅の場所をたずねる", "遠いかどうか聞く", "お礼を言う"]
+      }
+    }
+  ]
+}

@@ -16,11 +16,13 @@
 //     AI 翻訳の API キーは別のストア（useSecrets・bp-secrets-v1）にあり、書き出さず・読み込まない。
 //     AI（Gemini を既定に）で設定 aiProvider・geminiModel を足した（version は 3 のまま。無ければ端末側のまま）。
 //     Gemini の API キーも useSecrets にあり、書き出さず・読み込まない。AI 先生の会話の記録も書き出さない（端末だけ）。
+//     話す練習で任意フィールド speak（文のカード・自分で足した文・レッスンの進み具合・会話の回数の記録）と、
+//     設定 speakDailyLimit・talkAutoSpeak を足した（version は 3 のまま。無ければ端末側のまま）。会話の中身は書き出さない。
 // v4 以降（新しいアプリで作ったファイル）: 警告を出し、このアプリが知っている項目だけ読む。
 // 歌詞の本文・歌詞キャッシュ（lyricsCache）は書き出さず、読み込みでも拾わない。
 // ============================================================================
 
-import type { Passage, Settings, SrsCard, SrsLevel } from "../data/types";
+import type { Passage, Settings, SrsCard } from "../data/types";
 import type { UserWordRaw } from "../data/loadWords";
 import type { AddedWord, LineTranslation, MusicExport, SongState } from "./useMusic";
 import type { DrillExport, DrillStat } from "./useDrill";
@@ -29,6 +31,8 @@ import { DRILL_KEY_RE } from "../services/conjugationDrill";
 import { isLineHash } from "../services/lyrics";
 import { TRANSLATION_SOURCES, type TranslationSource } from "../services/lyricSentences";
 import { isProdKey } from "../srs/cardKey";
+import { readCard } from "../srs/cardIo";
+import { readSpeak, type SpeakExport } from "../speak/speakData";
 
 export const BACKUP_VERSION = 3;
 
@@ -64,6 +68,8 @@ export interface BackupData {
   settings: Partial<Settings> | null;
   /** 活用ドリルの成績（B3-06 で足した任意フィールド）。無い古いファイルは null（端末側をそのまま残す） */
   drill: DrillExport | null;
+  /** 話す練習の記録（任意フィールド）。無い古いファイルは null（端末側をそのまま残す） */
+  speak: SpeakExport | null;
 }
 
 export type ParseResult =
@@ -112,6 +118,10 @@ const SETTINGS_SCHEMA: { [K in keyof Settings]-?: SettingKind } = {
   // Gemini の API キーも useSecrets（bp-secrets-v1）にあり、書き出しにも読み込みにも一切入らない
   aiProvider: ["gemini", "claude"],
   geminiModel: ["gemini-3.8-flash", "gemini-3.5-flash-lite"],
+  // 話す練習（口慣らしの1日の上限・AI との会話の読み上げ。任意フィールド。無い古いファイルでは端末側の値のまま）
+  speakDailyLimit: [20, 30, 50, 100],
+  talkAutoSpeak: "boolean",
+  talkLevel: [-1, 0, 1, 2, 3],
 };
 
 function settingOk(kind: SettingKind, v: unknown): boolean {
@@ -148,22 +158,6 @@ const num = (v: unknown, d = 0): number => (isNum(v) ? v : d);
 const str = (v: unknown, d = ""): string => (typeof v === "string" ? v : d);
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const isDate = (v: unknown): v is string => typeof v === "string" && DATE_RE.test(v);
-const LEVELS: readonly SrsLevel[] = ["new", "learning", "young", "mature"];
-
-/**
- * 1枚分のカード。スケジュールに使う項目の型を確かめる（壊れていれば null）。
- * 知らない項目（将来版が足したもの）はそのまま残す。level は表示に使わない（displayLevel で導く）ので、
- * 壊れていても "new" で補う。
- */
-function readCard(v: unknown): SrsCard | null {
-  if (!isObj(v)) return null;
-  if (![v.ease, v.intervalDays, v.reps, v.lapses].every(isNum)) return null;
-  if (!isDate(v.due)) return null;
-  const last = v.last ?? null;
-  if (last !== null && !isDate(last)) return null;
-  const level = LEVELS.includes(v.level as SrsLevel) ? (v.level as SrsLevel) : "new";
-  return { ...v, level, last } as SrsCard;
-}
 
 function readPassage(v: unknown): v is Passage {
   return isObj(v) && typeof v.id === "string" && typeof v.title === "string" && Array.isArray(v.chunks);
@@ -260,6 +254,8 @@ export function composeBackup(p: {
   app: AppInfo;
   /** 活用ドリルの成績（useDrill.exportData()）。無ければ書き出さない */
   drill?: unknown;
+  /** 話す練習の記録（useSpeak.exportData()）。無ければ書き出さない */
+  speak?: unknown;
 }): Record<string, unknown> {
   return {
     ...p.progress,
@@ -272,6 +268,8 @@ export function composeBackup(p: {
     settings: pickSettings(p.settings),
     // 活用ドリルの成績も読み込みと同じ規則で組み直す
     ...(p.drill !== undefined ? { drill: readDrill(p.drill) ?? { stats: {} } } : {}),
+    // 話す練習の記録も読み込みと同じ規則で組み直す
+    ...(p.speak !== undefined ? { speak: readSpeak(p.speak) ?? { cards: {}, phrases: [], lessons: {}, talks: [] } } : {}),
   };
 }
 
@@ -343,6 +341,8 @@ export function parseBackup(json: string): ParseResult {
       settings: version >= 3 && isObj(raw.settings) ? pickSettings(raw.settings) : null,
       // B3-06 で足した任意フィールド（history と同じく、どの version のファイルでも読む）
       drill: readDrill(raw.drill),
+      // 話す練習の記録（任意フィールド。どの version のファイルでも読む）
+      speak: readSpeak(raw.speak),
     },
   };
 }
@@ -368,6 +368,11 @@ export function describeBackup(d: BackupData): string {
   if (selfLines) parts.push(`自分で訳した行 ${selfLines}行`);
   const forms = d.drill ? Object.keys(d.drill.stats).length : 0;
   if (forms) parts.push(`活用ドリル ${forms}形`);
+  const said = d.speak ? Object.values(d.speak.cards).filter((c) => c.last).length : 0;
+  if (said) parts.push(`口慣らしの文 ${said}文`);
+  const doneLessons = d.speak ? Object.values(d.speak.lessons).filter((l) => l.doneAt).length : 0;
+  if (doneLessons) parts.push(`レッスン ${doneLessons}課`);
+  if (d.speak?.phrases.length) parts.push(`自分のフレーズ ${d.speak.phrases.length}文`);
   if (d.settings && Object.keys(d.settings).length) parts.push("設定を含む");
   return parts.join("・");
 }

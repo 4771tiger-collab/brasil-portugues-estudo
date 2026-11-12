@@ -9,7 +9,20 @@
 import { addDays } from "../srs/scheduler";
 
 /** 記録する活動の種類（単語帳の評価は DayLog の reviews/newWords/again で数える） */
-export const ACTIVITY_KINDS = ["quiz", "dictation", "shadowing", "pattern", "chunk", "drill", "listen", "music"] as const;
+// speak = 口慣らし（文を声に出して言った回数）、lesson = レッスン、talk = AI との会話（n は学習者が話した回数）
+export const ACTIVITY_KINDS = [
+  "quiz",
+  "dictation",
+  "shadowing",
+  "pattern",
+  "chunk",
+  "drill",
+  "listen",
+  "music",
+  "speak",
+  "lesson",
+  "talk",
+] as const;
 export type ActivityKind = (typeof ACTIVITY_KINDS)[number];
 
 /** 活動1種類の1日分: n = 回数（採点・録音・通し再生・文など）、sec = 秒数 */
@@ -30,6 +43,21 @@ export interface DayLog {
 }
 
 export type History = Record<string, DayLog>;
+
+/**
+ * 画面を開いている時間をタイマーで記録する活動（useActivityTimer）。時間だけの記録（n = 0）は学習日に数えない
+ * （レッスンや会話の画面を開いてすぐ閉じただけで、連続記録が伸びないように）。声に出した・終えた・話した回数（n）が
+ * 1 以上になったら学習日に数える。
+ */
+export const TIMED_KINDS: readonly ActivityKind[] = ["speak", "lesson", "talk"];
+
+/** その活動の1日分の記録が、学習日に数えるものか（音楽は MUSIC_STUDY_SEC 秒以上、時間で記録する活動は回数が1以上） */
+export function countsAsStudy(kind: string, a: ActivityLog | undefined): boolean {
+  if (!a) return false;
+  if (kind === "music") return a.sec >= MUSIC_STUDY_SEC;
+  if ((TIMED_KINDS as readonly string[]).includes(kind)) return a.n > 0;
+  return a.n > 0 || a.sec > 0;
+}
 
 /** 残す日数（今日を含めて 400 日） */
 export const HISTORY_DAYS = 400;
@@ -74,14 +102,12 @@ export function addActivity(d: DayLog, kind: ActivityKind, n: number, sec: numbe
 
 /**
  * 学習日に数える日か（統合インポートで連続記録を数え直すときに使う）。
- * 評価した日、音楽以外の練習をした日、音楽を MUSIC_STUDY_SEC 秒以上聴いた日。
+ * 評価した日、練習をした日（countsAsStudy。時間だけを記録した話す練習は除く）、音楽を MUSIC_STUDY_SEC 秒以上聴いた日。
  */
 export function isStudyDay(d: DayLog | undefined): boolean {
   if (!d) return false;
   if (d.reviews > 0) return true;
-  return Object.entries(d.act).some(([k, a]) =>
-    !a ? false : k === "music" ? a.sec >= MUSIC_STUDY_SEC : a.n > 0 || a.sec > 0
-  );
+  return Object.entries(d.act).some(([k, a]) => countsAsStudy(k, a));
 }
 
 /** その日の練習（音楽以外）と音楽の秒数（ホームの「練習 m分 ・ 🎵 k分」） */

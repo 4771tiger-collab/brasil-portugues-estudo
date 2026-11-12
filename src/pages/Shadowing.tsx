@@ -1091,7 +1091,7 @@ export default function Shadowing() {
 
   return (
     <div className="animate-fade-in space-y-4">
-      <Link to="/practice" className="inline-flex min-h-11 items-center pr-2 text-sm text-brand-green">‹ 練習に戻る</Link>
+      <Link to="/library" className="inline-flex min-h-11 items-center pr-2 text-sm text-brand-green">‹ ライブラリに戻る</Link>
       <div>
         <h1 className="text-xl font-bold text-brand-ink">シャドーイング</h1>
         <p className="text-sm text-slate-500">1文ずつ お手本→録音→聞き比べ。慣れたら全文を追いかけて発話しよう。会話は片方の役を話すロールプレイもできます。</p>

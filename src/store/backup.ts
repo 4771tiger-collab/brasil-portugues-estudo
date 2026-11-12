@@ -25,6 +25,7 @@ import { useMeta } from "./useMeta";
 import { hashTranslationKeys, useMusic } from "./useMusic";
 import { useProgress } from "./useProgress";
 import { useSettings } from "./useSettings";
+import { useSpeak } from "./useSpeak";
 
 export { parseBackup, describeBackup, type BackupData, type ParseResult } from "./backupFormat";
 export type { CardDiff, ImportMode } from "./merge";
@@ -45,6 +46,7 @@ export function exportAll(): string {
     settings: useSettings.getState(),
     app: appInfo(),
     drill: useDrill.getState().exportData(),
+    speak: useSpeak.getState().exportData(),
   });
   return JSON.stringify(backup, null, 2);
 }
@@ -81,9 +83,9 @@ function localProgress(): ProgressPart {
  *   - 進捗: 置き換え（今日のカウンタ daily は端末側のまま）
  *   - 曲のデータ: ファイルにあれば置き換え、無ければ（v1）端末側のまま
  *   - 設定: ファイルにあれば上書き（voiceURI は端末側のまま）
- *   - 活用ドリルの成績: ファイルにあれば置き換え、無ければ端末側のまま
+ *   - 活用ドリルの成績・話す練習の記録: ファイルにあれば置き換え、無ければ端末側のまま
  * - merge（統合。規則は merge.ts）
- *   - 進捗・曲のデータ・活用ドリルの成績: 端末とファイルの両方の記録を残して合わせる
+ *   - 進捗・曲のデータ・活用ドリルの成績・話す練習の記録: 端末とファイルの両方の記録を残して合わせる
  *   - 設定・daily: 端末側のまま（端末ごとの好みを変えない）
  * 最後に reconcile() で、曲から追加した語のカードを作り直す。
  */
@@ -102,6 +104,10 @@ export function applyBackup(data: BackupData, mode: ImportMode = "replace"): Car
   if (data.drill) {
     if (mode === "merge") useDrill.getState().mergeData(data.drill);
     else useDrill.getState().importData(data.drill);
+  }
+  if (data.speak) {
+    if (mode === "merge") useSpeak.getState().mergeData(data.speak);
+    else useSpeak.getState().importData(data.speak);
   }
   if (mode === "replace" && data.settings && Object.keys(data.settings).length) {
     useSettings.getState().set(data.settings);
@@ -132,6 +138,8 @@ export function resetAllProgress(): void {
   useMusic.getState().clearAddedWords();
   useMusic.getState().clearSelfTranslated();
   useDrill.getState().reset();
+  // 話す練習: 文のカード・レッスンの進み具合・会話の回数の記録を消す（自分で足した文は教材なので残す）
+  useSpeak.getState().reset();
 }
 
 // ---------------------------------------------------------------------------

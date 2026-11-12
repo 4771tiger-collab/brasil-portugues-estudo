@@ -3,19 +3,22 @@ import { NavLink, useLocation } from "react-router-dom";
 import { currentStreak, studiedToday, useProgress } from "../store/useProgress";
 import { useToday } from "../hooks/useToday";
 import { useUi } from "../store/useUi";
-import { Flame } from "lucide-react";
+import { Flame, Settings as SettingsIcon } from "lucide-react";
 import TeacherFab from "./teacher/TeacherFab";
 import TeacherSheet from "./teacher/TeacherSheet";
 import { AppLogo, FEATURES, type FeatureKey } from "./icons";
 
-/** 下部ナビ（アイコンと名前は icons/features.ts の FEATURES） */
-const tabs: { to: string; feature: FeatureKey; exact?: boolean }[] = [
-  { to: "/", feature: "home", exact: true },
-  { to: "/flashcards", feature: "flashcards" },
-  { to: "/quiz", feature: "quiz" },
-  { to: "/practice", feature: "practice" },
-  { to: "/music", feature: "music" },
-  { to: "/settings", feature: "settings" },
+/**
+ * 下部ナビ（アイコンと名前は icons/features.ts の FEATURES）。
+ * 今日（毎日のメニュー）・レッスン・会話・音楽・ライブラリ（単語帳・クイズ・目的別の練習・設定）。
+ * match = そのタブを選んでいる扱いにするパスの頭（ライブラリの中の画面など）
+ */
+const tabs: { to: string; feature: FeatureKey; match: string[] }[] = [
+  { to: "/", feature: "home", match: ["/speak"] },
+  { to: "/course", feature: "course", match: ["/course"] },
+  { to: "/talk", feature: "talk", match: ["/talk"] },
+  { to: "/music", feature: "music", match: ["/music"] },
+  { to: "/library", feature: "library", match: ["/library", "/practice", "/flashcards", "/quiz", "/phrases", "/settings"] },
 ];
 
 export default function Layout({ children }: { children: React.ReactNode }) {
@@ -45,10 +48,11 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         ref={headerRef}
         className="sticky top-0 z-20 flex items-center justify-between border-b border-slate-200 bg-white/90 py-3 pl-[calc(1rem+env(safe-area-inset-left))] pr-[calc(1rem+env(safe-area-inset-right))] backdrop-blur"
       >
-        <NavLink to="/" end className="-my-2 flex min-h-11 items-center gap-2 rounded-xl pr-1" aria-label="ポル語学習帳（ホーム）">
+        <NavLink to="/" end className="-my-2 flex min-h-11 items-center gap-2 rounded-xl pr-1" aria-label="ポル語学習帳（今日のメニュー）">
           <AppLogo size={30} className="drop-shadow-sm" />
           <span className="font-bold tracking-tight text-brand-ink">ポル語学習帳</span>
         </NavLink>
+        <div className="flex items-center gap-1">
         {/* 今日まだ学習していなければ炎をグレーに */}
         <div
           className={`flex items-center gap-1 rounded-full px-3 py-1 text-sm font-bold ${
@@ -59,6 +63,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           <Flame size={16} strokeWidth={2} aria-hidden className={doneToday ? "fill-orange-400 text-orange-600" : "text-slate-400"} />
           <span className="tabular-nums">{streak}</span>
           <span className="sr-only">{doneToday ? "日連続。今日は学習済み" : "日連続。今日はまだ学習していません"}</span>
+        </div>
+        <NavLink to="/settings" aria-label="設定" title="設定" className="-my-2 -mr-2 flex h-11 w-11 items-center justify-center rounded-full text-slate-500 active:scale-90">
+          <SettingsIcon size={20} aria-hidden />
+        </NavLink>
         </div>
       </header>
 
@@ -75,15 +83,15 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         hidden={immersive}
         className="fixed inset-x-0 bottom-0 z-20 mx-auto max-w-2xl border-t border-slate-200 bg-white/95 pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] backdrop-blur"
       >
-        <div className="grid grid-cols-6 px-1">
+        <div className="grid grid-cols-5 px-1">
           {tabs.map((t) => {
-            const active = t.exact ? loc.pathname === "/" : loc.pathname.startsWith(t.to);
+            const active = (t.to === "/" && loc.pathname === "/") || t.match.some((m) => loc.pathname.startsWith(m));
             const { icon: Icon, label } = FEATURES[t.feature];
             return (
               <NavLink
                 key={t.to}
                 to={t.to}
-                end={t.exact}
+                end={t.to === "/"}
                 className={`group flex min-h-14 flex-col items-center justify-center gap-0.5 pb-1.5 pt-2 text-[11px] leading-none transition ${
                   active ? "font-bold text-emerald-700" : "font-medium text-slate-500"
                 }`}

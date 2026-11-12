@@ -518,7 +518,7 @@ export default function Dictation() {
 
   return (
     <div className="animate-fade-in space-y-4">
-      <Link to="/practice" className="inline-flex min-h-11 items-center pr-2 text-sm text-brand-green">‹ 練習に戻る</Link>
+      <Link to="/library" className="inline-flex min-h-11 items-center pr-2 text-sm text-brand-green">‹ ライブラリに戻る</Link>
       <div>
         <h1 className="text-xl font-bold text-brand-ink">ディクテーション</h1>
         <p className="text-sm text-slate-500">音声を聴いて書き取る、4ステップの集中学習。</p>

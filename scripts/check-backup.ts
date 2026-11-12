@@ -277,7 +277,8 @@ console.log("=== parseBackup: 未知の version（新しいアプリで作った
     eq(d.drill, null, "v4 でも drill は読むが、知らない形（stats が無い）なら無い扱い（null）");
     eq(d.settings?.capoeiraShare, 0.5, "v4 でも知っている設定（capoeiraShare）は読む");
     eq(d.progress.history, { "2026-09-24": { reviews: 9, newWords: 0, again: 0, act: {} } }, "v4 でも知っている項目（history）は読み、足りない数は 0");
-    eq(Object.keys(d).sort(), ["app", "drill", "exportedAt", "music", "progress", "settings", "version"], "知らない最上位の項目は持ち込まない");
+    eq(Object.keys(d).sort(), ["app", "drill", "exportedAt", "music", "progress", "settings", "speak", "version"], "知らない最上位の項目は持ち込まない");
+    eq(d.speak, null, "v4 でも speak は読むが、ファイルに無ければ無い扱い（null）");
     ok(!JSON.stringify(d).includes("lyricsCache") && !JSON.stringify(d).includes("linha inventada"), "知らない項目（lyricsCache）は読まない");
   }
   eq(r.ok && r.warnings.length, 1, "警告が1件");

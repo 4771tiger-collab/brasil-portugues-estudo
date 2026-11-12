@@ -24,6 +24,8 @@ import { abortTeacherRun } from "../services/ai/teacherContext";
 import { clearTeacherHistory } from "../services/ai/teacherChat";
 import { useTeacher } from "../store/useTeacher";
 import { FEATURES, MediaIcon, SectionTitle, TONES, type FeatureKey } from "../components/icons";
+import { SPEECH_CONSENT_LINES } from "../components/speak/speakPt";
+import { TALK_LEVELS, TALK_LEVEL_LABEL } from "../speak/talk";
 
 function Row({ label, hint, feature, children }: { label: string; hint?: string; feature?: FeatureKey; children: React.ReactNode }) {
   const f = feature ? FEATURES[feature] : null;
@@ -251,15 +253,7 @@ function VoiceHelp({ open }: { open: boolean }) {
 }
 
 /** 音声認識をオンにするときの確認（設定画面の説明の要点） */
-const SPEECH_CONSENT = [
-  "音声認識をオンにします。",
-  "",
-  "・🎤 を押して話した音声は、Chrome が Google の音声認識サービスに送って文字にします。",
-  "・このアプリは音声も認識結果（文字）も保存しません。",
-  "・ネットにつながっているときだけ使えます。",
-  "",
-  "よろしいですか？",
-].join("\n");
+const SPEECH_CONSENT = ["音声認識をオンにします。", "", ...SPEECH_CONSENT_LINES.map((l) => `・${l}`), "", "よろしいですか？"].join("\n");
 
 /** 音声認識のテスト: 話した言葉をそのまま文字で見せる（候補が複数あれば全部） */
 function SpeechTest() {
@@ -334,8 +328,9 @@ function SpeechInputSettings() {
       <SectionTitle feature="speechInput">音声認識（言ってみる）</SectionTitle>
       <div className="space-y-1.5 px-1 text-xs leading-relaxed text-slate-500">
         <p>
-          ポルトガル語を声に出して言うと、文字にして正しく言えたかを判定します。オンにすると、✍
-          産出カード（和→葡）・シャドーイング（1文ずつ）・パターンプラクティス（発話ドリル）に「🎤 言ってみる」が出ます。
+          ポルトガル語を声に出して言うと、文字にして正しく言えたかを判定します。口慣らし・レッスン・AI との会話の 🎤
+          で使います（それぞれの画面で最初に 🎤 を押したときにも、オンにできます）。オンにすると、✍
+          産出カード（和→葡）・シャドーイング（1文ずつ）・パターンプラクティス（発話ドリル）にも「🎤 言ってみる」が出ます。
         </p>
         <ul className="list-disc space-y-1 pl-4">
           <li>
@@ -948,12 +943,12 @@ export default function Settings() {
 
       <UpdateBanner />
 
-      {/* 学習 */}
+      {/* 話す練習（口慣らし・AI との会話） */}
       <section className="card divide-y divide-slate-100 p-3">
-        <SectionTitle feature="study" className="px-1 pb-2 text-sm font-bold text-slate-500">
-          学習
+        <SectionTitle feature="speak" className="px-1 pb-2 text-sm font-bold text-slate-500">
+          話す練習
         </SectionTitle>
-        <Row label="再生速度" hint="音声のデフォルト速度">
+        <Row label="再生速度" hint="レッスン・口慣らし・会話・単語の読み上げの速さ">
           <select
             value={s.rate}
             onChange={(e) => s.set({ rate: Number(e.target.value) })}
@@ -966,6 +961,47 @@ export default function Settings() {
             ))}
           </select>
         </Row>
+        <Row label="口慣らしの1日の上限" hint="日本語を見て言う文の復習。超えた分は翌日に回します">
+          <select
+            value={s.speakDailyLimit}
+            onChange={(e) => s.set({ speakDailyLimit: Number(e.target.value) })}
+            className="rounded-lg border border-slate-200 px-2 py-1.5"
+          >
+            {[20, 30, 50, 100].map((n) => (
+              <option key={n} value={n}>
+                {n}文
+              </option>
+            ))}
+          </select>
+        </Row>
+        <Row label="会話の相手の話し方" hint="AI との会話のむずかしさ。自動は、終えたレッスンの数に合わせます">
+          <select value={s.talkLevel} onChange={(e) => s.set({ talkLevel: Number(e.target.value) })} className="rounded-lg border border-slate-200 px-2 py-1.5">
+            <option value={-1}>自動</option>
+            {TALK_LEVELS.map((lv) => (
+              <option key={lv} value={lv}>
+                {TALK_LEVEL_LABEL[lv]}
+              </option>
+            ))}
+          </select>
+        </Row>
+        <Row label="会話の返事を読み上げる" hint="AI の返事が届いたら、自動で音声を流す">
+          <label className="-m-3 flex min-h-11 min-w-11 cursor-pointer items-center justify-center p-3">
+            <input
+              type="checkbox"
+              checked={s.talkAutoSpeak}
+              onChange={(e) => s.set({ talkAutoSpeak: e.target.checked })}
+              className="h-5 w-5 accent-brand-green"
+              aria-label="会話の返事を自動で読み上げる"
+            />
+          </label>
+        </Row>
+      </section>
+
+      {/* 学習 */}
+      <section className="card divide-y divide-slate-100 p-3">
+        <SectionTitle feature="study" className="px-1 pb-2 text-sm font-bold text-slate-500">
+          単語の学習
+        </SectionTitle>
         <Row label="1日の新規語数" hint="今日の学習で導入する新語の上限">
           <input
             type="number"
