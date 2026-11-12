@@ -1,0 +1,240 @@
+{
+  "id": "u2",
+  "title": "自分のことを話す",
+  "goal": "仕事・住まい・家族・好きなこと・日課・学ぶ理由など、自分のことを話して相手にも質問できる",
+  "lessons": [
+    {
+      "id": "u2l1",
+      "title": "仕事の話をする",
+      "goal": "自分の仕事を説明し、相手の仕事についてたずねることができる",
+      "scene": "カポエイラの練習のあと、仲間のカミラと水を飲みながらひと息つく。お互いの仕事の話になる。",
+      "partner": "Camila（カポエイラ仲間）",
+      "lines": [
+        { "who": "partner", "pt": "Yuki, o que você faz aqui em São Paulo?", "ja": "ユキ、サンパウロでは何の仕事をしてるの？" },
+        { "who": "you", "pt": "Trabalho numa empresa de tecnologia.", "ja": "IT の会社で働いてるよ。" },
+        { "who": "partner", "pt": "Que legal! Você trabalha com o quê?", "ja": "いいね！どんな仕事をしてるの？" },
+        { "who": "you", "pt": "Trabalho com programação. E você, o que você faz?", "ja": "プログラミングの仕事だよ。カミラは何をしてるの？" },
+        { "who": "partner", "pt": "Sou professora. Dou aula de inglês.", "ja": "教師だよ。英語を教えてるの。" },
+        { "who": "you", "pt": "Ah, que legal! Você gosta do seu trabalho?", "ja": "へえ、いいね！仕事は好き？" },
+        { "who": "partner", "pt": "Gosto muito! E você, gosta do seu?", "ja": "大好き！ユキは？自分の仕事、好き？" },
+        { "who": "you", "pt": "Gosto. Trabalho muito, mas a equipe é ótima.", "ja": "好きだよ。よく働くけど、チームが最高なんだ。" },
+        { "who": "partner", "pt": "Que bom! Então, até o próximo treino!", "ja": "よかった！じゃあ、また次の練習でね！" },
+        { "who": "you", "pt": "Até! Bom trabalho amanhã!", "ja": "またね！明日、仕事がんばって！" }
+      ],
+      "phrases": [
+        { "id": "u2l1p1", "ja": "IT の会社で働いています。", "pt": "Trabalho numa empresa de tecnologia.", "alt": ["Eu trabalho numa empresa de tecnologia.", "Trabalho em uma empresa de tecnologia."], "note": "numa は em + uma の縮約。em uma と言ってもよい。" },
+        { "id": "u2l1p2", "ja": "お仕事は何をしていますか？", "pt": "O que você faz?", "alt": ["Você trabalha com o quê?", "Com o que você trabalha?", "Você faz o quê?"], "note": "直訳は「何をしていますか」。職業をたずねる定番の聞き方。" },
+        { "id": "u2l1p3", "ja": "プログラミングの仕事をしています。", "pt": "Trabalho com programação.", "alt": ["Eu trabalho com programação."], "note": "trabalhar com + 分野 で「〜関係の仕事をしている」。" },
+        { "id": "u2l1p4", "ja": "自分の仕事は好きですか？（相手に）", "pt": "Você gosta do seu trabalho?" },
+        { "id": "u2l1p5", "ja": "たくさん働くけど、仕事は好きです。", "pt": "Trabalho muito, mas gosto do meu trabalho.", "alt": ["Eu trabalho muito, mas gosto do meu trabalho."] },
+        { "id": "u2l1p6", "ja": "私はエンジニアです。", "pt": "Sou engenheiro.", "alt": ["Sou engenheira.", "Eu sou engenheiro.", "Eu sou engenheira."], "note": "職業名に冠詞（um / uma）は付けない。女性は engenheira。" },
+        { "id": "u2l1p7", "ja": "どこで働いていますか？", "pt": "Onde você trabalha?", "alt": ["Você trabalha onde?"] },
+        { "id": "u2l1p8", "ja": "月曜から金曜まで働いています。", "pt": "Trabalho de segunda a sexta.", "alt": ["Eu trabalho de segunda a sexta."], "note": "segunda は月曜、sexta は金曜。de … a … で「〜から…まで」。" }
+      ],
+      "tips": [
+        { "title": "eu は言わなくても通じる", "body": "動詞の形で主語が分かるので、「私は」の eu は省いても通じます（言ってもよい）。-ar で終わる動詞は語尾を変えて、trabalhar →（eu）trabalho ／（você）trabalha。例: Trabalho numa empresa. ／ Você trabalha onde?" },
+        { "title": "職業の言い方は2つ", "body": "① Sou + 職業名（冠詞なし）: Sou professor. ／ Sou professora. ② Trabalho com + 分野: Trabalho com programação.（プログラミング関係の仕事です）。職業名が出てこないときは ② が便利です。" }
+      ],
+      "talk": {
+        "role": "カポエイラ仲間の Camila",
+        "setting": "練習のあと、水を飲みながら立ち話。お互いの仕事についてたずね合う。",
+        "opener": "Yuki, o que você faz aqui em São Paulo?",
+        "missions": ["自分の仕事を説明する", "相手の仕事をたずねる", "仕事が好きかを聞く"]
+      }
+    },
+    {
+      "id": "u2l2",
+      "title": "住んでいる所を話す",
+      "goal": "どこに・どのくらい住んでいるかを話し、相手にもたずねることができる",
+      "scene": "会社の昼休み。同僚のルーカスと一緒に昼ごはんを食べながら、住んでいる所の話をする。",
+      "partner": "Lucas（同僚）",
+      "lines": [
+        { "who": "partner", "pt": "Yuki, onde você mora?", "ja": "ユキ、どこに住んでるの？" },
+        { "who": "you", "pt": "Moro em Pinheiros, perto do metrô.", "ja": "ピニェイロスに住んでるよ。地下鉄の近く。" },
+        { "who": "partner", "pt": "Que bairro bom! Faz tempo que você mora em São Paulo?", "ja": "いい地区だね！サンパウロには長く住んでるの？" },
+        { "who": "you", "pt": "Faz seis meses que moro aqui.", "ja": "ここに住んで6か月になるよ。" },
+        { "who": "partner", "pt": "Só seis meses? Você mora sozinho?", "ja": "まだ6か月？一人暮らし？" },
+        { "who": "you", "pt": "Moro, sim. E você, onde você mora?", "ja": "うん、そう。ルーカスはどこに住んでるの？" },
+        { "who": "partner", "pt": "Moro na Vila Mariana, com minha namorada.", "ja": "ヴィラ・マリアーナだよ。彼女と一緒に住んでる。" },
+        { "who": "you", "pt": "Fica longe daqui?", "ja": "ここから遠い？" },
+        { "who": "partner", "pt": "Não, fica a vinte minutos de metrô.", "ja": "いや、地下鉄で20分だよ。" },
+        { "who": "you", "pt": "Que bom! Eu também moro perto do trabalho.", "ja": "いいね！私も職場の近くに住んでるよ。" }
+      ],
+      "phrases": [
+        { "id": "u2l2p1", "ja": "どこに住んでいますか？", "pt": "Onde você mora?", "alt": ["Você mora onde?"] },
+        { "id": "u2l2p2", "ja": "ピニェイロスに住んでいます。地下鉄の近くです。", "pt": "Moro em Pinheiros, perto do metrô.", "alt": ["Eu moro em Pinheiros, perto do metrô."], "note": "Pinheiros はサンパウロの地区。perto de + o metrô → perto do metrô。" },
+        { "id": "u2l2p3", "ja": "サンパウロに住んで6か月になります。", "pt": "Faz seis meses que moro em São Paulo.", "alt": ["Moro em São Paulo há seis meses.", "Moro em São Paulo faz seis meses."], "note": "Faz + 期間 + que + 現在形。「住んでいる」は現在形 moro のまま。" },
+        { "id": "u2l2p4", "ja": "一人暮らしです。", "pt": "Moro sozinho.", "alt": ["Moro sozinha.", "Eu moro sozinho.", "Eu moro sozinha."], "note": "sozinho は「一人で」。女性が言うなら sozinha。" },
+        { "id": "u2l2p5", "ja": "ここから遠くに住んでいるんですか？", "pt": "Você mora longe daqui?" },
+        { "id": "u2l2p6", "ja": "職場の近くに住んでいます。", "pt": "Moro perto do trabalho.", "alt": ["Eu moro perto do trabalho."] },
+        { "id": "u2l2p7", "ja": "小さいアパートに住んでいます。", "pt": "Moro num apartamento pequeno.", "alt": ["Moro em um apartamento pequeno.", "Eu moro num apartamento pequeno."], "note": "num は em + um の縮約。pequeno（小さい）は名詞のあとに置く。" },
+        { "id": "u2l2p8", "ja": "ここに住んで長いんですか？", "pt": "Faz tempo que você mora aqui?", "alt": ["Você mora aqui faz tempo?", "Você mora aqui há muito tempo?"] }
+      ],
+      "tips": [
+        { "title": "em と no / na の使い分け", "body": "都市名はふつう冠詞なしで em: Moro em São Paulo. ／ em Tóquio。国名は冠詞が付くので no Japão ／ no Brasil（em + o）。リオは例外で no Rio。perto de も同じように、perto do metrô（de + o）、perto da estação（de + a）と形が変わります。" },
+        { "title": "Faz + 期間 + que …", "body": "「〜して…になる」は Faz + 期間 + que + 現在形。Faz seis meses que moro aqui.（ここに住んで6か月）。今も続いていることなので、過去形にしないのがコツ。相手には Faz tempo que você mora aqui?（ここは長いの？）と聞けます。" }
+      ],
+      "talk": {
+        "role": "同僚の Lucas",
+        "setting": "会社の昼休み、一緒に昼ごはんを食べながら、住んでいる所についてたずね合う。",
+        "opener": "Yuki, onde você mora?",
+        "missions": ["住んでいる所を言う", "何か月住んでいるか言う", "相手の住まいをたずねる"]
+      }
+    },
+    {
+      "id": "u2l3",
+      "title": "家族の話をする",
+      "goal": "家族やきょうだいについて話し、相手の家族についてたずねることができる",
+      "scene": "隣のアナの家でコーヒーをごちそうになる。棚に飾ってある家族写真を見ながら話す。",
+      "partner": "Ana（隣の人）",
+      "lines": [
+        { "who": "partner", "pt": "Yuki, sua família mora no Japão?", "ja": "ユキ、ご家族は日本に住んでるの？" },
+        { "who": "you", "pt": "Mora, sim. Meus pais moram em Tóquio.", "ja": "うん、そう。両親は東京に住んでるよ。" },
+        { "who": "partner", "pt": "E você tem irmãos?", "ja": "きょうだいはいるの？" },
+        { "who": "you", "pt": "Tenho uma irmã mais velha. Ela também mora no Japão.", "ja": "姉が1人いるよ。姉も日本に住んでる。" },
+        { "who": "partner", "pt": "Você fala muito com ela?", "ja": "お姉さんとはよく話すの？" },
+        { "who": "you", "pt": "Falo com ela toda semana. E você, tem filhos?", "ja": "毎週話してるよ。アナは、お子さんはいる？" },
+        { "who": "partner", "pt": "Tenho dois. Olha, essa aqui é minha filha, a Júlia.", "ja": "2人いるわ。ほら、これが娘のジュリア。" },
+        { "who": "you", "pt": "Que linda! Quantos anos ela tem?", "ja": "きれいな人！何歳なの？" },
+        { "who": "partner", "pt": "Ela tem vinte e oito. Mora no Rio.", "ja": "28歳よ。リオに住んでるの。" },
+        { "who": "you", "pt": "Ela parece muito com você!", "ja": "アナにそっくりだね！" }
+      ],
+      "phrases": [
+        { "id": "u2l3p1", "ja": "姉が1人います。", "pt": "Tenho uma irmã mais velha.", "alt": ["Eu tenho uma irmã mais velha."], "note": "mais velha で「年上の」。妹は irmã mais nova、兄は irmão mais velho。" },
+        { "id": "u2l3p2", "ja": "きょうだいはいますか？", "pt": "Você tem irmãos?", "note": "irmãos は男女まとめた「きょうだい」。姉妹だけなら irmãs。" },
+        { "id": "u2l3p3", "ja": "家族は日本に住んでいます。", "pt": "Minha família mora no Japão.", "alt": ["A minha família mora no Japão."], "note": "família は単数あつかいなので、動詞は mora。" },
+        { "id": "u2l3p4", "ja": "両親は東京に住んでいます。", "pt": "Meus pais moram em Tóquio.", "alt": ["Os meus pais moram em Tóquio."], "note": "pais は「両親」（父は pai、母は mãe）。主語が複数なので moram。" },
+        { "id": "u2l3p5", "ja": "お子さんはいますか？", "pt": "Você tem filhos?" },
+        { "id": "u2l3p6", "ja": "子どもはいません。", "pt": "Não tenho filhos.", "alt": ["Eu não tenho filhos."] },
+        { "id": "u2l3p7", "ja": "彼女は何歳ですか？", "pt": "Quantos anos ela tem?", "note": "年齢も ter で言う。答えは Ela tem vinte anos. のように。" },
+        { "id": "u2l3p8", "ja": "姉とは毎週話します。", "pt": "Falo com minha irmã toda semana.", "alt": ["Falo com a minha irmã toda semana.", "Eu falo com minha irmã toda semana."] }
+      ],
+      "tips": [
+        { "title": "家族も年齢も ter で言う", "body": "「〜がいる」「〜歳だ」はどちらも ter（持つ）を使います。Tenho uma irmã.（姉がいる）／ Você tem filhos?（子どもはいる？）／ Ela tem vinte anos.（彼女は20歳）。形は eu tenho、você・ele・ela tem、eles têm。" },
+        { "title": "「はい」は動詞をくり返す", "body": "質問に「はい」と答えるときは、sim だけより、質問の動詞をくり返すのがブラジル流です。Você tem irmãos? → Tenho. ／ Sua família mora no Japão? → Mora, sim. 「いいえ」は Não, não tenho. のように言います。" }
+      ],
+      "talk": {
+        "role": "隣に住む Ana",
+        "setting": "アナの家でコーヒーを飲みながら、家族写真を見てお互いの家族について話す。",
+        "opener": "Yuki, sua família mora no Japão?",
+        "missions": ["家族がどこに住むか言う", "きょうだいについて話す", "相手の家族についてたずねる"]
+      }
+    },
+    {
+      "id": "u2l4",
+      "title": "好きなことを話す",
+      "goal": "好きなこと・あまり好きでないことを言い、相手の好みをたずねることができる",
+      "scene": "金曜の仕事終わり。同僚のルーカスとコーヒーを飲みながら、週末の過ごし方の話になる。",
+      "partner": "Lucas（同僚）",
+      "lines": [
+        { "who": "partner", "pt": "Yuki, o que você gosta de fazer no fim de semana?", "ja": "ユキ、週末は何をするのが好き？" },
+        { "who": "you", "pt": "Gosto de jogar capoeira e de ouvir música.", "ja": "カポエイラをするのと、音楽を聞くのが好き。" },
+        { "who": "partner", "pt": "Que legal! Que tipo de música você gosta?", "ja": "いいね！どんな音楽が好きなの？" },
+        { "who": "you", "pt": "Adoro samba e bossa nova. E você, o que gosta de fazer?", "ja": "サンバとボサノバが大好き。ルーカスは何をするのが好き？" },
+        { "who": "partner", "pt": "Eu adoro futebol. Você gosta?", "ja": "僕はサッカーが大好き。ユキは好き？" },
+        { "who": "you", "pt": "Não gosto muito. Mas adoro viajar!", "ja": "あんまり好きじゃないんだ。でも旅行は大好き！" },
+        { "who": "partner", "pt": "Eu também! E do café daqui, você gosta?", "ja": "僕も！じゃあ、こっちのコーヒーは好き？" },
+        { "who": "you", "pt": "Adoro! Tomo café todo dia.", "ja": "大好き！コーヒーは毎日飲んでるよ。" },
+        { "who": "partner", "pt": "Eu também. Não vivo sem café!", "ja": "僕もだよ。コーヒーなしじゃ生きていけない！" }
+      ],
+      "phrases": [
+        { "id": "u2l4p1", "ja": "何をするのが好きですか？", "pt": "O que você gosta de fazer?" },
+        { "id": "u2l4p2", "ja": "カポエイラをするのが好きです。", "pt": "Gosto de jogar capoeira.", "alt": ["Eu gosto de jogar capoeira.", "Gosto de fazer capoeira."], "note": "カポエイラは jogar（プレーする）を使う。gostar de + 動詞の原形。" },
+        { "id": "u2l4p3", "ja": "ブラジル音楽が大好きです。", "pt": "Adoro música brasileira.", "alt": ["Eu adoro música brasileira."], "note": "adorar は「大好き」。gostar と違って de は付けない。" },
+        { "id": "u2l4p4", "ja": "サッカーはあまり好きじゃないです。", "pt": "Não gosto muito de futebol.", "alt": ["Eu não gosto muito de futebol."], "note": "Não gosto と言い切るより、muito を入れるとやわらかい。" },
+        { "id": "u2l4p5", "ja": "どんな音楽が好きですか？", "pt": "Que tipo de música você gosta?", "alt": ["De que tipo de música você gosta?"], "note": "文法どおりなら De que tipo… だが、会話では最初の De を言わないのがふつう。" },
+        { "id": "u2l4p6", "ja": "旅行するのが大好きです。", "pt": "Adoro viajar.", "alt": ["Eu adoro viajar."] },
+        { "id": "u2l4p7", "ja": "ここのコーヒーがとても好きです。", "pt": "Gosto muito do café daqui.", "alt": ["Eu gosto muito do café daqui."], "note": "de + o café → do café。daqui は「ここの」。" },
+        { "id": "u2l4p8", "ja": "料理するのは好きですか？", "pt": "Você gosta de cozinhar?" }
+      ],
+      "tips": [
+        { "title": "gostar には必ず de", "body": "「〜が好き」は gostar de + 名詞／動詞の原形。Gosto de samba. ／ Gosto de viajar. 「この〜」「あの〜」と特定のものを言うときは de + o → do、de + a → da になります。例: Gosto do café daqui. ／ Gosto da sua música." },
+        { "title": "好きの強さを言い分ける", "body": "大好き: Adoro samba.（de なし）／ 好き: Gosto de samba. ／ とても好き: Gosto muito de samba. ／ あまり好きじゃない: Não gosto muito de samba. 聞かれて答えるだけなら Gosto. ／ Adoro! ／ Não gosto muito. と短く言えます。" }
+      ],
+      "talk": {
+        "role": "同僚の Lucas",
+        "setting": "金曜の仕事終わりにコーヒーを飲みながら、週末や暇なときに何をするのが好きか、お互いに話す。",
+        "opener": "Yuki, o que você gosta de fazer no fim de semana?",
+        "missions": ["好きなことを2つ言う", "あまり好きでないものを言う", "相手の好きなことを聞く"]
+      }
+    },
+    {
+      "id": "u2l5",
+      "title": "一日の流れを話す",
+      "goal": "起きる時間や仕事のあとにすることなど、ふだんの一日を話すことができる",
+      "scene": "夜9時ごろ、カポエイラの練習の帰り。アパートの入口で隣のアナとばったり会う。",
+      "partner": "Ana（隣の人）",
+      "lines": [
+        { "who": "partner", "pt": "Oi, Yuki! Chegando do trabalho agora?", "ja": "あら、ユキ！今、仕事の帰り？" },
+        { "who": "you", "pt": "Oi, Ana! Não, estou voltando da capoeira.", "ja": "やあ、アナ！ううん、カポエイラの帰りだよ。" },
+        { "who": "partner", "pt": "Ah, é? Você treina todo dia?", "ja": "へえ、そうなの？毎日練習してるの？" },
+        { "who": "you", "pt": "Não. Treino duas vezes por semana, depois do trabalho.", "ja": "ううん。週に2回、仕事のあとに練習してる。" },
+        { "who": "partner", "pt": "Nossa! E que horas você acorda?", "ja": "すごい！それで、何時に起きるの？" },
+        { "who": "you", "pt": "Acordo às seis e meia. E você, acorda cedo?", "ja": "6時半に起きるよ。アナは？早起き？" },
+        { "who": "partner", "pt": "Eu? Nunca! Normalmente acordo às nove.", "ja": "私？全然！ふだんは9時に起きるわ。" },
+        { "who": "you", "pt": "Que sorte! Eu sempre durmo tarde e acordo cedo.", "ja": "いいなあ！こっちはいつも遅く寝て、早く起きてるよ。" },
+        { "who": "partner", "pt": "Então vai descansar! Boa noite!", "ja": "じゃあ、早く休みなさい！おやすみ！" },
+        { "who": "you", "pt": "Boa noite, Ana! Até amanhã!", "ja": "おやすみ、アナ！また明日！" }
+      ],
+      "phrases": [
+        { "id": "u2l5p1", "ja": "6時半に起きます。", "pt": "Acordo às seis e meia.", "alt": ["Eu acordo às seis e meia."], "note": "「〜時に」は às + 時刻。e meia で「半」。" },
+        { "id": "u2l5p2", "ja": "何時に起きますか？", "pt": "Que horas você acorda?", "alt": ["A que horas você acorda?"] },
+        { "id": "u2l5p3", "ja": "仕事のあと、カポエイラを練習します。", "pt": "Depois do trabalho, treino capoeira.", "alt": ["Treino capoeira depois do trabalho.", "Depois do trabalho, eu treino capoeira."], "note": "depois de + o trabalho → depois do trabalho。" },
+        { "id": "u2l5p4", "ja": "週に2回練習します。", "pt": "Treino duas vezes por semana.", "alt": ["Eu treino duas vezes por semana."], "note": "〜 vezes por semana で「週に〜回」。1回は uma vez。" },
+        { "id": "u2l5p5", "ja": "ふだんは9時から6時まで働きます。", "pt": "Normalmente trabalho das nove às seis.", "alt": ["Normalmente eu trabalho das nove às seis.", "Geralmente trabalho das nove às seis."], "note": "das … às … で「〜時から…時まで」。" },
+        { "id": "u2l5p6", "ja": "いつも遅く寝ます。", "pt": "Sempre durmo tarde.", "alt": ["Eu sempre durmo tarde.", "Sempre vou dormir tarde."], "note": "dormir は eu durmo（o が u に変わる）。você は dorme。" },
+        { "id": "u2l5p7", "ja": "ときどき同僚と昼ごはんを食べます。", "pt": "Às vezes almoço com meus colegas.", "alt": ["Às vezes almoço com os meus colegas.", "Às vezes eu almoço com meus colegas."], "note": "almoçar は1語で「昼ごはんを食べる」。夕食は jantar。" },
+        { "id": "u2l5p8", "ja": "仕事のあとは何をしますか？", "pt": "O que você faz depois do trabalho?", "note": "O que você faz? だけなら「お仕事は？」の意味になる。" }
+      ],
+      "tips": [
+        { "title": "頻度の言葉は動詞の前に", "body": "sempre（いつも）・normalmente（ふだん）・às vezes（ときどき）・nunca（全然〜ない）は動詞の前に置きます。Sempre durmo tarde. ／ Nunca acordo cedo. nunca は não なしで否定になります。「毎日」は todo dia、「週に2回」は duas vezes por semana。" },
+        { "title": "「〜時に」は às + 時刻", "body": "Acordo às sete.（7時に起きる）／ às seis e meia（6時半に）。1時だけ à uma、正午は ao meio-dia。たずねるときは Que horas você acorda? 1日の区切りは de manhã（朝）・à tarde（午後）・à noite（夜）。" }
+      ],
+      "talk": {
+        "role": "隣に住む Ana",
+        "setting": "夜、アパートの入口でばったり会う。起きる時間・仕事・練習など、ふだんの一日についてたずね合う。",
+        "opener": "Oi, Yuki! Chegando do trabalho agora?",
+        "missions": ["何時に起きるか言う", "仕事のあとにすることを言う", "相手の一日についてたずねる"]
+      }
+    },
+    {
+      "id": "u2l6",
+      "title": "学ぶ理由を話す",
+      "goal": "なぜ学んでいるのか・これから何をしたいのかを言い、相手にも理由をたずねることができる",
+      "scene": "カポエイラの練習のあと、カミラと片づけをしながら話す。ポルトガル語をほめられる。",
+      "partner": "Camila（カポエイラ仲間）",
+      "lines": [
+        { "who": "partner", "pt": "Yuki, seu português está muito bom!", "ja": "ユキ、ポルトガル語すごく上手だね！" },
+        { "who": "you", "pt": "Obrigado! Ainda estou aprendendo.", "ja": "ありがとう！まだ勉強中だよ。" },
+        { "who": "partner", "pt": "Por que você está aprendendo português?", "ja": "どうしてポルトガル語を勉強してるの？" },
+        { "who": "you", "pt": "Porque quero entender as músicas de capoeira.", "ja": "カポエイラの歌を分かるようになりたいから。" },
+        { "who": "partner", "pt": "Que legal! E você estuda todo dia?", "ja": "いいね！毎日勉強してるの？" },
+        { "who": "you", "pt": "Estudo um pouco todo dia. E você, por que faz capoeira?", "ja": "毎日少しずつね。カミラは、どうしてカポエイラをやってるの？" },
+        { "who": "partner", "pt": "Porque adoro a música e a energia da roda.", "ja": "音楽と、ホーダのエネルギーが大好きだから。" },
+        { "who": "you", "pt": "Eu também! Um dia quero cantar na roda.", "ja": "私も！いつかホーダで歌いたいんだ。" },
+        { "who": "partner", "pt": "Boa! Eu te ensino umas músicas.", "ja": "いいね！何曲か教えてあげるよ。" },
+        { "who": "you", "pt": "Sério? Obrigado, Camila!", "ja": "本当？ありがとう、カミラ！" }
+      ],
+      "phrases": [
+        { "id": "u2l6p1", "ja": "どうしてカポエイラをやっているんですか？", "pt": "Por que você faz capoeira?", "alt": ["Por que você treina capoeira?"], "note": "質問の「なぜ」は Por que。文の最初に置く。" },
+        { "id": "u2l6p2", "ja": "まだポルトガル語を勉強中です。", "pt": "Ainda estou aprendendo português.", "alt": ["Ainda estou estudando português.", "Eu ainda estou aprendendo português."], "note": "ほめられたときの返事にも便利。会話では estou が短く「トー」と聞こえる。" },
+        { "id": "u2l6p3", "ja": "カポエイラの歌を理解したいからです。", "pt": "Porque quero entender as músicas de capoeira.", "alt": ["Porque eu quero entender as músicas de capoeira."], "note": "答えの「〜だから」は Porque。quero + 動詞の原形で「〜したい」。" },
+        { "id": "u2l6p4", "ja": "毎日少し勉強しています。", "pt": "Estudo um pouco todo dia.", "alt": ["Estudo um pouco todos os dias.", "Eu estudo um pouco todo dia."] },
+        { "id": "u2l6p5", "ja": "ブラジル人と話したいんです。", "pt": "Quero conversar com os brasileiros.", "alt": ["Quero falar com os brasileiros.", "Quero conversar com brasileiros."] },
+        { "id": "u2l6p6", "ja": "いつかホーダで歌いたいです。", "pt": "Um dia quero cantar na roda.", "alt": ["Quero cantar na roda um dia."], "note": "roda はカポエイラの輪（ホーダ）。em + a roda → na roda。" },
+        { "id": "u2l6p7", "ja": "カポエイラをやって2年になります。", "pt": "Faz dois anos que faço capoeira.", "alt": ["Faço capoeira há dois anos.", "Faz dois anos que treino capoeira."], "note": "Faz + 期間 + que + 現在形。fazer capoeira で「カポエイラをやる」。" },
+        { "id": "u2l6p8", "ja": "ブラジルがとても好きだからです。", "pt": "Porque gosto muito do Brasil.", "alt": ["Porque eu gosto muito do Brasil."] }
+      ],
+      "tips": [
+        { "title": "Por que? と Porque", "body": "質問の「なぜ？」は Por que（2語）、答えの「〜だから」は Porque（1語）。発音はほぼ同じなので、話すときは同じ音で大丈夫です。例: Por que você estuda português? — Porque gosto do Brasil." },
+        { "title": "「今〜している」と「〜したい」", "body": "「今〜している」は estar + 動詞の -ndo 形（語尾の r を ndo に変える）: aprender → Estou aprendendo. ／ estudar → Estou estudando. 「〜したい」は quero + 原形: Quero falar melhor. 理由は Porque quero … とつなげます。" }
+      ],
+      "talk": {
+        "role": "カポエイラ仲間の Camila",
+        "setting": "練習のあと、片づけをしながら。なぜポルトガル語を学んでいるのか、なぜカポエイラをするのかを話す。",
+        "opener": "Yuki, seu português está muito bom!",
+        "missions": ["ポルトガル語を学ぶ理由を言う", "これからしたいことを言う", "相手にも理由をたずねる"]
+      }
+    }
+  ]
+}

@@ -12,6 +12,7 @@ import { addDays } from "../srs/scheduler";
 import type { StudyItem } from "../srs/cardKey";
 import type { SessionStats } from "../srs/session";
 import { useToday } from "../hooks/useToday";
+import NextMenu from "./speak/NextMenu";
 
 const WEEKDAY = ["日", "月", "火", "水", "木", "金", "土"];
 
@@ -197,18 +198,21 @@ export default function SessionComplete({ stats, againItems, forecast, reason, o
         </button>
       )}
 
+      {/* 今日のメニューの次の1つ（口慣らし・レッスン・会話のうち、まだのもの）とホーム */}
+      <NextMenu skip="words" />
+
       <section className="space-y-2">
-        <h2 className="px-1 text-sm font-bold text-slate-500">次の一手</h2>
+        <h2 className="px-1 text-sm font-bold text-slate-500">ほかの練習</h2>
         <div className="grid grid-cols-2 gap-3">
           <Link to={quizPath ?? "/quiz"} className="card flex min-h-11 flex-col gap-1 p-4 transition hover:ring-brand-green/40">
             <IconBadge feature="quiz" className="mb-1.5" />
             <span className="font-semibold text-brand-ink">{quizPath ? "このデッキでクイズ" : "クイズ"}</span>
             <span className="text-xs text-slate-500">覚えた語を確かめる</span>
           </Link>
-          <Link to="/practice/shadowing" className="card flex min-h-11 flex-col gap-1 p-4 transition hover:ring-brand-green/40">
-            <IconBadge feature="shadowing" className="mb-1.5" />
-            <span className="font-semibold text-brand-ink">シャドーイング</span>
-            <span className="text-xs text-slate-500">声に出して慣れる</span>
+          <Link to="/speak/review?extra=1" className="card flex min-h-11 flex-col gap-1 p-4 transition hover:ring-brand-green/40">
+            <IconBadge feature="speak" className="mb-1.5" />
+            <span className="font-semibold text-brand-ink">口慣らし</span>
+            <span className="text-xs text-slate-500">文を声に出して言う</span>
           </Link>
         </div>
         <Link to="/flashcards" className="btn-ghost min-h-11 w-full">

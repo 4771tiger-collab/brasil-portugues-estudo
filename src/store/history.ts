@@ -9,7 +9,20 @@
 import { addDays } from "../srs/scheduler";
 
 /** 記録する活動の種類（単語帳の評価は DayLog の reviews/newWords/again で数える） */
-export const ACTIVITY_KINDS = ["quiz", "dictation", "shadowing", "pattern", "chunk", "drill", "listen", "music"] as const;
+// speak = 口慣らし（文を声に出して言った回数）、lesson = レッスン、talk = AI との会話（n は学習者が話した回数）
+export const ACTIVITY_KINDS = [
+  "quiz",
+  "dictation",
+  "shadowing",
+  "pattern",
+  "chunk",
+  "drill",
+  "listen",
+  "music",
+  "speak",
+  "lesson",
+  "talk",
+] as const;
 export type ActivityKind = (typeof ACTIVITY_KINDS)[number];
 
 /** 活動1種類の1日分: n = 回数（採点・録音・通し再生・文など）、sec = 秒数 */

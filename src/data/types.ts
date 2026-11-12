@@ -235,4 +235,10 @@ export interface Settings {
   aiProvider: AiProviderId;
   /** Gemini のモデル。既定 gemini-3.8-flash（上限に達したら、その回だけ 3.5 Flash-Lite で1回だけ頼み直す） */
   geminiModel: GeminiModel;
+  /** 口慣らし（文の復習）の1日の上限（文。画面の選択肢は 20 / 30 / 50 / 100） */
+  speakDailyLimit: number;
+  /** AI との会話で、相手の返事を自動で読み上げる */
+  talkAutoSpeak: boolean;
+  /** AI との会話のむずかしさ（-1 = 終えたレッスンの数から自動 / 0 入門 / 1 やさしい / 2 ふつう / 3 自然） */
+  talkLevel: number;
 }

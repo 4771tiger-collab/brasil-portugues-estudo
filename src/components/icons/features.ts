@@ -7,10 +7,13 @@
 // ============================================================================
 
 import {
+  AudioLines,
   BookA,
+  BookMarked,
   BookOpenText,
   Bot,
   CalendarCheck,
+  Clapperboard,
   DatabaseBackup,
   Drum,
   Dumbbell,
@@ -21,6 +24,7 @@ import {
   House,
   Languages,
   Layers,
+  LibraryBig,
   ListMusic,
   MessagesSquare,
   Mic,
@@ -110,8 +114,15 @@ export interface Feature {
 
 /** 機能 → アイコンと色。下部ナビ・ホームのタイル・練習の一覧・見出しで同じものを使う */
 export const FEATURES = {
-  // 下部ナビの6つ
-  home: { icon: House, tone: "green", label: "ホーム" },
+  // 下部ナビの5つ（今日・レッスン・会話・音楽・ライブラリ）
+  home: { icon: House, tone: "green", label: "今日" },
+  course: { icon: Clapperboard, tone: "orange", label: "レッスン" },
+  talk: { icon: MessagesSquare, tone: "violet", label: "会話" },
+  library: { icon: LibraryBig, tone: "blue", label: "ライブラリ" },
+  // 話す練習
+  speak: { icon: AudioLines, tone: "green", label: "口慣らし" },
+  phrases: { icon: BookMarked, tone: "green", label: "フレーズ帳" },
+  // 以前の下部ナビ（今はライブラリの中）
   flashcards: { icon: Layers, tone: "green", label: "単語帳" },
   quiz: { icon: Target, tone: "yellow", label: "クイズ" },
   practice: { icon: Dumbbell, tone: "blue", label: "練習" },

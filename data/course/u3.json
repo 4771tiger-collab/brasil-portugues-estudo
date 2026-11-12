@@ -1,0 +1,237 @@
+{
+  "id": "u3",
+  "title": "予定と誘い",
+  "goal": "予定を話し、人を誘い、時間と場所を決め、断ったり遅れを伝えたりできる",
+  "lessons": [
+    {
+      "id": "u3l1",
+      "title": "週末の予定を話す",
+      "goal": "週末やこれからの予定をたずねたり、自分の予定を言ったりできる",
+      "scene": "金曜の夕方、会社を出る前に同僚のルーカスと週末の予定を話す。",
+      "partner": "Lucas（同僚）",
+      "lines": [
+        { "who": "partner", "pt": "Yuki, o que você vai fazer no fim de semana?", "ja": "ユキ、週末は何するの？" },
+        { "who": "you", "pt": "No sábado de manhã, vou treinar capoeira. E você?", "ja": "土曜の朝はカポエイラの練習をするよ。ルーカスは？" },
+        { "who": "partner", "pt": "Eu vou para a praia com a minha família.", "ja": "僕は家族と海に行くんだ。" },
+        { "who": "you", "pt": "Que legal! Quando você vai voltar?", "ja": "いいね！いつ戻るの？" },
+        { "who": "partner", "pt": "A gente volta no domingo à noite. E você, no domingo?", "ja": "日曜の夜に戻るよ。ユキは、日曜は？" },
+        { "who": "you", "pt": "Ainda não sei. Quero descansar um pouco em casa.", "ja": "まだ分からない。家で少し休みたいな。" },
+        { "who": "partner", "pt": "Faz bem! Então, bom fim de semana!", "ja": "それがいいよ！じゃあ、よい週末を！" },
+        { "who": "you", "pt": "Para você também! Boa viagem!", "ja": "ルーカスもね！気をつけて行ってきて！" },
+        { "who": "partner", "pt": "Obrigado! Até segunda!", "ja": "ありがとう！また月曜に！" }
+      ],
+      "phrases": [
+        { "id": "u3l1p1", "ja": "週末は何をするの？", "pt": "O que você vai fazer no fim de semana?", "alt": ["O que você vai fazer no final de semana?"] },
+        { "id": "u3l1p2", "ja": "土曜の朝はカポエイラの練習をするよ。", "pt": "No sábado de manhã, vou treinar capoeira.", "alt": ["Sábado de manhã vou treinar capoeira.", "No sábado de manhã, eu vou treinar capoeira."] },
+        { "id": "u3l1p3", "ja": "（予定を聞かれて）まだ分からないんだ。", "pt": "Ainda não sei." },
+        { "id": "u3l1p4", "ja": "日曜は家で少し休みたいな。", "pt": "No domingo, quero descansar um pouco em casa.", "alt": ["Domingo quero descansar um pouco em casa."] },
+        { "id": "u3l1p5", "ja": "今夜は友達と夕食を食べるよ。", "pt": "Hoje à noite vou jantar com uns amigos.", "alt": ["Hoje à noite vou jantar com meus amigos.", "Hoje à noite vou jantar com amigos."], "note": "jantar は「夕食を食べる」という動詞。uns amigos は「友達何人か」。" },
+        { "id": "u3l1p6", "ja": "来週、リオに旅行するんだ。", "pt": "Semana que vem vou viajar para o Rio.", "alt": ["Na semana que vem, vou viajar para o Rio.", "Na próxima semana, vou viajar para o Rio."], "note": "semana que vem は「来週」。「来月」は mês que vem。" },
+        { "id": "u3l1p7", "ja": "（出かける予定の人に）いつ戻るの？", "pt": "Quando você vai voltar?", "alt": ["Quando você volta?"] },
+        { "id": "u3l1p8", "ja": "よい週末を！また月曜に！", "pt": "Bom fim de semana! Até segunda!", "alt": ["Bom final de semana! Até segunda!", "Bom fim de semana! Até segunda-feira!"] }
+      ],
+      "tips": [
+        { "title": "これからのことは ir + 動詞の原形", "body": "「〜する予定・〜するつもり」は、ir の現在形のあとに動詞の原形を置くだけ。eu vou / você vai / a gente vai。例: Vou treinar capoeira.（カポエイラを練習する）。O que você vai fazer?（何をするの？）。未来形の活用を覚えなくても、これで先のことが話せます。" },
+        { "title": "曜日と「朝・午後・夜」", "body": "土日は no sábado / no domingo。月〜金は女性名詞で na segunda, na terça, na quarta, na quinta, na sexta（-feira は省くのがふつう）。後ろに de manhã（朝）/ à tarde（午後）/ à noite（夜）を付けます。例: no sábado de manhã。" }
+      ],
+      "talk": {
+        "role": "同僚の Lucas",
+        "setting": "金曜の夕方、会社を出る前。週末の予定をたずね合って、あいさつして別れる。",
+        "opener": "E aí, Yuki! O que você vai fazer no fim de semana?",
+        "missions": ["週末の予定を1つ言う", "相手の予定をたずねる", "よい週末をと言って別れる"]
+      }
+    },
+    {
+      "id": "u3l2",
+      "title": "誘う・誘いに応える",
+      "goal": "友達を気軽に誘ったり、誘いに気持ちよく応えたりできる",
+      "scene": "カポエイラの練習が終わったところ。カミラをアサイーに誘うと、カミラからも土曜のライブに誘われる。",
+      "partner": "Camila（カポエイラ仲間）",
+      "lines": [
+        { "who": "you", "pt": "Camila, vamos tomar um açaí agora?", "ja": "カミラ、今からアサイー食べに行かない？" },
+        { "who": "partner", "pt": "Bora! Estou morrendo de fome.", "ja": "行こう！おなかペコペコなの。" },
+        { "who": "you", "pt": "Eu também. Tem um lugar bom aqui perto.", "ja": "私も。この近くにいい店があるよ。" },
+        { "who": "partner", "pt": "Ótimo! Ah, você quer ir num show de samba no sábado?", "ja": "いいね！あ、よかったら土曜にサンバのライブに行かない？" },
+        { "who": "you", "pt": "Quero, sim! Adoro samba.", "ja": "行きたい！サンバ大好き。" },
+        { "who": "partner", "pt": "Que bom! Vai ser muito legal.", "ja": "よかった！絶対楽しいよ。" },
+        { "who": "you", "pt": "Posso levar um amigo do trabalho?", "ja": "会社の友達を連れて行ってもいい？" },
+        { "who": "partner", "pt": "Claro que pode! Quanto mais gente, melhor.", "ja": "もちろん！人が多いほど楽しいもん。" },
+        { "who": "you", "pt": "Legal! Então, bora tomar esse açaí!", "ja": "やった！じゃあ、アサイー食べに行こう！" }
+      ],
+      "phrases": [
+        { "id": "u3l2p1", "ja": "今からアサイーを食べに行かない？", "pt": "Vamos tomar um açaí agora?", "alt": ["Vamos comer um açaí agora?"], "note": "アサイーは tomar（飲む・とる）と言うのがふつう。Vamos…? は「〜しない？」。" },
+        { "id": "u3l2p2", "ja": "よかったら、土曜にサンバのライブに行かない？", "pt": "Você quer ir num show de samba no sábado?", "alt": ["Quer ir num show de samba no sábado?", "Você quer ir a um show de samba no sábado?"], "note": "Você quer…? は相手の気持ちを聞く誘い方。「よかったら〜しない？」の感じ。" },
+        { "id": "u3l2p3", "ja": "（「行きたい？」と誘われて）行きたい！サンバは大好き。", "pt": "Quero, sim! Adoro samba.", "alt": ["Quero! Adoro samba."] },
+        { "id": "u3l2p4", "ja": "（誘われて）もちろん！行こう行こう！", "pt": "Claro! Bora!", "alt": ["Claro! Vamos!", "Claro! Bora lá!"], "note": "Bora は「行こう・やろう」のくだけた言い方。友達どうしで使う。" },
+        { "id": "u3l2p5", "ja": "会社の友達を連れて行ってもいい？", "pt": "Posso levar um amigo do trabalho?", "alt": ["Posso levar uma amiga do trabalho?"], "note": "Posso + 動詞の原形? で「〜してもいい？」。女性の友達なら uma amiga。" },
+        { "id": "u3l2p6", "ja": "明日、映画に行かない？", "pt": "Vamos ao cinema amanhã?", "alt": ["Vamos no cinema amanhã?"], "note": "会話では ao cinema を no cinema と言う人も多い。" },
+        { "id": "u3l2p7", "ja": "よかったら、私たちと一緒に来ない？", "pt": "Você quer vir com a gente?", "alt": ["Quer vir com a gente?"], "note": "a gente は「私たち」の口語。com a gente で「私たちと一緒に」。" },
+        { "id": "u3l2p8", "ja": "（提案を聞いて）それはいい考えだね！", "pt": "Boa ideia!", "alt": ["Ótima ideia!"] }
+      ],
+      "tips": [
+        { "title": "Vamos…? と Você quer…?", "body": "Vamos + 動詞の原形? は「（一緒に）〜しない？」。Você quer + 動詞の原形? は相手の気持ちを聞く「よかったら〜しない？」。例: Vamos tomar um café?（コーヒー飲みに行かない？）／ Você quer vir com a gente?（よかったら一緒に来ない？）" },
+        { "title": "誘いに乗る返事", "body": "乗るときは Claro!（もちろん）。友達どうしなら Bora!（行こう）が気軽です。Você quer…? と聞かれたら、Sim だけで答えるより、動詞をくり返して Quero, sim! と言うのがブラジルらしい返事です。" }
+      ],
+      "talk": {
+        "role": "カポエイラ仲間の Camila",
+        "setting": "練習が終わったあと。Camila が土曜のサンバのライブに誘ってくる。こちらからも、このあと何か食べに行こうと誘ってみる。",
+        "opener": "Yuki, você quer ir num show de samba no sábado?",
+        "missions": ["誘いに乗る返事をする", "自分からも何かに誘う", "友達を連れて行っていいか聞く"]
+      }
+    },
+    {
+      "id": "u3l3",
+      "title": "時間と場所を決める",
+      "goal": "待ち合わせの時間と場所を相談して決めることができる",
+      "scene": "土曜の夜のサンバのライブに行く約束をしたカミラと、待ち合わせの時間と場所を決める。",
+      "partner": "Camila（カポエイラ仲間）",
+      "lines": [
+        { "who": "you", "pt": "Camila, que horas começa o show no sábado?", "ja": "カミラ、土曜のライブは何時に始まるの？" },
+        { "who": "partner", "pt": "Começa às nove da noite.", "ja": "夜の9時に始まるよ。" },
+        { "who": "you", "pt": "E onde a gente se encontra?", "ja": "じゃあ、どこで待ち合わせる？" },
+        { "who": "partner", "pt": "Pode ser na estação Vila Madalena, às oito?", "ja": "ヴィラ・マダレーナ駅に8時でどう？" },
+        { "who": "you", "pt": "Pode ser um pouco mais tarde? Às oito e meia?", "ja": "もう少し遅くてもいい？8時半とか。" },
+        { "who": "partner", "pt": "Pode, sim. Oito e meia, na saída do metrô.", "ja": "いいよ。8時半に、地下鉄の出口でね。" },
+        { "who": "you", "pt": "Combinado! Sábado, oito e meia, na saída do metrô.", "ja": "決まり！土曜の8時半、地下鉄の出口だね。" },
+        { "who": "partner", "pt": "Isso! Qualquer coisa, me manda uma mensagem.", "ja": "そう！何かあったらメッセージ送ってね。" },
+        { "who": "you", "pt": "Pode deixar. Até sábado!", "ja": "了解。じゃあ土曜にね！" }
+      ],
+      "phrases": [
+        { "id": "u3l3p1", "ja": "ライブは何時に始まるの？", "pt": "Que horas começa o show?", "alt": ["A que horas começa o show?", "Que horas o show começa?"] },
+        { "id": "u3l3p2", "ja": "（会う約束をして）どこで待ち合わせる？", "pt": "Onde a gente se encontra?", "alt": ["Onde a gente vai se encontrar?", "Onde vamos nos encontrar?"] },
+        { "id": "u3l3p3", "ja": "（会う約束をして）何時に待ち合わせる？", "pt": "Que horas a gente se encontra?", "alt": ["A que horas a gente se encontra?", "Que horas a gente vai se encontrar?"] },
+        { "id": "u3l3p4", "ja": "（時間を提案して）8時半でもいい？", "pt": "Pode ser às oito e meia?", "note": "Pode ser…? は「〜でいい？」。e meia で「〜時半」。" },
+        { "id": "u3l3p5", "ja": "（待ち合わせの時間）もう少し遅くてもいい？", "pt": "Pode ser um pouco mais tarde?", "note": "「もう少し早く」なら um pouco mais cedo。" },
+        { "id": "u3l3p6", "ja": "7時に駅の前で待ち合わせよう。", "pt": "A gente se encontra às sete na frente da estação.", "alt": ["A gente se encontra às sete em frente à estação.", "Vamos nos encontrar às sete na frente da estação."] },
+        { "id": "u3l3p7", "ja": "土曜の午後3時でもいい？", "pt": "Pode ser no sábado, às três da tarde?", "alt": ["Pode ser sábado às três da tarde?"], "note": "da tarde で「午後の」。朝は da manhã、夜は da noite。" },
+        { "id": "u3l3p8", "ja": "それで決まり！じゃあ土曜にね！", "pt": "Combinado! Até sábado!", "alt": ["Fechado! Até sábado!"], "note": "Combinado! は約束がまとまったときの決まり文句。Fechado! とも言う。" }
+      ],
+      "tips": [
+        { "title": "時刻は às + 数", "body": "「〜時に」は às sete、às oito e meia（8時半）。1時だけ à uma、正午は ao meio-dia。朝・午後・夜を区別するときは da manhã / da tarde / da noite を付けます。例: às nove da noite（夜9時に）。「何時に？」は Que horas? で通じます。" },
+        { "title": "a gente と Pode ser…?", "body": "a gente は「私たち」の口語で、動詞は você と同じ形になります（a gente vai / a gente se encontra）。時間や場所の提案は Pode ser…?（〜でいい？）が便利。例: Pode ser às oito?（8時でいい？）。決まったら Combinado!" }
+      ],
+      "talk": {
+        "role": "カポエイラ仲間の Camila",
+        "setting": "土曜の夜のサンバのライブに一緒に行く約束をした。待ち合わせの時間と場所を相談して決める。",
+        "opener": "Oi, Yuki! Tudo certo para o show de sábado?",
+        "missions": ["始まる時間を聞く", "待ち合わせ場所を決める", "時間と場所を確認する"]
+      }
+    },
+    {
+      "id": "u3l4",
+      "title": "断って別の日を提案する",
+      "goal": "誘いを感じよく断り、理由を言って別の日を提案できる",
+      "scene": "昼休み、同僚のルーカスが今日の仕事のあと飲みに誘ってくれる。でも今夜はカポエイラの練習がある。",
+      "partner": "Lucas（同僚）",
+      "lines": [
+        { "who": "partner", "pt": "Yuki, vamos tomar uma cerveja depois do trabalho hoje?", "ja": "ユキ、今日仕事のあとビール飲みに行かない？" },
+        { "who": "you", "pt": "Que pena, hoje eu não posso. Tenho treino de capoeira.", "ja": "残念、今日は行けないんだ。カポエイラの練習があって。" },
+        { "who": "partner", "pt": "Poxa! E amanhã, você pode?", "ja": "そっかあ！明日は大丈夫？" },
+        { "who": "you", "pt": "Amanhã também não dá. Tenho que trabalhar até tarde.", "ja": "明日も無理なんだ。遅くまで仕事しなきゃいけなくて。" },
+        { "who": "partner", "pt": "Nossa, que semana corrida!", "ja": "うわ、忙しい週だね！" },
+        { "who": "you", "pt": "Pois é. Que tal sexta-feira?", "ja": "そうなんだよ。金曜日はどう？" },
+        { "who": "partner", "pt": "Sexta eu posso. Depois do trabalho?", "ja": "金曜なら大丈夫。仕事のあとで？" },
+        { "who": "you", "pt": "Combinado! Obrigado pelo convite.", "ja": "決まり！誘ってくれてありがとう。" },
+        { "who": "partner", "pt": "Imagina! Então fica para sexta.", "ja": "とんでもない！じゃあ金曜にしよう。" }
+      ],
+      "phrases": [
+        { "id": "u3l4p1", "ja": "残念、今日は行けないんだ。", "pt": "Que pena, hoje eu não posso.", "alt": ["Que pena, hoje não posso.", "Que pena, hoje eu não posso ir.", "Que pena, hoje não dá."] },
+        { "id": "u3l4p2", "ja": "今日はカポエイラの練習があるんだ。", "pt": "Hoje eu tenho treino de capoeira.", "alt": ["Hoje tenho treino de capoeira."] },
+        { "id": "u3l4p3", "ja": "遅くまで仕事をしなきゃいけないんだ。", "pt": "Tenho que trabalhar até tarde.", "alt": ["Eu tenho que trabalhar até tarde."], "note": "Tenho que + 動詞の原形で「〜しなきゃいけない」。" },
+        { "id": "u3l4p4", "ja": "（別の日を提案して）金曜日はどう？", "pt": "Que tal sexta-feira?", "alt": ["Que tal na sexta-feira?", "Que tal sexta?", "Que tal na sexta?"], "note": "会話では sexta-feira を sexta と短く言うことが多い。" },
+        { "id": "u3l4p5", "ja": "明日は早く起きなきゃいけないんだ。", "pt": "Amanhã tenho que acordar cedo.", "alt": ["Amanhã eu tenho que acordar cedo."] },
+        { "id": "u3l4p6", "ja": "今週は無理だけど、来週なら大丈夫。", "pt": "Essa semana não dá, mas semana que vem eu posso.", "alt": ["Esta semana não dá, mas semana que vem eu posso.", "Essa semana não posso, mas semana que vem eu posso."], "note": "não dá は「都合がつかない・無理」。会話でよく使う。" },
+        { "id": "u3l4p7", "ja": "（誘いを断るときに）また今度ね！", "pt": "Fica para a próxima!", "alt": ["Fica para a próxima vez!", "Deixa para a próxima!"], "note": "断るときの決まり文句。「次の機会にね」の意味。" },
+        { "id": "u3l4p8", "ja": "誘ってくれてありがとう。", "pt": "Obrigado pelo convite.", "alt": ["Obrigada pelo convite."], "note": "女性が言うなら Obrigada。convite は「誘い・招待」。" }
+      ],
+      "tips": [
+        { "title": "感じよく断る3ステップ", "body": "Não posso. だけだと冷たく聞こえます。① Que pena…（残念）で始め、② Tenho que + 動詞の原形（〜しなきゃ）や Tenho + 名詞（〜がある）で理由を言い、③ Que tal…?（〜はどう？）で別の日を出すと、気持ちよく断れます。" },
+        { "title": "não posso と não dá", "body": "どちらも「無理」。não posso は「自分ができない」、não dá は「都合がつかない」という感じで、会話でとてもよく使います。例: Hoje não dá.（今日は無理）。相手の都合は Você pode amanhã?（明日は大丈夫？）と聞けます。" }
+      ],
+      "talk": {
+        "role": "同僚の Lucas",
+        "setting": "昼休み。Lucas が今日の仕事のあと飲みに誘ってくるが、今夜は予定がある。理由を言って断り、別の日を提案する。",
+        "opener": "Yuki, vamos tomar uma cerveja depois do trabalho hoje?",
+        "missions": ["理由を言って断る", "別の日を提案する", "誘ってくれたお礼を言う"]
+      }
+    },
+    {
+      "id": "u3l5",
+      "title": "電話とメッセージで連絡する",
+      "goal": "電話やメッセージで、今いる場所や着く見込みを伝え合うことができる",
+      "scene": "土曜の夜、待ち合わせの駅に着いたのにカミラが見当たらない。電話をかけてみる。",
+      "partner": "Camila（カポエイラ仲間）",
+      "lines": [
+        { "who": "partner", "pt": "Alô?", "ja": "もしもし？" },
+        { "who": "you", "pt": "Alô, Camila? Sou eu, Yuki.", "ja": "もしもし、カミラ？ユキだよ。" },
+        { "who": "partner", "pt": "Oi, Yuki! Você já está aí?", "ja": "あ、ユキ！もうそっちにいるの？" },
+        { "who": "you", "pt": "Já estou aqui na estação. Cadê você?", "ja": "もう駅にいるよ。カミラはどこ？" },
+        { "who": "partner", "pt": "Estou chegando! Ainda estou no ônibus.", "ja": "もうすぐ着く！まだバスの中なの。" },
+        { "who": "you", "pt": "Tudo bem. Você vai demorar muito?", "ja": "分かった。まだだいぶかかりそう？" },
+        { "who": "partner", "pt": "Não, uns dez minutos. Onde você está exatamente?", "ja": "ううん、10分くらい。正確にはどこにいる？" },
+        { "who": "you", "pt": "Estou na saída do metrô, em frente à padaria.", "ja": "地下鉄の出口の、パン屋の前にいるよ。" },
+        { "who": "partner", "pt": "Está bom. Me espera aí!", "ja": "オッケー。そこで待ってて！" },
+        { "who": "you", "pt": "Estou te esperando. Até já!", "ja": "待ってるね。じゃあ、あとで！" }
+      ],
+      "phrases": [
+        { "id": "u3l5p1", "ja": "（電話で）もしもし、カミラ？ユキだよ。", "pt": "Alô, Camila? Sou eu, Yuki.", "alt": ["Alô, Camila? Aqui é o Yuki.", "Alô, Camila? Aqui é a Yuki."] },
+        { "id": "u3l5p2", "ja": "もう駅にいるよ。", "pt": "Já estou na estação.", "alt": ["Já estou aqui na estação."], "note": "já は「もう」。Já estou aqui. で「もう着いてるよ」。" },
+        { "id": "u3l5p3", "ja": "（待ち合わせで相手が見当たらなくて）今どこ？", "pt": "Cadê você?", "alt": ["Onde você está?"], "note": "Cadê…? は「〜はどこ？」のくだけた言い方。Cadê o Lucas? のようにも使う。" },
+        { "id": "u3l5p4", "ja": "（向かっている途中で）もうすぐ着くよ！", "pt": "Estou chegando!", "alt": ["Já estou chegando!"] },
+        { "id": "u3l5p5", "ja": "地下鉄の出口で待ってるね。", "pt": "Estou te esperando na saída do metrô.", "alt": ["Te espero na saída do metrô."] },
+        { "id": "u3l5p6", "ja": "（待っていて）まだだいぶかかりそう？", "pt": "Você vai demorar muito?", "alt": ["Vai demorar muito?"], "note": "demorar は「時間がかかる」。" },
+        { "id": "u3l5p7", "ja": "位置情報を送ってくれる？", "pt": "Pode me mandar a sua localização?", "alt": ["Pode me mandar sua localização?", "Você pode me mandar a sua localização?", "Me manda a sua localização?"] },
+        { "id": "u3l5p8", "ja": "あとでメッセージを送るね。", "pt": "Te mando uma mensagem depois.", "alt": ["Depois eu te mando uma mensagem.", "Te mando uma mensagem mais tarde.", "Vou te mandar uma mensagem depois."], "note": "電話なら Te ligo depois.（あとで電話するね）。" }
+      ],
+      "tips": [
+        { "title": "Estou chegando は「向かってるよ」", "body": "Estou chegando. は「もうすぐ着く」の決まり文句ですが、実際にはまだ少しかかることもよくあります。気になるときは Você vai demorar muito?（まだかかりそう？）や Cadê você?（今どこ？）と聞いてみましょう。" },
+        { "title": "電話とメッセージのひとこと", "body": "電話は Alô? で出て、かけた側は Sou eu, Yuki.（ユキだよ）と名乗ります。ふだんの連絡はメッセージアプリが中心で、Cadê você?（どこ？）、Já estou aqui.（もういるよ）、Estou chegando.（もうすぐ着く）のような短い文がよく行き来します。" }
+      ],
+      "talk": {
+        "role": "カポエイラ仲間の Camila",
+        "setting": "土曜の夜、待ち合わせの駅に着いたが Camila がいない。電話をかけて、お互いが今どこにいるかを伝え合う。",
+        "opener": "Alô?",
+        "missions": ["電話で名乗る", "相手がどこにいるか聞く", "自分のいる場所を伝える"]
+      }
+    },
+    {
+      "id": "u3l6",
+      "title": "遅れて謝る",
+      "goal": "遅れることを連絡して謝り、あとどのくらいで着くかを伝えることができる",
+      "scene": "金曜の夜、ルーカスたちと飲む約束の日。仕事が終わらずまだ会社にいると、先に店に着いたルーカスから電話がくる。",
+      "partner": "Lucas（同僚）",
+      "lines": [
+        { "who": "partner", "pt": "Yuki, cadê você? A gente já está no bar.", "ja": "ユキ、どこにいるの？みんなもう店にいるよ。" },
+        { "who": "you", "pt": "Desculpa, Lucas! Vou me atrasar um pouco.", "ja": "ごめん、ルーカス！少し遅れそう。" },
+        { "who": "partner", "pt": "Não tem problema. Você ainda está no trabalho?", "ja": "大丈夫だよ。まだ会社？" },
+        { "who": "you", "pt": "Estou. Tenho que terminar uma coisa aqui.", "ja": "うん。ここで1つ終わらせなきゃいけないことがあって。" },
+        { "who": "partner", "pt": "Tranquilo. Que horas você vai chegar?", "ja": "了解。何時ごろ着きそう？" },
+        { "who": "you", "pt": "Vou chegar em uns vinte minutos.", "ja": "20分くらいで着くよ。" },
+        { "who": "partner", "pt": "Beleza! A gente guarda um lugar para você.", "ja": "オッケー！席を取っておくよ。" },
+        { "who": "you", "pt": "Obrigado! E desculpa o atraso.", "ja": "ありがとう！遅れてごめんね。" },
+        { "who": "partner", "pt": "Imagina! Vem com calma.", "ja": "気にしないで！あわてないでおいで。" },
+        { "who": "you", "pt": "Valeu! Já estou saindo.", "ja": "ありがとう！もう出るところ。" }
+      ],
+      "phrases": [
+        { "id": "u3l6p1", "ja": "（これから遅れると伝える）ごめん、少し遅れそう。", "pt": "Desculpa, vou me atrasar um pouco.", "alt": ["Desculpa, vou atrasar um pouco.", "Desculpe, vou me atrasar um pouco."] },
+        { "id": "u3l6p2", "ja": "（遅れて着いたときに）遅れてごめん！", "pt": "Desculpa o atraso!", "alt": ["Desculpa pelo atraso!", "Desculpe o atraso!"], "note": "atraso は「遅れ」。着いたときの最初のひとこと。" },
+        { "id": "u3l6p3", "ja": "20分くらいで着くよ。", "pt": "Vou chegar em uns vinte minutos.", "alt": ["Chego em uns vinte minutos.", "Vou chegar em vinte minutos.", "Vou chegar daqui a uns vinte minutos."], "note": "uns + 数で「〜くらい」。em … minutos は「〜分後に」。" },
+        { "id": "u3l6p4", "ja": "（今まさに遅れていて）ごめん、遅刻してるんだ！", "pt": "Desculpa, estou atrasado!", "alt": ["Desculpa, estou atrasada!", "Desculpe, estou atrasado!", "Desculpe, estou atrasada!"], "note": "女性が言うなら atrasada。" },
+        { "id": "u3l6p5", "ja": "渋滞がひどいんだ。", "pt": "O trânsito está horrível.", "alt": ["O trânsito está péssimo.", "O trânsito está terrível."] },
+        { "id": "u3l6p6", "ja": "（遅れていて）もう出るところだよ！", "pt": "Já estou saindo!", "alt": ["Estou saindo agora!"] },
+        { "id": "u3l6p7", "ja": "（遅れると言われて）大丈夫だよ。待ってるね。", "pt": "Não tem problema. Eu te espero.", "alt": ["Não tem problema. Te espero.", "Sem problema. Eu te espero."] },
+        { "id": "u3l6p8", "ja": "（待っているみんなに）先に始めてていいよ。", "pt": "Podem começar sem mim.", "alt": ["Pode começar sem mim.", "Podem ir começando sem mim."], "note": "相手が1人なら Pode começar sem mim.。sem mim は「私なしで」。" }
+      ],
+      "tips": [
+        { "title": "遅れる前・遅れている・着いたとき", "body": "遅れそうなら Vou me atrasar um pouco.（少し遅れる）。今遅れているなら Estou atrasado.（女性は atrasada）。着いたら Desculpa o atraso!（遅れてごめん）。理由は O trânsito está horrível.（渋滞がひどい）のように一言で十分です。" },
+        { "title": "謝られたら Não tem problema", "body": "「大丈夫だよ」は Não tem problema.、Imagina!、Tranquilo. など。友達どうしの集まりは少しの遅れを大ごとにしないことが多いですが、Vou chegar em dez minutos.（10分で着く）と一言連絡すると安心されます。" }
+      ],
+      "talk": {
+        "role": "同僚の Lucas",
+        "setting": "金曜の夜、Lucas たちと店で飲む約束。仕事が長引いてまだ会社にいると、先に着いた Lucas から電話がかかってくる。",
+        "opener": "Yuki, cadê você? A gente já está no bar.",
+        "missions": ["遅れることを謝る", "遅れる理由を言う", "何分で着くか伝える"]
+      }
+    }
+  ]
+}

@@ -1,0 +1,241 @@
+{
+  "id": "u5",
+  "title": "生活の場面",
+  "goal": "レストラン・買い物・移動・宿・薬局・トラブルなど、生活と旅行の場面を自分で乗り切れる",
+  "lessons": [
+    {
+      "id": "u5l1",
+      "title": "レストランで食事する",
+      "goal": "席を頼み、おすすめを聞いて注文し、食後に感想を伝えて会計を分けてもらうことができる",
+      "scene": "土曜の夜、カポエイラ仲間のカミラと2人でレストランに来た。席に着いて注文し、食後に会計をする。",
+      "partner": "店員（レストラン）",
+      "lines": [
+        { "who": "partner", "pt": "Boa noite! Mesa para quantas pessoas?", "ja": "こんばんは！何名様ですか？" },
+        { "who": "you", "pt": "Boa noite! Uma mesa para duas pessoas, por favor.", "ja": "こんばんは！2人用のテーブルをお願いします。" },
+        { "who": "partner", "pt": "Podem sentar aqui. Já sabem o que vão pedir?", "ja": "こちらにどうぞ。ご注文はお決まりですか？" },
+        { "who": "you", "pt": "Ainda não. O que você recomenda?", "ja": "まだなんです。おすすめは何ですか？" },
+        { "who": "partner", "pt": "A picanha na chapa é ótima. Serve duas pessoas.", "ja": "ピッカーニャの鉄板焼きが絶品ですよ。2人前あります。" },
+        { "who": "you", "pt": "Então vou querer a picanha. Sem cebola, por favor.", "ja": "じゃあ、ピッカーニャにします。玉ねぎ抜きでお願いします。" },
+        { "who": "partner", "pt": "Posso retirar? Estava tudo bem?", "ja": "（食後）お下げしてもいいですか？お食事はいかがでしたか？" },
+        { "who": "you", "pt": "Estava uma delícia! Pode dividir a conta, por favor?", "ja": "とてもおいしかったです！お会計を分けてもらえますか？" },
+        { "who": "partner", "pt": "Claro. Os dez por cento já estão incluídos.", "ja": "もちろんです。10%のサービス料はもう入っています。" },
+        { "who": "you", "pt": "Tudo bem. Vou pagar no cartão.", "ja": "分かりました。カードで払います。" }
+      ],
+      "phrases": [
+        { "id": "u5l1p1", "ja": "2人用のテーブルをお願いします。", "pt": "Uma mesa para duas pessoas, por favor.", "alt": ["Uma mesa para dois, por favor.", "Mesa para duas pessoas, por favor."] },
+        { "id": "u5l1p2", "ja": "おすすめは何ですか？（レストランで店員に）", "pt": "O que você recomenda?", "alt": ["O que você sugere?", "Qual prato você recomenda?"] },
+        { "id": "u5l1p3", "ja": "ピッカーニャにします。玉ねぎ抜きでお願いします。", "pt": "Vou querer a picanha. Sem cebola, por favor.", "alt": ["Eu vou querer a picanha. Sem cebola, por favor.", "Vou querer a picanha, sem cebola, por favor.", "Eu queria a picanha. Sem cebola, por favor."], "note": "注文を決めたら Vou querer…（〜にします）。sem ＋名詞で「〜抜き」。" },
+        { "id": "u5l1p4", "ja": "とてもおいしかったです！（食べ終えて店員に）", "pt": "Estava uma delícia!", "alt": ["Estava muito gostoso!", "Estava delicioso!", "Estava tudo uma delícia!"], "note": "食べ終えた料理の感想は estava（estar の過去の形）で言う。" },
+        { "id": "u5l1p5", "ja": "お会計を分けてもらえますか？", "pt": "Pode dividir a conta, por favor?", "alt": ["Você pode dividir a conta, por favor?", "Pode dividir a conta?", "Dá para dividir a conta?"] },
+        { "id": "u5l1p6", "ja": "サービス料は含まれていますか？", "pt": "O serviço está incluído?", "alt": ["O serviço está incluso?", "O serviço já está incluído?", "Os dez por cento estão incluídos?"] },
+        { "id": "u5l1p7", "ja": "お水をもう1本持ってきてもらえますか？", "pt": "Pode trazer mais uma água, por favor?", "alt": ["Você pode trazer mais uma água, por favor?", "Pode trazer mais uma água?", "Pode me trazer mais uma água, por favor?"], "note": "mais um / mais uma で「もう1つ」。água は女性名詞なので uma。" },
+        { "id": "u5l1p8", "ja": "肉を使っていない料理はありますか？", "pt": "Tem algum prato sem carne?", "alt": ["Vocês têm algum prato sem carne?", "Tem prato sem carne?"] }
+      ],
+      "tips": [
+        { "title": "Pode ＋動詞? で店員に頼む", "body": "店員への頼みごとは「Pode ＋動詞の原形?」で言えます。Pode trazer…?（持ってきてもらえますか）、Pode dividir…?（分けてもらえますか）。最後に por favor を添えれば十分ていねいです。例: Pode trazer o cardápio, por favor?（メニューを持ってきてもらえますか）" },
+        { "title": "会計の「10%」と Posso retirar?", "body": "ブラジルのレストランでは、会計に10%のサービス料（os dez por cento）が入っているのがふつうで、別のチップは要りません。食後に店員が言う「Posso retirar?」は「お皿を下げてもいいですか」の意味。「Pode, sim.」と答えます。" }
+      ],
+      "talk": {
+        "role": "レストランの店員",
+        "setting": "夜のレストラン。2人分の席に案内してもらい、おすすめを聞いて注文する。食後に感想を伝えて会計をする。",
+        "opener": "Boa noite! Mesa para quantas pessoas?",
+        "missions": ["2人の席を頼む", "おすすめを聞いて注文する", "会計を分けてもらう"]
+      }
+    },
+    {
+      "id": "u5l2",
+      "title": "服を買う",
+      "goal": "店で服を探して試着し、サイズや色について店員に相談することができる",
+      "scene": "ショッピングモールの服屋で、新しいシャツを探している。店員が声をかけてくる。",
+      "partner": "店員（服屋）",
+      "lines": [
+        { "who": "partner", "pt": "Oi, tudo bem? Posso ajudar?", "ja": "こんにちは。何かお探しですか？" },
+        { "who": "you", "pt": "Estou procurando uma camisa. Posso experimentar essa?", "ja": "シャツを探しているんです。これ、試着してもいいですか？" },
+        { "who": "partner", "pt": "Claro! O provador fica ali no fundo.", "ja": "もちろん！試着室はあの奥です。" },
+        { "who": "you", "pt": "Obrigado. Já volto.", "ja": "ありがとう。すぐ戻ります。" },
+        { "who": "partner", "pt": "E aí, ficou boa?", "ja": "（試着のあと）どうでした？合いましたか？" },
+        { "who": "you", "pt": "Ficou um pouco apertada. Tem um tamanho maior?", "ja": "ちょっときついです。もっと大きいサイズはありますか？" },
+        { "who": "partner", "pt": "Tem, sim. Vou pegar uma maior para você.", "ja": "ありますよ。大きいのを取ってきますね。" },
+        { "who": "you", "pt": "Essa ficou ótima! Vou levar.", "ja": "こっちはぴったりです！買います。" },
+        { "who": "partner", "pt": "Que bom! Vai pagar no crédito ou no débito?", "ja": "よかった！お支払いはクレジットですか、デビットですか？" },
+        { "who": "you", "pt": "No débito, por favor.", "ja": "デビットでお願いします。" }
+      ],
+      "phrases": [
+        { "id": "u5l2p1", "ja": "シャツを探しているんです。（服屋で）", "pt": "Estou procurando uma camisa.", "alt": ["Eu estou procurando uma camisa."] },
+        { "id": "u5l2p2", "ja": "試着してもいいですか？", "pt": "Posso experimentar?", "alt": ["Posso provar?", "Posso experimentar essa?", "Posso experimentar esse?"] },
+        { "id": "u5l2p3", "ja": "このシャツはちょっときついです。（試着して）", "pt": "Essa camisa ficou um pouco apertada.", "alt": ["Essa camisa está um pouco apertada.", "Essa camisa ficou meio apertada."], "note": "apertado は物の性に合わせる（a camisa → apertada、o sapato → apertado）。" },
+        { "id": "u5l2p4", "ja": "もっと大きいサイズはありますか？", "pt": "Tem um tamanho maior?", "alt": ["Você tem um tamanho maior?", "Vocês têm um tamanho maior?", "Tem num tamanho maior?"] },
+        { "id": "u5l2p5", "ja": "こっちはぴったりです！買います。（試着して）", "pt": "Essa ficou ótima! Vou levar.", "alt": ["Essa ficou perfeita! Vou levar.", "Essa ficou ótima! Vou levar essa."], "note": "ficar ＋形容詞で、着てみた結果（合う・似合う）を言える。" },
+        { "id": "u5l2p6", "ja": "もっと小さいサイズはありますか？", "pt": "Tem um tamanho menor?", "alt": ["Você tem um tamanho menor?", "Vocês têm um tamanho menor?", "Tem num tamanho menor?"] },
+        { "id": "u5l2p7", "ja": "ほかの色はありますか？（服屋で）", "pt": "Tem em outra cor?", "alt": ["Tem outra cor?", "Tem em outras cores?", "Tem essa em outra cor?"] },
+        { "id": "u5l2p8", "ja": "見ているだけです、ありがとう。（店員に声をかけられて）", "pt": "Só estou olhando, obrigado.", "alt": ["Só estou olhando, obrigada.", "Estou só olhando, obrigado.", "Estou só olhando, obrigada."] }
+      ],
+      "tips": [
+        { "title": "ficar で「着た感じ」を言う", "body": "試着の感想は ficar の過去形で言います。Ficou bom.（いい感じ）、Ficou apertado.（きつい）、Ficou grande.（大きい）。店員も「Ficou bom?」「Serviu?（サイズは合った？）」と聞いてきます。" },
+        { "title": "サイズと支払いの聞かれ方", "body": "サイズは P（pequeno）・M（médio）・G（grande）。「Qual é o seu tamanho?」と聞かれたら「Uso M.」（M は「エミ」と読む）。会計でクレジットを選ぶと「Quer parcelar?（分割にしますか）」と聞かれます。一括なら「Não, à vista.」。" }
+      ],
+      "talk": {
+        "role": "服屋の店員",
+        "setting": "ショッピングモールの服屋。探している服を伝えて試着し、サイズや色を相談して、買うかどうか決める。",
+        "opener": "Oi, tudo bem? Posso ajudar?",
+        "missions": ["探している服を伝える", "試着を頼む", "別のサイズか色を聞く"]
+      }
+    },
+    {
+      "id": "u5l3",
+      "title": "配車アプリとバスに乗る",
+      "goal": "配車アプリの車でかかる時間を聞いて降りる場所を伝え、バスの行き先や時間をたずねることができる",
+      "scene": "海辺の町パラチーへ旅行する日。配車アプリで呼んだ車に乗って、長距離バスのターミナルへ向かう。",
+      "partner": "運転手（配車アプリ）",
+      "lines": [
+        { "who": "partner", "pt": "Boa tarde! Yuki?", "ja": "こんにちは！ユキさんですか？" },
+        { "who": "you", "pt": "Isso, sou eu. Boa tarde!", "ja": "はい、私です。こんにちは！" },
+        { "who": "partner", "pt": "Vamos para a Rodoviária do Tietê, certo?", "ja": "チエテのバスターミナルまでですね？" },
+        { "who": "you", "pt": "Isso. Quanto tempo demora até lá?", "ja": "そうです。そこまでどのくらいかかりますか？" },
+        { "who": "partner", "pt": "Uns quarenta minutos. Tem muito trânsito agora.", "ja": "40分くらいですね。今は渋滞がひどくて。" },
+        { "who": "you", "pt": "Nossa! Estou com um pouco de pressa.", "ja": "えっ！ちょっと急いでいるんです。" },
+        { "who": "partner", "pt": "Pode deixar. Vou por outro caminho, é mais rápido.", "ja": "任せてください。別の道で行きます、そのほうが早いので。" },
+        { "who": "you", "pt": "Que bom, obrigado!", "ja": "よかった、ありがとう！" },
+        { "who": "partner", "pt": "Pronto, chegamos. Pode ser aqui na entrada?", "ja": "（到着して）はい、着きました。この入口のところでいいですか？" },
+        { "who": "you", "pt": "Pode parar aqui, sim. Obrigado, boa tarde!", "ja": "はい、ここで止めてください。ありがとう、さようなら！" }
+      ],
+      "phrases": [
+        { "id": "u5l3p1", "ja": "はい、私です。（運転手に名前を確認されて）", "pt": "Isso, sou eu.", "alt": ["Sim, sou eu.", "Sou eu, sim.", "Isso, sou eu mesmo."], "note": "Isso. は「そうです」。相手の確認に答えるときの定番。" },
+        { "id": "u5l3p2", "ja": "そこまでどのくらい時間がかかりますか？", "pt": "Quanto tempo demora até lá?", "alt": ["Quanto tempo leva até lá?", "Quanto tempo demora para chegar lá?"] },
+        { "id": "u5l3p3", "ja": "ちょっと急いでいるんです。", "pt": "Estou com um pouco de pressa.", "alt": ["Eu estou com um pouco de pressa.", "Estou com um pouquinho de pressa."], "note": "estar com pressa で「急いでいる」。estar com ＋名詞の形。" },
+        { "id": "u5l3p4", "ja": "ここで止めてください。（運転手に）", "pt": "Pode parar aqui, por favor.", "alt": ["Você pode parar aqui, por favor?", "Pode parar aqui mesmo, por favor."] },
+        { "id": "u5l3p5", "ja": "エアコンをつけてもらえますか？", "pt": "Pode ligar o ar-condicionado, por favor?", "alt": ["Você pode ligar o ar-condicionado, por favor?", "Pode ligar o ar-condicionado?", "Pode ligar o ar, por favor?"], "note": "つけるは ligar、消すは desligar。会話では o ar だけでも通じる。" },
+        { "id": "u5l3p6", "ja": "このバスはパウリスタ通りを通りますか？", "pt": "Esse ônibus passa na Avenida Paulista?", "alt": ["Este ônibus passa na Avenida Paulista?", "Esse ônibus passa pela Avenida Paulista?"] },
+        { "id": "u5l3p7", "ja": "すみません、次のバス停で降ります。", "pt": "Com licença, vou descer no próximo ponto.", "alt": ["Com licença, eu vou descer no próximo ponto."], "note": "ponto はバス停。混んだ車内では Com licença と言って通してもらう。" },
+        { "id": "u5l3p8", "ja": "パラチー行きの次のバスは何時に出ますか？", "pt": "Que horas sai o próximo ônibus para Paraty?", "alt": ["A que horas sai o próximo ônibus para Paraty?", "Que horas o próximo ônibus para Paraty sai?"] }
+      ],
+      "tips": [
+        { "title": "アプリの車に乗るとき", "body": "配車アプリの車では、乗るときに運転手が名前を確認します（「Yuki?」→「Isso, sou eu.」）。降りる場所は「Pode parar aqui.」、角なら「Pode parar na esquina.」。運転手の「Pode deixar.」は「任せてください」の意味です。" },
+        { "title": "バスで使うことば", "body": "市内バスの停留所は ponto、長距離バスのターミナルは rodoviária、切符は passagem です。例: Uma passagem para Paraty, por favor.（パラチーまで1枚ください）。市内バスは、停留所で手を挙げて止めます。" }
+      ],
+      "talk": {
+        "role": "配車アプリの運転手",
+        "setting": "配車アプリで呼んだ車に乗り、バスターミナルへ向かう。名前の確認に答え、道中に話をして、着いたら降りる場所を伝える。",
+        "opener": "Boa tarde! Yuki?",
+        "missions": ["名前の確認に答える", "かかる時間を聞く", "降りる場所を伝える"]
+      }
+    },
+    {
+      "id": "u5l4",
+      "title": "宿にチェックインする",
+      "goal": "宿の受付で予約を伝えてチェックインし、設備について質問したり頼みごとをしたりできる",
+      "scene": "海辺の町パラチーに着いた。予約しておいたポウザーダ（小さな宿）の受付でチェックインする。",
+      "partner": "受付の人（宿）",
+      "lines": [
+        { "who": "partner", "pt": "Boa tarde! Vai fazer o check-in?", "ja": "こんにちは！チェックインですか？" },
+        { "who": "you", "pt": "Vou, sim. Tenho uma reserva em nome de Yuki.", "ja": "はい。ユキの名前で予約してあります。" },
+        { "who": "partner", "pt": "São duas noites, certo? Posso ver seu documento?", "ja": "2泊ですね？身分証を見せていただけますか？" },
+        { "who": "you", "pt": "Isso. Aqui está meu passaporte.", "ja": "そうです。はい、パスポートです。" },
+        { "who": "partner", "pt": "Seu quarto é o número doze. Aqui está a chave.", "ja": "お部屋は12号室です。こちらが鍵です。" },
+        { "who": "you", "pt": "Obrigado. O café da manhã está incluído?", "ja": "ありがとう。朝食は含まれていますか？" },
+        { "who": "partner", "pt": "Está, sim. É das sete às dez, ali na varanda.", "ja": "はい、含まれています。7時から10時まで、あそこのテラスです。" },
+        { "who": "you", "pt": "Que bom! E qual é a senha do wi-fi?", "ja": "よかった！それと、Wi-Fi のパスワードは何ですか？" },
+        { "who": "partner", "pt": "Está nesse cartão aqui. Qualquer coisa, é só chamar.", "ja": "このカードに書いてあります。何かあれば、いつでも声をかけてくださいね。" },
+        { "who": "you", "pt": "Muito obrigado!", "ja": "どうもありがとう！" }
+      ],
+      "phrases": [
+        { "id": "u5l4p1", "ja": "ユキの名前で予約してあります。", "pt": "Tenho uma reserva em nome de Yuki.", "alt": ["Eu tenho uma reserva em nome de Yuki.", "Tenho uma reserva no nome de Yuki."] },
+        { "id": "u5l4p2", "ja": "はい、パスポートです。（差し出しながら）", "pt": "Aqui está meu passaporte.", "alt": ["Aqui está o meu passaporte."], "note": "Aqui está… は物を差し出すときの「はい、これです」。" },
+        { "id": "u5l4p3", "ja": "朝食は含まれていますか？", "pt": "O café da manhã está incluído?", "alt": ["O café da manhã está incluso?", "O café da manhã já está incluído?"] },
+        { "id": "u5l4p4", "ja": "Wi-Fi のパスワードは何ですか？", "pt": "Qual é a senha do wi-fi?", "alt": ["Qual a senha do wi-fi?"] },
+        { "id": "u5l4p5", "ja": "チェックアウトは何時ですか？", "pt": "Que horas é o check-out?", "alt": ["A que horas é o check-out?", "Até que horas é o check-out?"] },
+        { "id": "u5l4p6", "ja": "私の部屋のシャワーが動きません。（故障を伝える）", "pt": "O chuveiro do meu quarto não está funcionando.", "alt": ["O chuveiro do meu quarto não funciona."], "note": "故障は não está funcionando（動いていない）。エアコンなら o ar-condicionado。" },
+        { "id": "u5l4p7", "ja": "タオルをもう1枚持ってきていただけますか？（ていねいに）", "pt": "Você poderia trazer mais uma toalha, por favor?", "alt": ["Poderia trazer mais uma toalha, por favor?", "Você poderia trazer mais uma toalha?", "Você poderia me trazer mais uma toalha, por favor?"], "note": "poderia は pode よりていねいな頼み方。" },
+        { "id": "u5l4p8", "ja": "スーツケースをここに置いていってもいいですか？", "pt": "Posso deixar minha mala aqui?", "alt": ["Posso deixar a minha mala aqui?", "Eu posso deixar minha mala aqui?"] }
+      ],
+      "tips": [
+        { "title": "受付で聞かれること", "body": "pousada は家庭的な小さな宿で、ブラジルの旅先に多くあります。受付では「Tem reserva?（予約はありますか）」「Em nome de quem?（どなたの名前で？）」と聞かれ、documento（身分証）を求められます。パスポートを見せれば大丈夫です。" },
+        { "title": "Pode より丁寧な Poderia", "body": "頼みごとは Pode…? で十分ですが、Você poderia…? にするともっとていねいです。例: Você poderia trazer mais uma toalha?（もう1枚いただけますか）。自分がしたいことの許可は Posso…? で聞きます。例: Posso deixar minha mala aqui?" }
+      ],
+      "talk": {
+        "role": "ポウザーダ（宿）の受付の人",
+        "setting": "パラチーのポウザーダに到着した。予約を伝えてチェックインし、朝食や Wi-Fi など、知りたいことを聞く。",
+        "opener": "Boa tarde! Vai fazer o check-in?",
+        "missions": ["予約があると伝える", "朝食について聞く", "Wi-Fiのパスワードを聞く"]
+      }
+    },
+    {
+      "id": "u5l5",
+      "title": "体調が悪いと伝える",
+      "goal": "薬局で症状といつからかを伝え、薬や受診について相談することができる",
+      "scene": "旅先で、朝から頭が痛くて熱っぽい。宿の近くの薬局に行って、薬剤師に相談する。",
+      "partner": "薬剤師（薬局）",
+      "lines": [
+        { "who": "partner", "pt": "Bom dia! Posso ajudar?", "ja": "おはようございます！どうされましたか？" },
+        { "who": "you", "pt": "Bom dia. Estou com dor de cabeça e um pouco de febre.", "ja": "おはようございます。頭が痛くて、少し熱があるんです。" },
+        { "who": "partner", "pt": "Desde quando você está assim?", "ja": "いつからその状態ですか？" },
+        { "who": "you", "pt": "Desde ontem à noite. Também estou com dor de garganta.", "ja": "昨日の夜からです。のども痛いです。" },
+        { "who": "partner", "pt": "Parece gripe. Você tem alergia a algum remédio?", "ja": "風邪のようですね。薬のアレルギーはありますか？" },
+        { "who": "you", "pt": "Não, não tenho.", "ja": "いいえ、ありません。" },
+        { "who": "partner", "pt": "Então pode tomar esse aqui. Um comprimido de oito em oito horas.", "ja": "では、これを飲むといいですよ。8時間おきに1錠です。" },
+        { "who": "you", "pt": "Entendi. Preciso ir ao médico?", "ja": "分かりました。医者に行く必要がありますか？" },
+        { "who": "partner", "pt": "Só se não melhorar em dois dias. Melhoras!", "ja": "2日たってもよくならなければ、ですね。お大事に！" },
+        { "who": "you", "pt": "Muito obrigado!", "ja": "どうもありがとう！" }
+      ],
+      "phrases": [
+        { "id": "u5l5p1", "ja": "頭が痛いです。", "pt": "Estou com dor de cabeça.", "alt": ["Eu estou com dor de cabeça.", "Minha cabeça está doendo."], "note": "estar com ＋症状。dor de ＋体の場所で「〜が痛い」。" },
+        { "id": "u5l5p2", "ja": "少し熱があります。", "pt": "Estou com um pouco de febre.", "alt": ["Eu estou com um pouco de febre.", "Estou com um pouquinho de febre."] },
+        { "id": "u5l5p3", "ja": "のども痛いです。", "pt": "Também estou com dor de garganta.", "alt": ["Estou com dor de garganta também.", "Eu também estou com dor de garganta."] },
+        { "id": "u5l5p4", "ja": "昨日の夜からです。（いつからかと聞かれて）", "pt": "Desde ontem à noite.", "note": "desde は「〜から（ずっと）」。Desde segunda.（月曜から）" },
+        { "id": "u5l5p5", "ja": "医者に行く必要がありますか？", "pt": "Preciso ir ao médico?", "alt": ["Eu preciso ir ao médico?", "Preciso ir no médico?", "Tenho que ir ao médico?"], "note": "precisar ＋動詞の原形で「〜する必要がある」。" },
+        { "id": "u5l5p6", "ja": "せき止めの薬がほしいのですが。", "pt": "Eu queria um remédio para tosse.", "alt": ["Queria um remédio para tosse.", "Eu queria um remédio para a tosse.", "Tem remédio para tosse?"] },
+        { "id": "u5l5p7", "ja": "おなかが痛くて、吐き気がします。", "pt": "Estou com dor de barriga e enjoo.", "alt": ["Estou com dor de barriga e com enjoo.", "Eu estou com dor de barriga e enjoo."] },
+        { "id": "u5l5p8", "ja": "体調がよくありません。", "pt": "Não estou me sentindo bem.", "alt": ["Eu não estou me sentindo bem.", "Não estou bem.", "Estou me sentindo mal."] }
+      ],
+      "tips": [
+        { "title": "estar com ＋症状", "body": "体の不調は「Estou com ＋名詞」で言えます。febre（熱）、tosse（せき）、enjoo（吐き気）。痛みは dor de ＋場所で、dor de cabeça（頭）、dor de garganta（のど）、dor de barriga（おなか）。話すときは estou を縮めて「Tô com…」と言うのがふつうです。" },
+        { "title": "薬局で言われること", "body": "軽い症状なら、まず farmácia（薬局）で相談できます。「Desde quando?（いつから？）」「Tem alergia?（アレルギーは？）」と聞かれ、帰りぎわには「Melhoras!（お大事に）」。抗生物質などは receita（処方せん）がないと買えません。" }
+      ],
+      "talk": {
+        "role": "薬局の薬剤師",
+        "setting": "体調が悪くて近くの薬局に来た。症状といつからかを伝えて、薬をすすめてもらう。",
+        "opener": "Bom dia! Posso ajudar?",
+        "missions": ["症状を伝える", "いつからか答える", "医者に行くべきか聞く"]
+      }
+    },
+    {
+      "id": "u5l6",
+      "title": "困ったときに助けを求める",
+      "goal": "物をなくしたり盗まれたりしたときに、助けを求めて状況を説明することができる",
+      "scene": "ショッピングモールで昼食のあと、携帯電話がないことに気づいた。案内カウンターの係の人に助けを求める。",
+      "partner": "案内係（ショッピングモール）",
+      "lines": [
+        { "who": "you", "pt": "Com licença, você pode me ajudar?", "ja": "すみません、助けてもらえますか？" },
+        { "who": "partner", "pt": "Claro! O que aconteceu?", "ja": "もちろん！どうしましたか？" },
+        { "who": "you", "pt": "Perdi meu celular. Não sei onde deixei.", "ja": "携帯をなくしました。どこに置いてきたか分からないんです。" },
+        { "who": "partner", "pt": "Calma. Você lembra onde usou pela última vez?", "ja": "落ち着いて。最後に使った場所を覚えていますか？" },
+        { "who": "you", "pt": "Na praça de alimentação. Eu almocei lá.", "ja": "フードコートです。そこで昼ごはんを食べました。" },
+        { "who": "partner", "pt": "Vou ligar para lá. Como é o celular?", "ja": "そこに電話してみますね。どんな携帯ですか？" },
+        { "who": "you", "pt": "É preto, com uma capa azul.", "ja": "黒で、青いケースが付いています。" },
+        { "who": "partner", "pt": "Boa notícia! Acharam seu celular no restaurante japonês.", "ja": "いい知らせです！日本食のお店で見つかりましたよ。" },
+        { "who": "you", "pt": "Que alívio! Muito obrigado pela ajuda!", "ja": "ほっとしました！助けてくれて本当にありがとう！" },
+        { "who": "partner", "pt": "De nada! Você só precisa mostrar um documento lá.", "ja": "どういたしまして！向こうで身分証を見せるだけで受け取れますよ。" }
+      ],
+      "phrases": [
+        { "id": "u5l6p1", "ja": "すみません、助けてもらえますか？（係の人に声をかける）", "pt": "Com licença, você pode me ajudar?", "alt": ["Com licença, pode me ajudar?", "Com licença, você poderia me ajudar?", "Com licença, você pode me ajudar, por favor?"] },
+        { "id": "u5l6p2", "ja": "このショッピングモールで携帯電話をなくしました。", "pt": "Perdi meu celular aqui no shopping.", "alt": ["Eu perdi meu celular aqui no shopping.", "Perdi o meu celular aqui no shopping."] },
+        { "id": "u5l6p3", "ja": "どこに置いてきたか分かりません。", "pt": "Não sei onde deixei.", "alt": ["Eu não sei onde deixei.", "Não sei onde eu deixei."] },
+        { "id": "u5l6p4", "ja": "黒で、青いケースが付いています。（なくした携帯の説明）", "pt": "É preto, com uma capa azul.", "alt": ["É preto, com uma capinha azul.", "Ele é preto, com uma capa azul."], "note": "物の見た目は É ＋色、com ＋特徴で言える。Como é?（どんな物？）への答え。" },
+        { "id": "u5l6p5", "ja": "財布を盗まれました。", "pt": "Roubaram minha carteira.", "alt": ["Roubaram a minha carteira."], "note": "主語なしの roubaram（彼らが盗んだ）で「盗まれた」。犯人が分からないときの言い方。" },
+        { "id": "u5l6p6", "ja": "いちばん近い警察署はどこですか？", "pt": "Onde fica a delegacia mais próxima?", "alt": ["Onde é a delegacia mais próxima?"] },
+        { "id": "u5l6p7", "ja": "被害届を出す必要があります。", "pt": "Preciso fazer um boletim de ocorrência.", "alt": ["Eu preciso fazer um boletim de ocorrência.", "Tenho que fazer um boletim de ocorrência."], "note": "boletim de ocorrência は警察に出す届け。会話では B.O.（ベー・オー）と略す。" },
+        { "id": "u5l6p8", "ja": "私の番号に電話をかけてもらえますか？", "pt": "Você pode ligar para o meu número, por favor?", "alt": ["Pode ligar para o meu número, por favor?", "Você pode ligar para o meu número?", "Você pode ligar para meu número, por favor?"] }
+      ],
+      "tips": [
+        { "title": "助けを求める第一声", "body": "困ったら「Com licença, você pode me ajudar?」と声をかけ、何があったかを過去形で伝えます。Perdi…（なくした）、Esqueci…（忘れた）、Roubaram…（盗まれた）。緊急のときは「Socorro!（助けて！）」と叫びます。" },
+        { "title": "盗難にあったら", "body": "盗まれたときは delegacia（警察署）で boletim de ocorrência（被害届。略して B.O.）を作ります。オンラインで出せる州もあります。警察は190番、救急は192番。携帯の回線と銀行のカードは、すぐ止めましょう。" }
+      ],
+      "talk": {
+        "role": "ショッピングモールの案内係",
+        "setting": "モールで携帯電話をなくした。案内カウンターで事情を話し、探すのを手伝ってもらう。",
+        "opener": "Oi, boa tarde! Posso ajudar?",
+        "missions": ["携帯をなくしたと伝える", "最後に使った場所を言う", "携帯の見た目を説明する"]
+      }
+    }
+  ]
+}

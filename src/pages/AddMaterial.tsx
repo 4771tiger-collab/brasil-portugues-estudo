@@ -64,7 +64,7 @@ export default function AddMaterial() {
 
   return (
     <div className="animate-fade-in space-y-4">
-      <Link to="/practice" className="text-sm text-brand-green">‹ 練習に戻る</Link>
+      <Link to="/library" className="text-sm text-brand-green">‹ ライブラリに戻る</Link>
       <div>
         <h1 className="text-xl font-bold text-brand-ink">教材を追加</h1>
         <p className="text-sm text-slate-500">ニュース記事などのポルトガル語を貼り付けて、自分だけのチャンク教材に。</p>

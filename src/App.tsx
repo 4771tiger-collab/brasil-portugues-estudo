@@ -3,7 +3,13 @@ import Layout from "./components/Layout";
 import Home from "./pages/Home";
 import Flashcards from "./pages/Flashcards";
 import Quiz from "./pages/Quiz";
-import Practice from "./pages/Practice";
+import Library from "./pages/Library";
+import CourseHome from "./pages/course/CourseHome";
+import LessonPage from "./pages/course/LessonPage";
+import SpeakReview from "./pages/speak/SpeakReview";
+import Phrases from "./pages/speak/Phrases";
+import TalkHome from "./pages/talk/TalkHome";
+import TalkSession from "./pages/talk/TalkSession";
 import PatternPractice from "./pages/PatternPractice";
 import ConjugationDrill from "./pages/ConjugationDrill";
 import ChunkReading, { ChunkReadingDetail } from "./pages/ChunkReading";
@@ -28,7 +34,16 @@ export default function App() {
           <Route path="/flashcards/:deckId" element={<Flashcards />} />
           <Route path="/quiz" element={<Quiz />} />
           <Route path="/quiz/:deckId" element={<Quiz />} />
-          <Route path="/practice" element={<Practice />} />
+          {/* 話す練習（毎日のメニューの中心）: レッスン・口慣らし・AI との会話・フレーズ帳 */}
+          <Route path="/course" element={<CourseHome />} />
+          <Route path="/course/:id" element={<LessonPage />} />
+          <Route path="/speak/review" element={<SpeakReview />} />
+          <Route path="/phrases" element={<Phrases />} />
+          <Route path="/talk" element={<TalkHome />} />
+          <Route path="/talk/:id" element={<TalkSession />} />
+          {/* ライブラリ（単語帳・クイズ・目的別の練習・設定の入口）。/practice は以前の URL */}
+          <Route path="/library" element={<Library />} />
+          <Route path="/practice" element={<Library />} />
           <Route path="/practice/pattern" element={<PatternPractice />} />
           <Route path="/practice/conjugation" element={<ConjugationDrill />} />
           {/* 練習の詳細は URL で開く（Android の戻る操作で一覧に戻れるように） */}

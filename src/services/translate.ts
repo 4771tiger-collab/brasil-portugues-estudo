@@ -167,3 +167,22 @@ export async function translateUnits(
   const byText = new Map(uniq.map((u, i) => [u, typeof out[i] === "string" ? out[i].trim() : ""]));
   return prepared.map((p) => (p ? byText.get(p) ?? "" : ""));
 }
+
+/**
+ * 日本語 → ポルトガル語の機械翻訳（Google 翻訳の無料エンドポイント）。「言いたいことメモ」で、AI のキーが無いときの
+ * 下書きに使う（利用者がボタンを押したときだけ送る）。機械翻訳は不自然なことがあるので、画面では「要確認」として出す。
+ */
+export async function translateJaToPt(text: string, signal?: AbortSignal): Promise<string> {
+  const q = text.replace(/\s+/g, " ").trim();
+  if (!q) return "";
+  const url = `https://translate.googleapis.com/translate_a/single?client=gtx&dt=t&sl=ja&tl=pt&q=${encodeURIComponent(q)}`;
+  const r = await fetch(url, { signal });
+  if (r.status === 429) throw new TranslateQuotaError("翻訳サービスが混み合っています");
+  if (!r.ok) throw new Error(`翻訳エラー (${r.status})`);
+  const j: unknown = await r.json();
+  if (!Array.isArray(j) || !Array.isArray(j[0])) throw new Error("翻訳の応答形式が不正です");
+  return (j[0] as unknown[])
+    .map((seg) => (Array.isArray(seg) && typeof seg[0] === "string" ? seg[0] : ""))
+    .join("")
+    .trim();
+}

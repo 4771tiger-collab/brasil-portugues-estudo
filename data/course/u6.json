@@ -1,0 +1,241 @@
+{
+  "id": "u6",
+  "title": "カポエイラと仲間",
+  "goal": "カポエイラの教室やホーダで、質問し、感想や意見・気持ちを伝えて仲間と話せる",
+  "lessons": [
+    {
+      "id": "u6l1",
+      "title": "教室の初日にあいさつする",
+      "goal": "初めての教室で先生にあいさつし、自分のカポエイラ歴を伝えることができる",
+      "scene": "サンパウロのカポエイラ教室に初めて参加する日。練習が始まる前に、先生のメストリ・ビラにあいさつする。",
+      "partner": "Mestre Bira（カポエイラの先生）",
+      "lines": [
+        { "who": "you", "pt": "Boa noite, mestre! Posso treinar com vocês hoje?", "ja": "こんばんは、メストリ！今日、一緒に練習してもいいですか？" },
+        { "who": "partner", "pt": "Claro, seja bem-vindo! Qual é o seu nome?", "ja": "もちろん、ようこそ！名前は？" },
+        { "who": "you", "pt": "Meu nome é Yuki. É minha primeira aula aqui.", "ja": "ユキです。ここでのレッスンは今日が初めてです。" },
+        { "who": "partner", "pt": "Prazer, Yuki! Você já treina capoeira?", "ja": "よろしく、ユキ！カポエイラはもうやっているのかい？" },
+        { "who": "you", "pt": "Treino há dois anos. Comecei no Japão.", "ja": "2年前から練習しています。日本で始めました。" },
+        { "who": "partner", "pt": "Que legal! Você já tem corda?", "ja": "いいね！コルダはもう持っている？" },
+        { "who": "you", "pt": "Tenho. Fiz meu batizado no ano passado.", "ja": "はい。去年、バチザードを受けました。" },
+        { "who": "partner", "pt": "Muito bom! A aula começa daqui a pouco.", "ja": "それはいい！レッスンはもうすぐ始まるよ。" },
+        { "who": "you", "pt": "Obrigado, mestre! Onde posso trocar de roupa?", "ja": "ありがとうございます、メストリ！どこで着替えられますか？" },
+        { "who": "partner", "pt": "O vestiário fica ali, no fundo. Bom treino!", "ja": "更衣室はあそこ、奥だよ。いい練習を！" }
+      ],
+      "phrases": [
+        { "id": "u6l1p1", "ja": "ここでレッスンを受けるのは今日が初めてです。", "pt": "É minha primeira aula aqui.", "alt": ["É a minha primeira aula aqui.", "Hoje é minha primeira aula aqui."] },
+        { "id": "u6l1p2", "ja": "2年前からカポエイラを練習しています。", "pt": "Treino capoeira há dois anos.", "alt": ["Eu treino capoeira há dois anos.", "Faz dois anos que treino capoeira.", "Faço capoeira há dois anos."], "note": "há + 期間 で「〜前から（今も）」。há の h は発音しない。" },
+        { "id": "u6l1p3", "ja": "去年、バチザードを受けました。", "pt": "Fiz meu batizado no ano passado.", "alt": ["Fiz o meu batizado no ano passado.", "Fiz meu batizado ano passado."], "note": "batizado は初めてのコルダ（帯）をもらう式。「受ける」は fazer で言う。" },
+        { "id": "u6l1p4", "ja": "今日、みなさんと一緒に練習してもいいですか？", "pt": "Posso treinar com vocês hoje?", "alt": ["Hoje eu posso treinar com vocês?"] },
+        { "id": "u6l1p5", "ja": "どこで着替えられますか？", "pt": "Onde posso trocar de roupa?", "alt": ["Onde eu posso trocar de roupa?", "Onde posso me trocar?"] },
+        { "id": "u6l1p6", "ja": "レッスンは何時に始まりますか？", "pt": "Que horas começa a aula?", "alt": ["A que horas começa a aula?", "A aula começa que horas?"] },
+        { "id": "u6l1p7", "ja": "練習は何曜日にありますか？", "pt": "Quais são os dias de treino?", "alt": ["Quais são os dias de aula?", "Que dias tem treino?"] },
+        { "id": "u6l1p8", "ja": "月謝はいくらですか？", "pt": "Quanto é a mensalidade?", "alt": ["Qual é o valor da mensalidade?", "Quanto custa a mensalidade?"], "note": "mensalidade は毎月払う会費・月謝（mês＝月）。" }
+      ],
+      "tips": [
+        { "title": "há + 期間 で「〜前から続けている」", "body": "今も続いていることは、現在形 + há + 期間 で言います。Treino há dois anos.（2年前から練習している）／ Moro aqui há seis meses.（ここに住んで半年）。há の h は発音せず「ア」。Faz dois anos que treino. と言っても同じ意味です。" },
+        { "title": "バチザードとコルダ、先生の呼び方", "body": "batizado（バチザード）は、初めての corda（コルダ＝帯）をもらう式。帯の色や段階は grupo（グループ）ごとに違います。先生には名前ではなく「mestre」と呼びかけるのが礼儀です。mestre の下の指導者は professor や contramestre と呼ばれます。" }
+      ],
+      "talk": {
+        "role": "カポエイラの先生 Mestre Bira",
+        "setting": "サンパウロの教室に初めて来た日。練習の前に先生にあいさつし、自分のカポエイラ歴を話す。",
+        "opener": "Boa noite! Tudo bem? É sua primeira vez aqui?",
+        "missions": ["初めて来たと伝える", "カポエイラ歴を話す", "着替える場所を聞く"]
+      }
+    },
+    {
+      "id": "u6l2",
+      "title": "練習中に質問する",
+      "goal": "練習中に先生の指示を聞き取り、動きについて質問することができる",
+      "scene": "練習中、メストリ・ビラが蹴りとよける動きの組み合わせを教えている。うまくできないので質問する。",
+      "partner": "Mestre Bira（カポエイラの先生）",
+      "lines": [
+        { "who": "partner", "pt": "Vamos lá, pessoal! Meia-lua de frente e esquiva.", "ja": "さあ、みんな！メイアルーア・ジ・フレンチとエスキーヴァ。" },
+        { "who": "you", "pt": "Mestre, não entendi. Como faz esse movimento?", "ja": "メストリ、分かりませんでした。この動きはどうやるんですか？" },
+        { "who": "partner", "pt": "Olha só. Primeiro a meia-lua, depois desce na esquiva.", "ja": "見てて。まずメイアルーア、それからエスキーヴァで低くなる。" },
+        { "who": "you", "pt": "Pode mostrar de novo, mais devagar?", "ja": "もう一度、もっとゆっくり見せてもらえますか？" },
+        { "who": "partner", "pt": "Claro. Presta atenção na minha perna.", "ja": "もちろん。私の脚をよく見て。" },
+        { "who": "you", "pt": "Ah, entendi. É assim?", "ja": "ああ、分かりました。こうですか？" },
+        { "who": "partner", "pt": "Quase! Desce mais e olha para o parceiro.", "ja": "惜しい！もっと低く、それから相手を見て。" },
+        { "who": "you", "pt": "Assim está certo?", "ja": "これで合っていますか？" },
+        { "who": "partner", "pt": "Isso, muito bom! Agora troca de lado.", "ja": "そう、とてもいい！じゃあ左右を替えて。" },
+        { "who": "you", "pt": "Obrigado, mestre! Vou treinar mais.", "ja": "ありがとうございます、メストリ！もっと練習します。" }
+      ],
+      "phrases": [
+        { "id": "u6l2p1", "ja": "この動きはどうやるんですか？", "pt": "Como faz esse movimento?", "alt": ["Como se faz esse movimento?", "Como eu faço esse movimento?"], "note": "Como faz 〜? は「〜はどうやるの？」という口語の聞き方。" },
+        { "id": "u6l2p2", "ja": "もう一度やって見せてもらえますか？", "pt": "Pode mostrar de novo?", "alt": ["Pode mostrar de novo, por favor?", "Você pode mostrar de novo?", "Pode me mostrar de novo?"] },
+        { "id": "u6l2p3", "ja": "こうですか？（やって見せながら）", "pt": "É assim?", "alt": ["Assim?"], "note": "assim は「こう・このように」。一語で「Assim?」と聞いてもよい。" },
+        { "id": "u6l2p4", "ja": "これで合っていますか？（動きを確かめる）", "pt": "Assim está certo?", "alt": ["Está certo assim?"] },
+        { "id": "u6l2p5", "ja": "もっとゆっくりやってもらえますか？", "pt": "Pode fazer mais devagar?", "alt": ["Pode fazer mais devagar, por favor?", "Você pode fazer mais devagar?"] },
+        { "id": "u6l2p6", "ja": "この動きは何という名前ですか？", "pt": "Como se chama esse movimento?", "alt": ["Como chama esse movimento?", "Qual é o nome desse movimento?"] },
+        { "id": "u6l2p7", "ja": "私はどこが間違っていますか？（動きについて）", "pt": "O que eu estou fazendo errado?", "alt": ["O que estou fazendo errado?"] },
+        { "id": "u6l2p8", "ja": "まだこの動きができません。", "pt": "Ainda não consigo fazer esse movimento.", "alt": ["Eu ainda não consigo fazer esse movimento."], "note": "conseguir + 動詞の原形 で「（やってみて）できる」。私は consigo。" }
+      ],
+      "tips": [
+        { "title": "先生の短い指示を聞き取る", "body": "練習中の指示は短い命令の形です。Desce mais.（もっと低く）、De novo!（もう一回）、Troca de lado.（左右を替えて）、Olha para o parceiro.（相手を見て）、Presta atenção.（よく見て）。「Isso!」は「そう、それ！」というほめ言葉です。" },
+        { "title": "基本の動きの名前", "body": "ginga（ジンガ）は基本のステップ、meia-lua de frente（メイアルーア・ジ・フレンチ）は半月を描く蹴り、esquiva（エスキーヴァ）はよける動き、aú（アウー）は側転。名前が聞き取れなかったら「Como se chama esse movimento?」と聞きましょう。" }
+      ],
+      "talk": {
+        "role": "カポエイラの先生 Mestre Bira",
+        "setting": "練習中、先生が蹴りとよける動きの組み合わせを教えている。分からないところを質問して、動きを直してもらう。",
+        "opener": "Vamos lá! Meia-lua de frente e esquiva. Entendeu?",
+        "missions": ["動きのやり方を質問する", "もう一度見せてもらう", "合っているか確かめる"]
+      }
+    },
+    {
+      "id": "u6l3",
+      "title": "ホーダの感想を言う",
+      "goal": "ホーダのあとで感想を言い、仲間のジョーゴをほめることができる",
+      "scene": "練習の最後のホーダが終わったところ。汗をふきながら、仲間のカミラと感想を言い合う。",
+      "partner": "Camila（カポエイラ仲間）",
+      "lines": [
+        { "who": "partner", "pt": "Nossa, que roda boa hoje!", "ja": "わあ、今日はいいホーダだったね！" },
+        { "who": "you", "pt": "Foi demais! A energia estava muito boa.", "ja": "最高だった！エネルギーがすごくよかった。" },
+        { "who": "partner", "pt": "Estava mesmo! E você jogou muito bem com o mestre.", "ja": "ほんとにね！それに、メストリとのジョーゴ、すごくよかったよ。" },
+        { "who": "you", "pt": "Obrigado! Mas fiquei um pouco nervoso.", "ja": "ありがとう！でも少し緊張しちゃった。" },
+        { "who": "partner", "pt": "Não pareceu! Sua ginga está muito bonita.", "ja": "そうは見えなかったよ！ジンガがすごくきれい。" },
+        { "who": "you", "pt": "Você também jogou muito bem. Adorei o seu aú!", "ja": "カミラもすごくうまくジョーゴしてたね。あのアウー、最高だった！" },
+        { "who": "partner", "pt": "Valeu! Sábado tem roda na praça, você vem?", "ja": "ありがと！土曜日は広場でホーダがあるけど、来る？" },
+        { "who": "you", "pt": "Vou, sim! Quero jogar mais.", "ja": "うん、行く！もっとジョーゴしたい。" },
+        { "who": "partner", "pt": "Então a gente se vê lá. Axé!", "ja": "じゃあ、そこで会おうね。アシェ！" },
+        { "who": "you", "pt": "Axé, Camila! Até sábado!", "ja": "アシェ、カミラ！土曜日にね！" }
+      ],
+      "phrases": [
+        { "id": "u6l3p1", "ja": "なんていいホーダ！（感動を伝える）", "pt": "Que roda boa!", "alt": ["Que roda boa hoje!", "Que roda bonita!"], "note": "Que + 名詞 + 形容詞! で「なんて〜な…！」。roda は女性名詞なので boa。" },
+        { "id": "u6l3p2", "ja": "すごくうまくジョーゴしてたね。", "pt": "Você jogou muito bem.", "alt": ["Você jogou muito bem hoje."], "note": "カポエイラを「する」は jogar。過去形は joguei（私）・jogou（あなた）。" },
+        { "id": "u6l3p3", "ja": "君のジョーゴ、すごく気に入ったよ。", "pt": "Gostei muito do seu jogo.", "alt": ["Eu gostei muito do seu jogo."] },
+        { "id": "u6l3p4", "ja": "少し緊張しちゃった。", "pt": "Fiquei um pouco nervoso.", "alt": ["Fiquei um pouco nervosa."], "note": "ficar + 形容詞 で「〜になる」。女性が言うなら nervosa。" },
+        { "id": "u6l3p5", "ja": "ホーダのエネルギーがすごくよかった。", "pt": "A energia da roda estava muito boa.", "alt": ["A energia estava muito boa.", "A energia da roda foi muito boa."] },
+        { "id": "u6l3p6", "ja": "まだまだ学ぶことがたくさんあるよ。", "pt": "Ainda tenho muito para aprender.", "alt": ["Ainda tenho muito que aprender.", "Ainda tenho muito a aprender."], "note": "ほめられたときの、謙遜した返事に使える。" },
+        { "id": "u6l3p7", "ja": "土曜日はホーダがある？", "pt": "Tem roda no sábado?", "alt": ["Tem roda sábado?", "Vai ter roda no sábado?"] },
+        { "id": "u6l3p8", "ja": "アシェ！土曜日にまたね！", "pt": "Axé! Até sábado!", "note": "Axé はあいさつ・お礼・別れに使える、カポエイラの合言葉。" }
+      ],
+      "tips": [
+        { "title": "カポエイラは jogar（遊ぶ）もの", "body": "カポエイラでは二人のやりとりを jogo（ジョーゴ）、それをすることを jogar と言います（lutar「戦う」ではなく、ゲームや遊びと同じ動詞）。Você jogou muito bem. は「いいジョーゴだったね」。roda（ホーダ）は、楽器と歌の輪の中でジョーゴをする場のことです。" },
+        { "title": "Axé! は万能のひとこと", "body": "axé（アシェ）は「よいエネルギー・力」という意味。カポエイラでは、あいさつ・お礼・別れのことばとして何にでも使えます。「Axé!」と言われたら「Axé!」と返せば大丈夫。ほめられたときは「Valeu!」（ありがとう）も気軽で自然です。" }
+      ],
+      "talk": {
+        "role": "カポエイラ仲間の Camila",
+        "setting": "練習の最後のホーダが終わったところ。お互いのジョーゴをほめ合い、次のホーダの話をする。",
+        "opener": "Nossa, que roda boa hoje! Você gostou?",
+        "missions": ["ホーダの感想を言う", "相手のジョーゴをほめる", "次のホーダについて聞く"]
+      }
+    },
+    {
+      "id": "u6l4",
+      "title": "音楽と歌の話をする",
+      "goal": "楽器や歌について質問し、自分ができること・習いたいことを話すことができる",
+      "scene": "練習が始まる前、カミラがビリンバウの準備をしている。楽器や歌について話す。",
+      "partner": "Camila（カポエイラ仲間）",
+      "lines": [
+        { "who": "you", "pt": "Camila, você toca berimbau?", "ja": "カミラ、ビリンバウは弾ける？" },
+        { "who": "partner", "pt": "Toco! E você, toca algum instrumento?", "ja": "弾けるよ！ユキは何か楽器できる？" },
+        { "who": "you", "pt": "Toco pandeiro, mas ainda não sei tocar berimbau.", "ja": "パンデイロは叩くけど、ビリンバウはまだ弾けないんだ。" },
+        { "who": "partner", "pt": "Eu te ensino depois da aula. E você canta?", "ja": "レッスンのあとで教えてあげる。歌は歌う？" },
+        { "who": "you", "pt": "Só respondo o coro. Não entendo bem as letras.", "ja": "コーラスを返すだけ。歌詞があまり分からなくて。" },
+        { "who": "partner", "pt": "No começo é assim mesmo. Pode me perguntar!", "ja": "最初はみんなそうだよ。何でも聞いて！" },
+        { "who": "you", "pt": "Então, o que significa camará?", "ja": "じゃあ、「カマラ」ってどういう意味？" },
+        { "who": "partner", "pt": "É camarada. Quer dizer amigo, companheiro.", "ja": "「カマラーダ」のこと。友達、仲間っていう意味だよ。" },
+        { "who": "you", "pt": "Ah, entendi! Você me ensina uma música?", "ja": "ああ、なるほど！歌を一曲教えてくれる？" },
+        { "who": "partner", "pt": "Ensino, sim! Eu canto e você responde o coro.", "ja": "いいよ！私が歌うから、ユキはコーラスを返してね。" }
+      ],
+      "phrases": [
+        { "id": "u6l4p1", "ja": "ビリンバウは弾ける？", "pt": "Você toca berimbau?", "alt": ["Você sabe tocar berimbau?"], "note": "楽器を「弾く・叩く」は、どれも tocar。" },
+        { "id": "u6l4p2", "ja": "パンデイロは叩くけど、ビリンバウはまだ弾けない。", "pt": "Toco pandeiro, mas ainda não sei tocar berimbau.", "alt": ["Eu toco pandeiro, mas ainda não sei tocar berimbau."] },
+        { "id": "u6l4p3", "ja": "この歌はどういう意味？", "pt": "O que significa essa música?", "alt": ["O que quer dizer essa música?", "O que essa música significa?"], "note": "música を知りたい言葉に替えれば、単語の意味も聞ける。" },
+        { "id": "u6l4p4", "ja": "歌の歌詞があまり分からないんだ。", "pt": "Não entendo bem as letras das músicas.", "alt": ["Não entendo bem as letras.", "Eu não entendo bem as letras das músicas.", "Não entendo muito bem as letras das músicas."], "note": "letra は「歌詞」。もともとは「文字」の意味。" },
+        { "id": "u6l4p5", "ja": "コーラスを返すだけなんだ。（歌のとき）", "pt": "Só respondo o coro.", "alt": ["Eu só respondo o coro."], "note": "coro は歌い手に全員で返す部分。「返す」は responder。" },
+        { "id": "u6l4p6", "ja": "歌を一曲教えてくれる？", "pt": "Você me ensina uma música?", "alt": ["Pode me ensinar uma música?", "Você pode me ensinar uma música?"] },
+        { "id": "u6l4p7", "ja": "ビリンバウの弾き方を習いたい。", "pt": "Quero aprender a tocar berimbau.", "alt": ["Eu quero aprender a tocar berimbau."] },
+        { "id": "u6l4p8", "ja": "ホーダでパンデイロを叩いてもいい？", "pt": "Posso tocar pandeiro na roda?", "alt": ["Posso tocar o pandeiro na roda?"] }
+      ],
+      "tips": [
+        { "title": "tocar（弾く）と saber tocar（弾ける）", "body": "楽器は tocar。「弾ける」という技能は saber + 動詞の原形 で言います。Sei tocar pandeiro.（パンデイロが叩ける）／ Não sei cantar.（歌えない）。ふだんやっている楽器なら Toco pandeiro. だけでも通じます。" },
+        { "title": "ホーダの楽器と歌のことば", "body": "楽器は berimbau（ビリンバウ＝弓の楽器）、pandeiro（パンデイロ）、atabaque（アタバキ＝太鼓）。歌は música や cantiga、短い掛け合いの歌は corrido（コヒード）。ホーダでは「Bate palma!」（手拍子して）、「Responde o coro!」（コーラスを返して）とよく言われます。" }
+      ],
+      "talk": {
+        "role": "カポエイラ仲間の Camila",
+        "setting": "練習が始まる前、カミラがビリンバウの準備をしている。楽器や歌について聞いたり、教えてもらったりする。",
+        "opener": "Oi, Yuki! Você toca algum instrumento?",
+        "missions": ["自分ができる楽器を伝える", "歌や言葉の意味を聞く", "歌を教えてほしいと頼む"]
+      }
+    },
+    {
+      "id": "u6l5",
+      "title": "意見を言う",
+      "goal": "自分の意見を言い、相手の意見に賛成したり反対したりすることができる",
+      "scene": "練習のあと、カミラとジュースを飲みながらおしゃべりする。カポエイラについて、お互いの考えを話す。",
+      "partner": "Camila（カポエイラ仲間）",
+      "lines": [
+        { "who": "partner", "pt": "Yuki, o que você acha? Capoeira é luta ou dança?", "ja": "ユキ、どう思う？カポエイラって格闘技？それともダンス？" },
+        { "who": "you", "pt": "Acho que é luta e dança ao mesmo tempo.", "ja": "同時に格闘技でもダンスでもあると思う。" },
+        { "who": "partner", "pt": "Concordo! E o que é mais importante para você?", "ja": "賛成！じゃあ、ユキにとっていちばん大事なのは何？" },
+        { "who": "you", "pt": "Na minha opinião, a música é o mais importante.", "ja": "私の意見では、音楽がいちばん大事。" },
+        { "who": "partner", "pt": "Sério? Para mim, o jogo é mais importante.", "ja": "ほんと？私にとってはジョーゴのほうが大事だな。" },
+        { "who": "you", "pt": "Depende. Mas sem música não tem roda, né?", "ja": "場合によるね。でも音楽がなかったらホーダにならないでしょ？" },
+        { "who": "partner", "pt": "É verdade, você tem razão.", "ja": "確かに、ユキの言うとおりだね。" },
+        { "who": "you", "pt": "E o que você acha do treino do mestre?", "ja": "ところで、メストリの練習をどう思う？" },
+        { "who": "partner", "pt": "Acho puxado, mas eu aprendo muito.", "ja": "きついと思うけど、すごく勉強になる。" },
+        { "who": "you", "pt": "Concordo! Eu também acho.", "ja": "賛成！私もそう思う。" }
+      ],
+      "phrases": [
+        { "id": "u6l5p1", "ja": "あなたはどう思う？（意見を聞く）", "pt": "O que você acha?", "alt": ["O que você acha disso?", "E você, o que acha?"] },
+        { "id": "u6l5p2", "ja": "カポエイラは同時に格闘技でもダンスでもあると思う。", "pt": "Acho que capoeira é luta e dança ao mesmo tempo.", "alt": ["Eu acho que capoeira é luta e dança ao mesmo tempo.", "Acho que a capoeira é luta e dança ao mesmo tempo."], "note": "Acho que + 文 で「〜と思う」。ao mesmo tempo は「同時に」。" },
+        { "id": "u6l5p3", "ja": "私の意見では、音楽がいちばん大事。", "pt": "Na minha opinião, a música é o mais importante.", "alt": ["Na minha opinião, o mais importante é a música."], "note": "Para mim, 〜（私にとっては）でも同じように意見を言える。" },
+        { "id": "u6l5p4", "ja": "賛成。私もそう思う。", "pt": "Concordo. Eu também acho.", "alt": ["Concordo. Também acho."] },
+        { "id": "u6l5p5", "ja": "それは人によるね。", "pt": "Depende da pessoa.", "alt": ["Isso depende da pessoa."], "note": "ひとこと「Depende.」（場合による）だけでもよく使う。depender de + 名詞。" },
+        { "id": "u6l5p6", "ja": "確かに。君の言うとおりだ。", "pt": "É verdade. Você tem razão.", "alt": ["É verdade, você tem razão."], "note": "ter razão で「（言っていることが）正しい」。" },
+        { "id": "u6l5p7", "ja": "私はあまり賛成じゃないな。", "pt": "Não concordo muito.", "alt": ["Eu não concordo muito."] },
+        { "id": "u6l5p8", "ja": "メストリの練習をどう思う？", "pt": "O que você acha do treino do mestre?", "note": "achar de 〜 で「〜についてどう思う」。de + o は do になる。" }
+      ],
+      "tips": [
+        { "title": "Acho que 〜 で意見を言う", "body": "「〜と思う」は Acho que + ふつうの文。Acho que é difícil.（難しいと思う）。短く Acho que sim.（そう思う）／ Acho que não.（そうは思わない）とも言えます。相手に聞くときは「O que você acha?」、物事について聞くなら「O que você acha de 〜?」。" },
+        { "title": "賛成・反対をやわらかく伝える", "body": "賛成は Concordo. ／ Também acho. ／ É verdade.。反対のときは、はっきり否定するより Depende.（場合による）、Não concordo muito.（あまり賛成じゃない）とやわらかく言うと感じがよいです。文末の né? は「〜でしょ？」と同意を求める言い方。" }
+      ],
+      "talk": {
+        "role": "カポエイラ仲間の Camila",
+        "setting": "練習のあと、ジュースを飲みながらおしゃべり。カポエイラで何が大事かなど、お互いの意見を言い合う。",
+        "opener": "Yuki, o que você acha? Capoeira é luta ou dança?",
+        "missions": ["自分の意見を言う", "賛成か反対かを伝える", "相手の意見をたずねる"]
+      }
+    },
+    {
+      "id": "u6l6",
+      "title": "気持ちを伝えて別れる",
+      "goal": "さびしさや感謝の気持ちを伝えて、温かく別れのあいさつをすることができる",
+      "scene": "仕事の都合で、来週しばらく日本に帰ることになった。帰る前の最後の練習のあと、カミラにお別れを言う。",
+      "partner": "Camila（カポエイラ仲間）",
+      "lines": [
+        { "who": "you", "pt": "Camila, semana que vem eu volto para o Japão.", "ja": "カミラ、来週、日本に帰るんだ。" },
+        { "who": "partner", "pt": "Ah, não acredito! Vou sentir muita saudade.", "ja": "えっ、うそでしょ！すごくさびしくなるよ。" },
+        { "who": "you", "pt": "Eu também vou sentir saudade de todo mundo.", "ja": "私も、みんなに会えなくなるとさびしくなるよ。" },
+        { "who": "partner", "pt": "Quando você volta para o Brasil?", "ja": "ブラジルにはいつ戻ってくるの？" },
+        { "who": "you", "pt": "Ainda não sei, mas vou voltar, com certeza.", "ja": "まだ分からないけど、必ず戻ってくるよ。" },
+        { "who": "partner", "pt": "Volta logo! A gente te espera na roda.", "ja": "早く戻ってきてね！ホーダで待ってるから。" },
+        { "who": "you", "pt": "Obrigado por tudo. Foi muito bom te conhecer.", "ja": "いろいろありがとう。カミラに会えて本当によかった。" },
+        { "who": "partner", "pt": "Eu também adorei te conhecer. Boa viagem!", "ja": "私もユキに会えてすごくうれしかった。よい旅を！" },
+        { "who": "you", "pt": "Se cuida, Camila! Até a próxima!", "ja": "体に気をつけてね、カミラ！また次のときに！" },
+        { "who": "partner", "pt": "Até a próxima! Axé, camará!", "ja": "また次にね！アシェ、カマラ！" }
+      ],
+      "phrases": [
+        { "id": "u6l6p1", "ja": "来週、日本に帰るんだ。", "pt": "Semana que vem eu volto para o Japão.", "alt": ["Semana que vem volto para o Japão.", "Eu volto para o Japão semana que vem.", "Na semana que vem eu volto para o Japão.", "Vou voltar para o Japão semana que vem."], "note": "近い予定は現在形でも言える。semana que vem は「来週」。" },
+        { "id": "u6l6p2", "ja": "みんなに会えなくなると、さびしくなるよ。", "pt": "Vou sentir saudade de todo mundo.", "alt": ["Vou sentir saudades de todo mundo.", "Vou sentir saudade de vocês.", "Vou sentir falta de todo mundo."], "note": "sentir saudade de 〜 で「〜が恋しい・会えなくてさびしい」。" },
+        { "id": "u6l6p3", "ja": "君に会えて本当によかった。", "pt": "Foi muito bom te conhecer.", "alt": ["Foi muito bom conhecer você."], "note": "te は「君を」。別れ際に言う決まり文句。" },
+        { "id": "u6l6p4", "ja": "いろいろありがとう。（別れ際に）", "pt": "Obrigado por tudo.", "alt": ["Obrigada por tudo."], "note": "por tudo は「すべてのことに」。女性が言うなら obrigada。" },
+        { "id": "u6l6p5", "ja": "体に気をつけてね！また次のときに！", "pt": "Se cuida! Até a próxima!", "note": "Se cuida は「体に気をつけて・元気でね」。親しい相手への別れのことば。" },
+        { "id": "u6l6p6", "ja": "もう恋しくなってきたよ。（別れる前から）", "pt": "Já estou com saudade.", "alt": ["Já estou com saudades."], "note": "estar com saudade で「（今）恋しい・さびしい」。" },
+        { "id": "u6l6p7", "ja": "これからも連絡を取り合おうね。", "pt": "Vamos manter contato.", "alt": ["Vamos manter o contato."] },
+        { "id": "u6l6p8", "ja": "メストリからたくさん学びました。（先生本人に）", "pt": "Aprendi muito com o senhor, mestre.", "alt": ["Aprendi muito com você, mestre."], "note": "先生や年上の男性は o senhor（女性は a senhora）と呼ぶと丁寧。" }
+      ],
+      "tips": [
+        { "title": "saudade は「会えなくてさびしい」", "body": "saudade（サウダージ）は、人や場所が恋しい・会えなくてさびしい気持ち。Vou sentir saudade.（さびしくなる）／ Estou com saudade de você.（君に会いたい）のように、de のあとに恋しい相手や場所を続けます。カポエイラの歌にもよく出てくる言葉です。" },
+        { "title": "別れ際のひとこと", "body": "Se cuida!（体に気をつけて）、Até a próxima!（また次のときに）、Boa viagem!（よい旅を）。カポエイラ仲間には最後に「Axé!」を添えると気持ちが伝わります。camará は歌によく出てくる「仲間」という呼びかけ。別れ際にはハグ（abraço）をするのがふつうです。" }
+      ],
+      "talk": {
+        "role": "カポエイラ仲間の Camila",
+        "setting": "来週日本に帰るユキの、最後の練習のあと。さびしい気持ちと感謝を伝え、また会う約束をして別れる。",
+        "opener": "Yuki, é verdade que você vai voltar para o Japão?",
+        "missions": ["日本に帰ると伝える", "さびしさと感謝を伝える", "再会を約束して別れる"]
+      }
+    }
+  ]
+}

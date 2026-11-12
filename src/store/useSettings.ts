@@ -35,6 +35,10 @@ const DEFAULTS: Settings = {
   // AI（先生・歌詞の AI 翻訳）のサービスと Gemini のモデル。既定は Gemini（無料枠）。キーは useSecrets
   aiProvider: "gemini",
   geminiModel: "gemini-3.8-flash",
+  // 話す練習（口慣らしの1日の上限・AI との会話の読み上げ）
+  speakDailyLimit: 30,
+  talkAutoSpeak: true,
+  talkLevel: -1,
 };
 
 export const useSettings = create<SettingsState>()(

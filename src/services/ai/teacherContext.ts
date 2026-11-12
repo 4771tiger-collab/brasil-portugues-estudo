@@ -176,7 +176,12 @@ export function screenNameFor(pathname: string, songTitle?: string | null): stri
   if (p.startsWith("/practice/shadowing")) return "シャドーイング";
   if (p.startsWith("/practice/dictation")) return "ディクテーション";
   if (p.startsWith("/practice/add")) return "教材を追加";
-  if (p.startsWith("/practice")) return "練習";
+  if (p.startsWith("/practice") || p.startsWith("/library")) return "ライブラリ";
+  if (p.startsWith("/course/")) return "レッスン";
+  if (p.startsWith("/course")) return "レッスンの一覧";
+  if (p.startsWith("/talk")) return "会話（AI と話す）";
+  if (p.startsWith("/speak")) return "口慣らし";
+  if (p.startsWith("/phrases")) return "フレーズ帳";
   if (p.startsWith("/music/")) return songTitle ? `音楽「${songTitle}」` : "音楽（曲の画面）";
   if (p.startsWith("/music")) return "音楽";
   if (p.startsWith("/settings")) return "設定";
