@@ -205,7 +205,7 @@
         { "who": "you", "pt": "Desculpa, Lucas! Vou me atrasar um pouco.", "ja": "ごめん、ルーカス！少し遅れそう。" },
         { "who": "partner", "pt": "Não tem problema. Você ainda está no trabalho?", "ja": "大丈夫だよ。まだ会社？" },
         { "who": "you", "pt": "Estou. Tenho que terminar uma coisa aqui.", "ja": "うん。ここで1つ終わらせなきゃいけないことがあって。" },
-        { "who": "partner", "pt": "Tranquilo. Que horas você vai chegar?", "ja": "了解。何時ごろ着きそう？" },
+        { "who": "partner", "pt": "Tranquilo. Que horas você vai chegar?", "ja": "大丈夫だよ。何時ごろ着きそう？" },
         { "who": "you", "pt": "Vou chegar em uns vinte minutos.", "ja": "20分くらいで着くよ。" },
         { "who": "partner", "pt": "Beleza! A gente guarda um lugar para você.", "ja": "オッケー！席を取っておくよ。" },
         { "who": "you", "pt": "Obrigado! E desculpa o atraso.", "ja": "ありがとう！遅れてごめんね。" },
@@ -215,12 +215,12 @@
       "phrases": [
         { "id": "u3l6p1", "ja": "（これから遅れると伝える）ごめん、少し遅れそう。", "pt": "Desculpa, vou me atrasar um pouco.", "alt": ["Desculpa, vou atrasar um pouco.", "Desculpe, vou me atrasar um pouco."] },
         { "id": "u3l6p2", "ja": "（遅れて着いたときに）遅れてごめん！", "pt": "Desculpa o atraso!", "alt": ["Desculpa pelo atraso!", "Desculpe o atraso!"], "note": "atraso は「遅れ」。着いたときの最初のひとこと。" },
-        { "id": "u3l6p3", "ja": "20分くらいで着くよ。", "pt": "Vou chegar em uns vinte minutos.", "alt": ["Chego em uns vinte minutos.", "Vou chegar em vinte minutos.", "Vou chegar daqui a uns vinte minutos."], "note": "uns + 数で「〜くらい」。em … minutos は「〜分後に」。" },
+        { "id": "u3l6p3", "ja": "20分くらいで着くよ。", "pt": "Vou chegar em uns vinte minutos.", "alt": ["Chego em uns vinte minutos.", "Vou chegar daqui a uns vinte minutos."], "note": "uns + 数で「〜くらい」。em … minutos は「〜分後に」。" },
         { "id": "u3l6p4", "ja": "（今まさに遅れていて）ごめん、遅刻してるんだ！", "pt": "Desculpa, estou atrasado!", "alt": ["Desculpa, estou atrasada!", "Desculpe, estou atrasado!", "Desculpe, estou atrasada!"], "note": "女性が言うなら atrasada。" },
         { "id": "u3l6p5", "ja": "渋滞がひどいんだ。", "pt": "O trânsito está horrível.", "alt": ["O trânsito está péssimo.", "O trânsito está terrível."] },
         { "id": "u3l6p6", "ja": "（遅れていて）もう出るところだよ！", "pt": "Já estou saindo!", "alt": ["Estou saindo agora!"] },
         { "id": "u3l6p7", "ja": "（遅れると言われて）大丈夫だよ。待ってるね。", "pt": "Não tem problema. Eu te espero.", "alt": ["Não tem problema. Te espero.", "Sem problema. Eu te espero."] },
-        { "id": "u3l6p8", "ja": "（待っているみんなに）先に始めてていいよ。", "pt": "Podem começar sem mim.", "alt": ["Pode começar sem mim.", "Podem ir começando sem mim."], "note": "相手が1人なら Pode começar sem mim.。sem mim は「私なしで」。" }
+        { "id": "u3l6p8", "ja": "（待っているみんなに）先に始めてていいよ。", "pt": "Podem começar sem mim.", "alt": ["Podem ir começando sem mim."], "note": "相手が1人なら Pode começar sem mim. と言う。sem mim は「私なしで」。" }
       ],
       "tips": [
         { "title": "遅れる前・遅れている・着いたとき", "body": "遅れそうなら Vou me atrasar um pouco.（少し遅れる）。今遅れているなら Estou atrasado.（女性は atrasada）。着いたら Desculpa o atraso!（遅れてごめん）。理由は O trânsito está horrível.（渋滞がひどい）のように一言で十分です。" },

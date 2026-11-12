@@ -71,7 +71,7 @@
         { "id": "u2l2p8", "ja": "ここに住んで長いんですか？", "pt": "Faz tempo que você mora aqui?", "alt": ["Você mora aqui faz tempo?", "Você mora aqui há muito tempo?"] }
       ],
       "tips": [
-        { "title": "em と no / na の使い分け", "body": "都市名はふつう冠詞なしで em: Moro em São Paulo. ／ em Tóquio。国名は冠詞が付くので no Japão ／ no Brasil（em + o）。リオは例外で no Rio。perto de も同じように、perto do metrô（de + o）、perto da estação（de + a）と形が変わります。" },
+        { "title": "em と no / na の使い分け", "body": "都市名はふつう冠詞なしで em: Moro em São Paulo. ／ em Tóquio。リオは例外で no Rio。国名は冠詞が付くものが多く、no Japão ／ no Brasil（em + o）。ただし Portugal は em Portugal。perto de も同じように、perto do metrô（de + o）、perto da estação（de + a）と形が変わります。" },
         { "title": "Faz + 期間 + que …", "body": "「〜して…になる」は Faz + 期間 + que + 現在形。Faz seis meses que moro aqui.（ここに住んで6か月）。今も続いていることなので、過去形にしないのがコツ。相手には Faz tempo que você mora aqui?（ここは長いの？）と聞けます。" }
       ],
       "talk": {
@@ -107,7 +107,7 @@
         { "id": "u2l3p5", "ja": "お子さんはいますか？", "pt": "Você tem filhos?" },
         { "id": "u2l3p6", "ja": "子どもはいません。", "pt": "Não tenho filhos.", "alt": ["Eu não tenho filhos."] },
         { "id": "u2l3p7", "ja": "彼女は何歳ですか？", "pt": "Quantos anos ela tem?", "note": "年齢も ter で言う。答えは Ela tem vinte anos. のように。" },
-        { "id": "u2l3p8", "ja": "姉とは毎週話します。", "pt": "Falo com minha irmã toda semana.", "alt": ["Falo com a minha irmã toda semana.", "Eu falo com minha irmã toda semana."] }
+        { "id": "u2l3p8", "ja": "姉とは毎週話します。", "pt": "Falo com minha irmã toda semana.", "alt": ["Falo com a minha irmã toda semana.", "Eu falo com minha irmã toda semana.", "Falo com minha irmã mais velha toda semana."] }
       ],
       "tips": [
         { "title": "家族も年齢も ter で言う", "body": "「〜がいる」「〜歳だ」はどちらも ter（持つ）を使います。Tenho uma irmã.（姉がいる）／ Você tem filhos?（子どもはいる？）／ Ela tem vinte anos.（彼女は20歳）。形は eu tenho、você・ele・ela tem、eles têm。" },
@@ -148,7 +148,7 @@
         { "id": "u2l4p8", "ja": "料理するのは好きですか？", "pt": "Você gosta de cozinhar?" }
       ],
       "tips": [
-        { "title": "gostar には必ず de", "body": "「〜が好き」は gostar de + 名詞／動詞の原形。Gosto de samba. ／ Gosto de viajar. 「この〜」「あの〜」と特定のものを言うときは de + o → do、de + a → da になります。例: Gosto do café daqui. ／ Gosto da sua música." },
+        { "title": "gostar には必ず de", "body": "「〜が好き」は gostar de + 名詞／動詞の原形。Gosto de samba. ／ Gosto de viajar. 「ここのコーヒー」「あなたの音楽」のように特定のものを言うときは、de + o → do、de + a → da になります。例: Gosto do café daqui. ／ Gosto da sua música." },
         { "title": "好きの強さを言い分ける", "body": "大好き: Adoro samba.（de なし）／ 好き: Gosto de samba. ／ とても好き: Gosto muito de samba. ／ あまり好きじゃない: Não gosto muito de samba. 聞かれて答えるだけなら Gosto. ／ Adoro! ／ Não gosto muito. と短く言えます。" }
       ],
       "talk": {
@@ -183,7 +183,7 @@
         { "id": "u2l5p4", "ja": "週に2回練習します。", "pt": "Treino duas vezes por semana.", "alt": ["Eu treino duas vezes por semana."], "note": "〜 vezes por semana で「週に〜回」。1回は uma vez。" },
         { "id": "u2l5p5", "ja": "ふだんは9時から6時まで働きます。", "pt": "Normalmente trabalho das nove às seis.", "alt": ["Normalmente eu trabalho das nove às seis.", "Geralmente trabalho das nove às seis."], "note": "das … às … で「〜時から…時まで」。" },
         { "id": "u2l5p6", "ja": "いつも遅く寝ます。", "pt": "Sempre durmo tarde.", "alt": ["Eu sempre durmo tarde.", "Sempre vou dormir tarde."], "note": "dormir は eu durmo（o が u に変わる）。você は dorme。" },
-        { "id": "u2l5p7", "ja": "ときどき同僚と昼ごはんを食べます。", "pt": "Às vezes almoço com meus colegas.", "alt": ["Às vezes almoço com os meus colegas.", "Às vezes eu almoço com meus colegas."], "note": "almoçar は1語で「昼ごはんを食べる」。夕食は jantar。" },
+        { "id": "u2l5p7", "ja": "ときどき同僚たちと昼ごはんを食べます。", "pt": "Às vezes almoço com meus colegas.", "alt": ["Às vezes almoço com os meus colegas.", "Às vezes eu almoço com meus colegas."], "note": "almoçar は1語で「昼ごはんを食べる」。夕食は jantar。" },
         { "id": "u2l5p8", "ja": "仕事のあとは何をしますか？", "pt": "O que você faz depois do trabalho?", "note": "O que você faz? だけなら「お仕事は？」の意味になる。" }
       ],
       "tips": [

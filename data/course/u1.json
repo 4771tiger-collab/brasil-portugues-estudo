@@ -91,7 +91,7 @@
         { "who": "you", "pt": "O que significa feriado?", "ja": "「フェリアード」ってどういう意味？" },
         { "who": "partner", "pt": "É um dia sem trabalho e sem aula.", "ja": "仕事も授業もない日のことだよ。" },
         { "who": "you", "pt": "Ah, entendi! Pode escrever aqui, por favor?", "ja": "ああ、分かった！ここに書いてくれる？" },
-        { "who": "partner", "pt": "Claro! Escrevo aqui no seu celular.", "ja": "もちろん！ユキのスマホに書くね。" },
+        { "who": "partner", "pt": "Claro! Vou escrever aqui no seu celular.", "ja": "もちろん！ユキのスマホに書くね。" },
         { "who": "you", "pt": "Muito obrigado, Camila!", "ja": "どうもありがとう、カミラ！" }
       ],
       "phrases": [
@@ -210,7 +210,7 @@
         { "who": "partner", "pt": "De nada! Tenha um bom dia!", "ja": "どういたしまして！よい一日を！" }
       ],
       "phrases": [
-        { "id": "u1l6p1", "ja": "すみません、地下鉄の駅はどこですか？", "pt": "Com licença, onde fica o metrô?", "alt": ["Com licença, onde é o metrô?", "Com licença, onde fica a estação de metrô?", "Por favor, onde fica o metrô?"], "note": "fica は「〜にある」。駅は estação だが、o metrô だけで通じる。" },
+        { "id": "u1l6p1", "ja": "すみません、地下鉄の駅はどこですか？（通りがかりの人に声をかける）", "pt": "Com licença, onde fica o metrô?", "alt": ["Com licença, onde é o metrô?", "Com licença, onde fica a estação de metrô?", "Por favor, onde fica o metrô?"], "note": "fica は「〜にある」。駅は estação だが、o metrô だけで通じる。" },
         { "id": "u1l6p2", "ja": "ここから遠いですか？", "pt": "É longe daqui?", "alt": ["Fica longe daqui?", "É longe?"] },
         { "id": "u1l6p3", "ja": "歩いて行けますか？", "pt": "Dá para ir a pé?", "alt": ["Dá para ir andando?", "Posso ir a pé?"], "note": "Dá para + 動詞? は「〜できますか」の決まり文句。a pé は「歩いて」。" },
         { "id": "u1l6p4", "ja": "右ですか、左ですか？", "pt": "É à direita ou à esquerda?", "alt": ["À direita ou à esquerda?", "Fica à direita ou à esquerda?"], "note": "direita が右、esquerda が左。à は「ア」と短く1音で言う。" },
