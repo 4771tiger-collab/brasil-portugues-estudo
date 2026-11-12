@@ -1,0 +1,1 @@
+import{A as o}from"./index-B3d3beIe.js";import"./index-B2U2oI8N.js";import"./dict-Co0TIyyg.js";function n(e){return new Proxy({},{get(i,t){if(typeof t!="symbol")throw new o(`\`${e}.${t}\` is not available in this environment; it needs a Node.js-compatible runtime`)}})}const m=n("fs"),f=n("path");export{m as fs,f as path};

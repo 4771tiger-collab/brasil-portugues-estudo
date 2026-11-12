@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- ポル語学習帳 / A「会話 × ブラジル」: 金の吹き出し + 青い天球と白い帯。
+       maskable: 全面塗りの背景、主要図形は中央80%円（r=204.8）の内側 -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#19a85e"/>
+      <stop offset="1" stop-color="#064a2a"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="160" cy="96" r="380" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.16"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="gold" x1="0" y1="116" x2="0" y2="396" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffe17c"/>
+      <stop offset="1" stop-color="#f4b62a"/>
+    </linearGradient>
+    <linearGradient id="goldEdge" x1="0" y1="116" x2="0" y2="396" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#f0b43a"/>
+      <stop offset="1" stop-color="#d9900f"/>
+    </linearGradient>
+    <radialGradient id="blue" cx="226" cy="190" r="130" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#4f95ff"/>
+      <stop offset="0.55" stop-color="#2d6cdf"/>
+      <stop offset="1" stop-color="#16388c"/>
+    </radialGradient>
+    <path id="bubble" d="M196 116H316A88 88 0 0 1 404 204V248A88 88 0 0 1 316 336H238C224 364 190 388 144 396C160 380 164 356 157.3 327A88 88 0 0 1 108 248V204A88 88 0 0 1 196 116Z"/>
+    <clipPath id="bubbleClip"><use href="#bubble"/></clipPath>
+    <clipPath id="sphere"><circle cx="256" cy="226" r="74"/></clipPath>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="150%">
+      <feGaussianBlur stdDeviation="12"/>
+    </filter>
+  </defs>
+  <rect width="512" height="512" fill="url(#bg)"/>
+  <rect width="512" height="512" fill="url(#glow)"/>
+  <g transform="translate(256 256) scale(1.07) translate(-256 -256)">
+    <!-- 柔らかい影 -->
+    <use href="#bubble" transform="translate(0 14)" fill="#032a17" opacity="0.4" filter="url(#shadow)"/>
+    <!-- 吹き出し（下縁に濃い金のリップで厚みを出す） -->
+    <g clip-path="url(#bubbleClip)">
+      <rect x="100" y="100" width="320" height="310" fill="url(#goldEdge)"/>
+      <use href="#bubble" transform="translate(0 -7)" fill="url(#gold)"/>
+    </g>
+    <!-- 天球（台座の輪 + 球 + 白い帯） -->
+    <circle cx="256" cy="228" r="78" fill="#e9a21c" opacity="0.55"/>
+    <circle cx="256" cy="226" r="74" fill="url(#blue)"/>
+    <path clip-path="url(#sphere)" d="M168 244Q252 182 348 224" fill="none" stroke="#fffdf5" stroke-width="15" stroke-linecap="round"/>
+  </g>
+</svg>
