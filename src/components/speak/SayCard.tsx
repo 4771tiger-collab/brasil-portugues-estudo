@@ -81,8 +81,10 @@ export default function SayCard({ item, card, onRate, hideIntervals = false }: P
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       const t = e.target as HTMLElement | null;
       if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
+      // ボタンにフォーカスがあるときの Space / Enter は、そのボタンの操作（ヒントなど）に任せる
+      const onButton = !!t && (t.tagName === "BUTTON" || t.tagName === "A");
       if (!revealedRef.current) {
-        if (e.key === " " || e.key === "Enter") {
+        if ((e.key === " " || e.key === "Enter") && !onButton) {
           e.preventDefault();
           reveal();
         }
