@@ -9,6 +9,7 @@ import { useActivityTimer, useVisibleStopwatch } from "../../hooks/useActivityTi
 import { useOnline } from "../../hooks/useOnline";
 import { AiError, aiModelLabel } from "../../services/ai";
 import { audio } from "../../services/audio";
+import { speechInput } from "../../services/speechInput";
 import { translateText } from "../../services/translate";
 import {
   FREE_TOPICS,
@@ -210,6 +211,13 @@ function Conversation({ sc, onAgain }: { sc: TalkScenario; onAgain: () => void }
   const turnsRef = useRef(turns);
   turnsRef.current = turns;
   const endRef = useRef<HTMLDivElement>(null);
+  /** 画面の下に固定した入力欄の高さ（px）。会話の下の余白と、自動スクロールの止まる位置に使う（入力欄の陰に返事を隠さない） */
+  const composerRef = useRef<HTMLDivElement>(null);
+  const [composerH, setComposerH] = useState(200);
+  /** 入力欄の文が 🎤 で聞き取ったものか（ヒント・「なんて言う？」から入れた文と、案内を分ける） */
+  const [draftFromMic, setDraftFromMic] = useState(false);
+  /** 見出しの場面の説明を全部出すか（既定は3行まで） */
+  const [showSetting, setShowSetting] = useState(false);
   const lap = useVisibleStopwatch();
   const loggedRef = useRef(false);
   const myTurns = turns.filter((t) => t.who === "me").length;
@@ -275,15 +283,30 @@ function Conversation({ sc, onAgain }: { sc: TalkScenario; onAgain: () => void }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // 入力欄の高さを測る（ヒントや入力欄が開くと伸びる）
+  useEffect(() => {
+    const el = composerRef.current;
+    if (!el) return;
+    const apply = () => setComposerH(el.offsetHeight);
+    apply();
+    const ro = new ResizeObserver(apply);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [finished]);
+
+  // 新しい発言・返事・エラーが出たら、入力欄のすぐ上まで送る（scroll-margin-bottom ＝ 入力欄の高さ）
   useEffect(() => {
     endRef.current?.scrollIntoView({ block: "end", behavior: "smooth" });
-  }, [turns.length, busy, error, panel, draft === ""]);
+  }, [turns.length, busy, error, ended, panel, draft === "", composerH]);
 
   function send(text = draft) {
     const t = text.replace(/\s+/g, " ").trim().slice(0, TALK_INPUT_MAX);
     if (!t || busy) return;
     audio.cancel();
+    // 送ったあとは聞き取りを止める（相手の返事の読み上げを、次の発言として拾わない）
+    speechInput.cancel();
     setDraft("");
+    setDraftFromMic(false);
     setPanel(null);
     // 返事をもらえなかった前の発言（エラーのあと、再試行せずに言い直したとき）は「フィードバックなし」にして、待ちの表示を残さない
     const earlier = turnsRef.current.map((x) => (x.who === "me" && x.feedback === undefined ? { ...x, feedback: null } : x));
@@ -306,16 +329,13 @@ function Conversation({ sc, onAgain }: { sc: TalkScenario; onAgain: () => void }
 
   const lastAi = [...turns].reverse().find((t) => t.who === "ai");
   return (
-    <div className="mx-auto max-w-xl space-y-3 pb-64">
+    <div className="mx-auto max-w-xl space-y-3" style={{ paddingBottom: composerH }}>
       {/* 見出し: 場面・ミッション */}
       <div className="flex items-start gap-1">
         <button type="button" onClick={back} aria-label="会話をやめる" className="-ml-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-slate-500 active:scale-90">
           <X size={22} aria-hidden />
         </button>
-        <div className="min-w-0 flex-1 pt-1">
-          <h1 className="truncate text-base font-bold text-brand-ink">{sc.title}</h1>
-          <p className="text-xs leading-relaxed text-slate-500">{sc.setting}</p>
-        </div>
+        <h1 className="line-clamp-2 min-w-0 flex-1 self-center text-base font-bold leading-snug text-brand-ink">{sc.title}</h1>
         <button
           type="button"
           onClick={() => setHideText((v) => !v)}
@@ -330,6 +350,10 @@ function Conversation({ sc, onAgain }: { sc: TalkScenario; onAgain: () => void }
           終える
         </button>
       </div>
+      {/* 場面の説明は見出しの下に横幅いっぱいで（長い場面は3行まで。タップで全部） */}
+      <button type="button" onClick={() => setShowSetting((v) => !v)} className={`block w-full text-left text-xs leading-relaxed text-slate-500 ${showSetting ? "" : "line-clamp-3"}`}>
+        {sc.setting}
+      </button>
       <ul className="flex flex-wrap gap-1.5" aria-label="この会話でやること">
         {sc.missions.map((m, i) => (
           <li key={m} className={`chip gap-1 px-2.5 py-1 ${done.includes(i) ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>
@@ -343,7 +367,7 @@ function Conversation({ sc, onAgain }: { sc: TalkScenario; onAgain: () => void }
       <div className="space-y-3" aria-live="polite">
         {turns.map((t, i) =>
           t.who === "ai" ? (
-            <AiBubble key={i} turn={t} role={sc.role} hide={hideText} onJa={() => translateText(t.pt).catch(() => "")} />
+            <AiBubble key={i} turn={t} role={sc.id === "custom" ? "相手" : sc.role} hide={hideText} onJa={() => translateText(t.pt).catch(() => "")} />
           ) : (
             <div key={i} className="flex justify-end">
               <div className="max-w-[88%]">
@@ -386,14 +410,14 @@ function Conversation({ sc, onAgain }: { sc: TalkScenario; onAgain: () => void }
             <p className="text-xs text-slate-500">このまま話を続けることもできます。</p>
           </div>
         )}
-        <div ref={endRef} />
+        <div ref={endRef} style={{ scrollMarginBottom: composerH + 12 }} />
       </div>
 
       {/* 入力（画面の下に固定） */}
-      <div className="fixed inset-x-0 bottom-0 z-20 mx-auto max-w-2xl border-t border-slate-200 bg-white/95 px-3 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-2 backdrop-blur">
+      <div ref={composerRef} className="fixed inset-x-0 bottom-0 z-20 mx-auto max-w-2xl border-t border-slate-200 bg-white/95 px-3 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-2 backdrop-blur">
         <div className="mx-auto max-w-xl space-y-2">
           {panel === "hints" && (
-            <div className="space-y-1.5 rounded-xl bg-amber-50 p-2.5">
+            <div className="max-h-[36vh] space-y-1.5 overflow-y-auto rounded-xl bg-amber-50 p-2.5">
               <p className="text-[11px] font-bold text-amber-700">たとえば、こう言えます（タップで聞く → 自分の声で言ってみよう）</p>
               {hints.length ? (
                 hints.map((h) => (
@@ -404,7 +428,14 @@ function Conversation({ sc, onAgain }: { sc: TalkScenario; onAgain: () => void }
                       </span>
                       <span className="block text-xs text-slate-500">{h.ja}</span>
                     </button>
-                    <button type="button" onClick={() => setDraft(h.pt)} className="h-11 shrink-0 rounded-lg px-2 text-xs font-bold text-brand-blue">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDraft(h.pt);
+                        setDraftFromMic(false);
+                      }}
+                      className="h-11 shrink-0 rounded-lg px-2 text-xs font-bold text-brand-blue"
+                    >
                       入力
                     </button>
                   </div>
@@ -414,7 +445,15 @@ function Conversation({ sc, onAgain }: { sc: TalkScenario; onAgain: () => void }
               )}
             </div>
           )}
-          {panel === "say" && provider && <HowToSayPanel provider={provider} context={`${sc.setting}／相手の直前のセリフ: ${lastAi?.pt ?? ""}`} onUse={(pt) => setDraft(pt)} />}
+          {panel === "say" && provider && (
+            <HowToSayPanel
+              provider={provider} context={`${sc.setting}／相手の直前のセリフ: ${lastAi?.pt ?? ""}`} 
+              onUse={(pt) => {
+                setDraft(pt);
+                setDraftFromMic(false);
+              }}
+            />
+          )}
 
           {draft || typing ? (
             <div className="space-y-1.5">
@@ -426,13 +465,23 @@ function Conversation({ sc, onAgain }: { sc: TalkScenario; onAgain: () => void }
                   <Send size={20} aria-hidden />
                 </button>
               </div>
-              {!typing && <p className="text-[11px] text-slate-400">聞き取った文です。違っていたら直すか、🎤 で言い直してください。</p>}
+              {!typing && (
+                <p className="text-[11px] text-slate-400">
+                  {draftFromMic ? "聞き取った文です。違っていたら直すか、🎤 で言い直してください。" : "入れた文です。声に出して言ってから送ろう（🎤 で自分の声で言い直しても OK）。"}
+                </p>
+              )}
             </div>
           ) : null}
 
           {/* 🎤（聞き取り中の文字・マイクの案内・エラーをボタンの下に出すので、横幅いっぱいに置く） */}
           {micSupported() && !typing && (
-            <MicButton size="md" disabled={busy} timeoutMs={TALK_LISTEN_MS} onResult={(r) => setDraft(r.transcripts[0] ?? "")} hint={draft ? "言い直すときは、もう一度押す" : "押して話す（ポルトガル語で）"} />
+            <MicButton size="md" disabled={busy} timeoutMs={TALK_LISTEN_MS} 
+              onResult={(r) => {
+                setDraft(r.transcripts[0] ?? "");
+                setDraftFromMic(true);
+              }}
+              hint={draft && draftFromMic ? "言い直すときは、もう一度押す" : "押して話す（ポルトガル語で）"}
+            />
           )}
 
           <div className="flex items-center gap-2">
@@ -507,7 +556,7 @@ export function HowToSayPanel({
   }
 
   return (
-    <div className="space-y-2 rounded-xl bg-blue-50 p-2.5">
+    <div className="max-h-[36vh] space-y-2 overflow-y-auto rounded-xl bg-blue-50 p-2.5">
       <p className="text-[11px] font-bold text-blue-700">言いたいことを日本語で（AI がポルトガル語にします）</p>
       <div className="flex gap-2">
         <input

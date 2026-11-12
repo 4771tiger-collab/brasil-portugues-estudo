@@ -113,7 +113,7 @@ export const useSpeak = create<SpeakState>()(
 
       addPhrase: (p) => {
         const s = get();
-        const phrase = readUserPhrase({ ...p, id: newPhraseId(), createdAt: todayStr() });
+        const phrase = readUserPhrase({ ...p, id: newPhraseId(), createdAt: todayStr(), updatedAt: Date.now() });
         if (!phrase) return null;
         // 同じポルトガル語の文がもうあれば、足さずにその文の ID を返す（会話の途中とふりかえりで2回足さない）
         const same = s.phrases.find((x) => samePhraseText(x.pt, phrase.pt));
@@ -125,9 +125,13 @@ export const useSpeak = create<SpeakState>()(
       },
 
       updatePhrase: (id, patch) =>
-        set((s) => ({
-          phrases: s.phrases.map((p) => (p.id === id ? readUserPhrase({ ...p, ...patch }) ?? p : p)),
-        })),
+        set((s) => {
+          const cur = s.phrases.find((p) => p.id === id);
+          const next = cur ? readUserPhrase({ ...cur, ...patch }) : null;
+          // 変わっていなければ何もしない（直した時刻を進めない。統合インポートは、あとで直した方を残す）
+          if (!cur || !next || (next.ja === cur.ja && next.pt === cur.pt && (next.note ?? "") === (cur.note ?? ""))) return s;
+          return { phrases: s.phrases.map((p) => (p.id === id ? { ...next, updatedAt: Date.now() } : p)) };
+        }),
 
       removePhrase: (id) =>
         set((s) => {

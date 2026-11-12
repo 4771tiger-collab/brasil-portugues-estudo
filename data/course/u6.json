@@ -7,7 +7,7 @@
       "id": "u6l1",
       "title": "教室の初日にあいさつする",
       "goal": "初めての教室で先生にあいさつし、自分のカポエイラ歴を伝えることができる",
-      "scene": "サンパウロのカポエイラ教室に初めて参加する日。練習が始まる前に、先生のメストリ・ビラにあいさつする。",
+      "scene": "メストリ・ビラが教えるカポエイラ教室に初めて参加する日。練習が始まる前に、メストリにあいさつする。",
       "partner": "Mestre Bira（カポエイラの先生）",
       "lines": [
         { "who": "you", "pt": "Boa noite, mestre! Posso treinar com vocês hoje?", "ja": "こんばんは、メストリ！今日、一緒に練習してもいいですか？" },
@@ -23,7 +23,7 @@
       ],
       "phrases": [
         { "id": "u6l1p1", "ja": "ここでレッスンを受けるのは今日が初めてです。", "pt": "É minha primeira aula aqui.", "alt": ["É a minha primeira aula aqui.", "Hoje é minha primeira aula aqui."] },
-        { "id": "u6l1p2", "ja": "2年前からカポエイラを練習しています。", "pt": "Treino capoeira há dois anos.", "alt": ["Eu treino capoeira há dois anos.", "Faz dois anos que treino capoeira.", "Faço capoeira há dois anos."], "note": "há + 期間 で「〜前から（今も）」。há の h は発音しない。" },
+        { "id": "u6l1p2", "ja": "2年前からカポエイラを練習しています。", "pt": "Treino capoeira há dois anos.", "alt": ["Eu treino capoeira há dois anos.", "Faz dois anos que treino capoeira.", "Faço capoeira há dois anos.", "Faz dois anos que faço capoeira."], "note": "há + 期間 で「〜前から（今も）」。há の h は発音しない。" },
         { "id": "u6l1p3", "ja": "去年、バチザードを受けました。", "pt": "Fiz meu batizado no ano passado.", "alt": ["Fiz o meu batizado no ano passado.", "Fiz meu batizado ano passado."], "note": "batizado は初めてのコルダ（帯）をもらう式。「受ける」は fazer で言う。" },
         { "id": "u6l1p4", "ja": "今日、みなさんと一緒に練習してもいいですか？", "pt": "Posso treinar com vocês hoje?", "alt": ["Hoje eu posso treinar com vocês?"] },
         { "id": "u6l1p5", "ja": "どこで着替えられますか？", "pt": "Onde posso trocar de roupa?", "alt": ["Onde eu posso trocar de roupa?", "Onde posso me trocar?"] },
@@ -37,7 +37,7 @@
       ],
       "talk": {
         "role": "カポエイラの先生 Mestre Bira",
-        "setting": "サンパウロの教室に初めて来た日。練習の前に先生にあいさつし、自分のカポエイラ歴を話す。",
+        "setting": "メストリ・ビラの教室に初めて来た日。練習の前に先生にあいさつし、自分のカポエイラ歴を話す。",
         "opener": "Boa noite! Tudo bem? É sua primeira vez aqui?",
         "missions": ["初めて来たと伝える", "カポエイラ歴を話す", "着替える場所を聞く"]
       }
@@ -71,7 +71,7 @@
         { "id": "u6l2p8", "ja": "まだこの動きができません。", "pt": "Ainda não consigo fazer esse movimento.", "alt": ["Eu ainda não consigo fazer esse movimento."], "note": "conseguir + 動詞の原形 で「（やってみて）できる」。私は consigo。" }
       ],
       "tips": [
-        { "title": "先生の短い指示を聞き取る", "body": "練習中の指示は短い命令の形です。Desce mais.（もっと低く）、De novo!（もう一回）、Troca de lado.（左右を替えて）、Olha para o parceiro.（相手を見て）、Presta atenção.（よく見て）。「Isso!」は「そう、それ！」というほめ言葉です。" },
+        { "title": "先生の短い指示を聞き取る", "body": "練習中の指示は短い命令の形です。Desce mais.（もっと低く）、De novo!（もう一回）、Troca de lado.（左右を替えて）、Olha para o parceiro.（相手を見て）、Presta atenção.（よく注意して）。「Isso!」は「そう、それ！」というほめ言葉です。" },
         { "title": "基本の動きの名前", "body": "ginga（ジンガ）は基本のステップ、meia-lua de frente（メイアルーア・ジ・フレンチ）は半月を描く蹴り、esquiva（エスキーヴァ）はよける動き、aú（アウー）は側転。名前が聞き取れなかったら「Como se chama esse movimento?」と聞きましょう。" }
       ],
       "talk": {
@@ -141,7 +141,7 @@
       "phrases": [
         { "id": "u6l4p1", "ja": "ビリンバウは弾ける？", "pt": "Você toca berimbau?", "alt": ["Você sabe tocar berimbau?"], "note": "楽器を「弾く・叩く」は、どれも tocar。" },
         { "id": "u6l4p2", "ja": "パンデイロは叩くけど、ビリンバウはまだ弾けない。", "pt": "Toco pandeiro, mas ainda não sei tocar berimbau.", "alt": ["Eu toco pandeiro, mas ainda não sei tocar berimbau."] },
-        { "id": "u6l4p3", "ja": "この歌はどういう意味？", "pt": "O que significa essa música?", "alt": ["O que quer dizer essa música?", "O que essa música significa?"], "note": "música を知りたい言葉に替えれば、単語の意味も聞ける。" },
+        { "id": "u6l4p3", "ja": "この歌はどういう意味？", "pt": "O que significa essa música?", "alt": ["O que quer dizer essa música?", "O que essa música significa?"], "note": "essa música を知りたい言葉に替えれば、単語の意味も聞ける。例: O que significa camará?" },
         { "id": "u6l4p4", "ja": "歌の歌詞があまり分からないんだ。", "pt": "Não entendo bem as letras das músicas.", "alt": ["Não entendo bem as letras.", "Eu não entendo bem as letras das músicas.", "Não entendo muito bem as letras das músicas."], "note": "letra は「歌詞」。もともとは「文字」の意味。" },
         { "id": "u6l4p5", "ja": "コーラスを返すだけなんだ。（歌のとき）", "pt": "Só respondo o coro.", "alt": ["Eu só respondo o coro."], "note": "coro は歌い手に全員で返す部分。「返す」は responder。" },
         { "id": "u6l4p6", "ja": "歌を一曲教えてくれる？", "pt": "Você me ensina uma música?", "alt": ["Pode me ensinar uma música?", "Você pode me ensinar uma música?"] },
@@ -219,7 +219,7 @@
       "phrases": [
         { "id": "u6l6p1", "ja": "来週、日本に帰るんだ。", "pt": "Semana que vem eu volto para o Japão.", "alt": ["Semana que vem volto para o Japão.", "Eu volto para o Japão semana que vem.", "Na semana que vem eu volto para o Japão.", "Vou voltar para o Japão semana que vem."], "note": "近い予定は現在形でも言える。semana que vem は「来週」。" },
         { "id": "u6l6p2", "ja": "みんなに会えなくなると、さびしくなるよ。", "pt": "Vou sentir saudade de todo mundo.", "alt": ["Vou sentir saudades de todo mundo.", "Vou sentir saudade de vocês.", "Vou sentir falta de todo mundo."], "note": "sentir saudade de 〜 で「〜が恋しい・会えなくてさびしい」。" },
-        { "id": "u6l6p3", "ja": "君に会えて本当によかった。", "pt": "Foi muito bom te conhecer.", "alt": ["Foi muito bom conhecer você."], "note": "te は「君を」。別れ際に言う決まり文句。" },
+        { "id": "u6l6p3", "ja": "君と知り合えて本当によかった。", "pt": "Foi muito bom te conhecer.", "alt": ["Foi muito bom conhecer você."], "note": "te は「君を」。別れ際に言う決まり文句。" },
         { "id": "u6l6p4", "ja": "いろいろありがとう。（別れ際に）", "pt": "Obrigado por tudo.", "alt": ["Obrigada por tudo."], "note": "por tudo は「すべてのことに」。女性が言うなら obrigada。" },
         { "id": "u6l6p5", "ja": "体に気をつけてね！また次のときに！", "pt": "Se cuida! Até a próxima!", "note": "Se cuida は「体に気をつけて・元気でね」。親しい相手への別れのことば。" },
         { "id": "u6l6p6", "ja": "もう恋しくなってきたよ。（別れる前から）", "pt": "Já estou com saudade.", "alt": ["Já estou com saudades."], "note": "estar com saudade で「（今）恋しい・さびしい」。" },

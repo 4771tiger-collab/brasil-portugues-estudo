@@ -216,13 +216,13 @@
         { "who": "you", "pt": "Sério? Obrigado, Camila!", "ja": "本当？ありがとう、カミラ！" }
       ],
       "phrases": [
-        { "id": "u2l6p1", "ja": "どうしてカポエイラをやっているんですか？", "pt": "Por que você faz capoeira?", "alt": ["Por que você treina capoeira?"], "note": "質問の「なぜ」は Por que。文の最初に置く。" },
+        { "id": "u2l6p1", "ja": "どうしてカポエイラをやっているんですか？", "pt": "Por que você faz capoeira?", "alt": ["Por que você treina capoeira?", "Por que você joga capoeira?"], "note": "質問の「なぜ」は Por que。文の最初に置く。" },
         { "id": "u2l6p2", "ja": "まだポルトガル語を勉強中です。", "pt": "Ainda estou aprendendo português.", "alt": ["Ainda estou estudando português.", "Eu ainda estou aprendendo português."], "note": "ほめられたときの返事にも便利。会話では estou が短く「トー」と聞こえる。" },
         { "id": "u2l6p3", "ja": "カポエイラの歌を理解したいからです。", "pt": "Porque quero entender as músicas de capoeira.", "alt": ["Porque eu quero entender as músicas de capoeira."], "note": "答えの「〜だから」は Porque。quero + 動詞の原形で「〜したい」。" },
         { "id": "u2l6p4", "ja": "毎日少し勉強しています。", "pt": "Estudo um pouco todo dia.", "alt": ["Estudo um pouco todos os dias.", "Eu estudo um pouco todo dia."] },
         { "id": "u2l6p5", "ja": "ブラジル人と話したいんです。", "pt": "Quero conversar com os brasileiros.", "alt": ["Quero falar com os brasileiros.", "Quero conversar com brasileiros."] },
         { "id": "u2l6p6", "ja": "いつかホーダで歌いたいです。", "pt": "Um dia quero cantar na roda.", "alt": ["Quero cantar na roda um dia."], "note": "roda はカポエイラの輪（ホーダ）。em + a roda → na roda。" },
-        { "id": "u2l6p7", "ja": "カポエイラをやって2年になります。", "pt": "Faz dois anos que faço capoeira.", "alt": ["Faço capoeira há dois anos.", "Faz dois anos que treino capoeira."], "note": "Faz + 期間 + que + 現在形。fazer capoeira で「カポエイラをやる」。" },
+        { "id": "u2l6p7", "ja": "カポエイラをやって2年になります。", "pt": "Faz dois anos que faço capoeira.", "alt": ["Faço capoeira há dois anos.", "Faz dois anos que treino capoeira.", "Treino capoeira há dois anos.", "Faz dois anos que jogo capoeira."], "note": "Faz + 期間 + que + 現在形。fazer capoeira で「カポエイラをやる」。" },
         { "id": "u2l6p8", "ja": "ブラジルがとても好きだからです。", "pt": "Porque gosto muito do Brasil.", "alt": ["Porque eu gosto muito do Brasil."] }
       ],
       "tips": [

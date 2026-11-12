@@ -22,11 +22,11 @@
       ],
       "phrases": [
         { "id": "u3l1p1", "ja": "週末は何をするの？", "pt": "O que você vai fazer no fim de semana?", "alt": ["O que você vai fazer no final de semana?"] },
-        { "id": "u3l1p2", "ja": "土曜の朝はカポエイラの練習をするよ。", "pt": "No sábado de manhã, vou treinar capoeira.", "alt": ["Sábado de manhã vou treinar capoeira.", "No sábado de manhã, eu vou treinar capoeira."] },
+        { "id": "u3l1p2", "ja": "（週末の予定を聞かれて）土曜の朝はカポエイラの練習をするよ。", "pt": "No sábado de manhã, vou treinar capoeira.", "alt": ["Sábado de manhã vou treinar capoeira.", "No sábado de manhã, eu vou treinar capoeira."] },
         { "id": "u3l1p3", "ja": "（予定を聞かれて）まだ分からないんだ。", "pt": "Ainda não sei." },
         { "id": "u3l1p4", "ja": "日曜は家で少し休みたいな。", "pt": "No domingo, quero descansar um pouco em casa.", "alt": ["Domingo quero descansar um pouco em casa."] },
         { "id": "u3l1p5", "ja": "今夜は友達と夕食を食べるよ。", "pt": "Hoje à noite vou jantar com uns amigos.", "alt": ["Hoje à noite vou jantar com meus amigos.", "Hoje à noite vou jantar com amigos."], "note": "jantar は「夕食を食べる」という動詞。uns amigos は「友達何人か」。" },
-        { "id": "u3l1p6", "ja": "来週、リオに旅行するんだ。", "pt": "Semana que vem vou viajar para o Rio.", "alt": ["Na semana que vem, vou viajar para o Rio.", "Na próxima semana, vou viajar para o Rio."], "note": "semana que vem は「来週」。「来月」は mês que vem。" },
+        { "id": "u3l1p6", "ja": "来週、サルヴァドールに旅行するんだ。", "pt": "Semana que vem vou viajar para Salvador.", "alt": ["Na semana que vem, vou viajar para Salvador.", "Na próxima semana, vou viajar para Salvador."], "note": "semana que vem は「来週」。「来月」は mês que vem。" },
         { "id": "u3l1p7", "ja": "（出かける予定の人に）いつ戻るの？", "pt": "Quando você vai voltar?", "alt": ["Quando você volta?"] },
         { "id": "u3l1p8", "ja": "よい週末を！また月曜に！", "pt": "Bom fim de semana! Até segunda!", "alt": ["Bom final de semana! Até segunda!", "Bom fim de semana! Até segunda-feira!"] }
       ],
@@ -219,7 +219,7 @@
         { "id": "u3l6p4", "ja": "（今まさに遅れていて）ごめん、遅刻してるんだ！", "pt": "Desculpa, estou atrasado!", "alt": ["Desculpa, estou atrasada!", "Desculpe, estou atrasado!", "Desculpe, estou atrasada!"], "note": "女性が言うなら atrasada。" },
         { "id": "u3l6p5", "ja": "渋滞がひどいんだ。", "pt": "O trânsito está horrível.", "alt": ["O trânsito está péssimo.", "O trânsito está terrível."] },
         { "id": "u3l6p6", "ja": "（遅れていて）もう出るところだよ！", "pt": "Já estou saindo!", "alt": ["Estou saindo agora!"] },
-        { "id": "u3l6p7", "ja": "（遅れると言われて）大丈夫だよ。待ってるね。", "pt": "Não tem problema. Eu te espero.", "alt": ["Não tem problema. Te espero.", "Sem problema. Eu te espero."] },
+        { "id": "u3l6p7", "ja": "（遅れると言われて）大丈夫だよ。待ってるね。", "pt": "Não tem problema. Eu te espero.", "alt": ["Não tem problema. Te espero.", "Sem problema. Eu te espero.", "Não tem problema. Estou te esperando."] },
         { "id": "u3l6p8", "ja": "（待っているみんなに）先に始めてていいよ。", "pt": "Podem começar sem mim.", "alt": ["Podem ir começando sem mim."], "note": "相手が1人なら Pode começar sem mim. と言う。sem mim は「私なしで」。" }
       ],
       "tips": [

@@ -33,7 +33,7 @@
       ],
       "tips": [
         { "title": "-ar 動詞の過去は eu -ei ／ você -ou", "body": "「〜した」は語尾を変えるだけです。trabalhar → eu trabalhei ／ você trabalhou。jantar → jantei ／ jantou、chegar → cheguei ／ chegou。-ei は「エイ」、-ou は「オウ」とはっきり言います。質問は「Você trabalhou ontem?」、答えは「Trabalhei.」。" },
-        { "title": "よく使う不規則な過去形", "body": "毎日使う動詞は形ごと覚えましょう（eu ／ você の順）。fazer: fiz ／ fez、ir: fui ／ foi、ter: tive ／ teve、ver: vi ／ viu、ficar: fiquei ／ ficou、dormir: dormi ／ dormiu。「O que você fez?」には「Fiz…」「Fui…」「Fiquei…」と eu の形で答えます。" }
+        { "title": "よく使う動詞の過去形", "body": "毎日使う動詞は形ごと覚えましょう（eu ／ você の順）。fazer: fiz ／ fez、ir: fui ／ foi、ter: tive ／ teve、ver: vi ／ viu、ficar: fiquei ／ ficou、dormir: dormi ／ dormiu。「O que você fez?」には「Fiz…」「Fui…」「Fiquei…」と eu の形で答えます。" }
       ],
       "talk": {
         "role": "同僚の Lucas",
@@ -96,7 +96,7 @@
         { "who": "you", "pt": "Conheci o Pelourinho e vi uma roda de capoeira.", "ja": "ペロウリーニョを訪れて、カポエイラのホーダを見たよ。" },
         { "who": "partner", "pt": "Que maravilha! E a comida, você gostou?", "ja": "すてきね！食べ物は気に入った？" },
         { "who": "you", "pt": "Adorei! Comi acarajé pela primeira vez.", "ja": "すごく気に入った！初めてアカラジェを食べたよ。" },
-        { "who": "partner", "pt": "Hum, eu adoro acarajé! Você tirou muitas fotos?", "ja": "うーん、私アカラジェ大好き！写真はたくさん撮った？" },
+        { "who": "partner", "pt": "Hum, eu adoro acarajé! Você tirou muitas fotos?", "ja": "ん〜、私アカラジェ大好き！写真はたくさん撮った？" },
         { "who": "you", "pt": "Tirei! Quer ver?", "ja": "撮ったよ！見る？" }
       ],
       "phrases": [
@@ -177,7 +177,7 @@
       ],
       "phrases": [
         { "id": "u4l5p1", "ja": "子どもの頃、サッカーをやっていた。", "pt": "Quando eu era criança, eu jogava futebol.", "alt": ["Quando eu era criança, jogava futebol.", "Eu jogava futebol quando era criança."], "note": "Quando eu era criança は「子どもの頃」の決まった言い方。era は ser の不完了過去。" },
-        { "id": "u4l5p2", "ja": "東京に住んでいたよ。両親と姉と一緒に。", "pt": "Eu morava em Tóquio, com meus pais e minha irmã.", "alt": ["Morava em Tóquio, com meus pais e minha irmã."] },
+        { "id": "u4l5p2", "ja": "東京に住んでいたよ。両親と姉と一緒に。", "pt": "Eu morava em Tóquio, com meus pais e minha irmã.", "alt": ["Morava em Tóquio, com meus pais e minha irmã.", "Eu morava em Tóquio, com meus pais e minha irmã mais velha."] },
         { "id": "u4l5p3", "ja": "子どもの頃はどこに住んでいたの？", "pt": "Onde você morava quando era criança?", "alt": ["Quando você era criança, onde você morava?"] },
         { "id": "u4l5p4", "ja": "家の近くの公園で遊んでいた。", "pt": "Eu brincava no parque perto de casa.", "alt": ["Brincava no parque perto de casa."], "note": "子どもが「遊ぶ」は brincar。スポーツやゲームを「する」は jogar。" },
         { "id": "u4l5p5", "ja": "漫画を読むのが好きだった。", "pt": "Eu gostava de ler mangá.", "alt": ["Gostava de ler mangá."] },
@@ -218,7 +218,7 @@
         { "id": "u4l6p1", "ja": "今日、何があったと思う？（話を切り出す）", "pt": "Sabe o que aconteceu hoje?", "alt": ["Você sabe o que aconteceu hoje?"], "note": "話を切り出す決まり文句。相手は「Não. O que aconteceu?」と返してくれます。" },
         { "id": "u4l6p2", "ja": "地下鉄で財布をなくしたんだ。", "pt": "Perdi minha carteira no metrô.", "alt": ["Perdi a minha carteira no metrô.", "Perdi a carteira no metrô."] },
         { "id": "u4l6p3", "ja": "何があったの？（驚いて聞き返す）", "pt": "O que aconteceu?" },
-        { "id": "u4l6p4", "ja": "本当？それは嫌だね！（残念な話を聞いて）", "pt": "Sério? Que chato!", "note": "Que chato! は「嫌だね・ついてないね」。相手に同情するときの定番です。" },
+        { "id": "u4l6p4", "ja": "本当？それは嫌だね！（ついてない話を聞いて）", "pt": "Sério? Que chato!", "note": "Que chato! は「嫌だね・ついてないね」。相手に同情するときの定番です。" },
         { "id": "u4l6p5", "ja": "うわあ！いいね！（うれしい話に驚いて）", "pt": "Nossa! Que legal!", "note": "Nossa! は驚きのひとこと。いい話にも悪い話にも使えます。" },
         { "id": "u4l6p6", "ja": "ああ、それはよかった！（ほっとする話を聞いて）", "pt": "Ah, que bom!", "alt": ["Que bom!", "Ai, que bom!"] },
         { "id": "u4l6p7", "ja": "今朝、バスに乗り遅れた。", "pt": "Perdi o ônibus hoje de manhã.", "alt": ["Hoje de manhã perdi o ônibus.", "Hoje de manhã eu perdi o ônibus."], "note": "perder + 乗り物 は「乗り遅れる」の意味になります。" },

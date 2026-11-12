@@ -53,6 +53,11 @@ export default function SayCard({ item, card, onRate, hideIntervals = false }: P
   revealedRef.current = revealed;
   const hintRef = useRef(hint);
   hintRef.current = hint;
+  // 答えを出したら、評価ボタンが画面に入るところまで送る（長い文・採点の表示で、ボタンが下に隠れないように）
+  const ratingRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (revealed) ratingRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, [revealed, score]);
 
   // 次の文に替わったら最初の状態に戻す（親は key を変えて作り直してもよい）
   useEffect(() => {
@@ -167,8 +172,7 @@ export default function SayCard({ item, card, onRate, hideIntervals = false }: P
         </div>
       ) : (
         <div className="space-y-3">
-          {mic && <MicButton key="after" size="md" onResult={onHeard} timeoutMs={timeoutMs} hint="もう一度言ってみる" />}
-          <div className="grid grid-cols-3 gap-2">
+          <div ref={ratingRef} className="grid scroll-mb-4 grid-cols-3 gap-2">
             {SAY_RATINGS.map((b, i) => (
               <button
                 key={b.rating}
@@ -191,6 +195,8 @@ export default function SayCard({ item, card, onRate, hideIntervals = false }: P
               </button>
             ))}
           </div>
+          {/* 評価のあとでも前でも、お手本をまねてもう一度言える（任意） */}
+          {mic && <MicButton key="after" size="md" onResult={onHeard} timeoutMs={timeoutMs} hint="もう一度言ってみる" />}
           <div className="flex justify-center">
             <AskTeacherButton variant="link" context={() => sentenceContext({ pt: item.pt, ja: item.ja, source: item.label })} />
           </div>

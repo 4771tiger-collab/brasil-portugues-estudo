@@ -11,7 +11,7 @@
 
 import type { SrsCard } from "../data/types";
 import { readCard } from "../srs/cardIo";
-import { mergeCards } from "../store/merge";
+import { compareCards, mergeCards } from "../store/merge";
 
 /** 自分で足した文の ID の頭 */
 export const MY_PREFIX = "my:";
@@ -31,6 +31,11 @@ export interface UserPhrase {
   /** 作った日（YYYY-MM-DD） */
   createdAt: string;
   from: PhraseSource;
+  /**
+   * 最後に文を足した・直した時刻（epoch ms）。統合インポートで、同じ ID の文のどちらを残すかを決める
+   * （別の端末で直した文を、古い文で戻さないため）。この項目が無い古いデータは 0 扱い
+   */
+  updatedAt?: number;
 }
 
 /** レッスンのステップ数（0 聞く / 1 まねる / 2 言う / 3 演じる）。step がこの数なら全部済み */
@@ -105,6 +110,7 @@ export function readUserPhrase(v: unknown): UserPhrase | null {
   const alt = Array.isArray(v.alt) ? v.alt.map(text).filter(Boolean).slice(0, 5) : [];
   const note = text(v.note);
   const from = (PHRASE_SOURCES as readonly string[]).includes(v.from as string) ? (v.from as PhraseSource) : "manual";
+  const updatedAt = typeof v.updatedAt === "number" && Number.isFinite(v.updatedAt) && v.updatedAt > 0 ? v.updatedAt : 0;
   return {
     id: v.id,
     ja,
@@ -113,6 +119,7 @@ export function readUserPhrase(v: unknown): UserPhrase | null {
     ...(note ? { note } : {}),
     createdAt: isDate(v.createdAt) ? v.createdAt : "1970-01-01",
     from,
+    ...(updatedAt ? { updatedAt } : {}),
   };
 }
 
@@ -182,16 +189,35 @@ export function readSpeak(v: unknown): SpeakExport | null {
 /**
  * 統合インポート: この端末（local）とバックアップ（remote）の記録を合わせる。
  * - cards: 文ごとに、新しく学習した方（単語と同じ規則。merge.mergeCards）
- * - phrases: 両方の文を残す（同じ ID はこの端末の方）
+ * - phrases: 両方の文を残す。同じ ID は、あとで直した方（updatedAt の大きい方。同じ・無ければこの端末の方）。
+ *   別の ID で同じポルトガル語の文（samePhraseText）は1つにまとめ、カードは新しく学習した方を残す
  * - lessons: 終えた日は早い方、ステップは進んでいる方
  * - talks: 両方の記録（重複は1つに）
  */
 export function mergeSpeak(local: SpeakExport, remote: SpeakExport | null): SpeakExport {
   if (!remote) return local;
-  const cards = mergeCards(local.cards, remote.cards);
+  const cards = { ...mergeCards(local.cards, remote.cards) };
 
-  const ids = new Set(local.phrases.map((p) => p.id));
-  const phrases = [...local.phrases, ...remote.phrases.filter((p) => !ids.has(p.id))].slice(0, USER_PHRASE_MAX);
+  const remoteById = new Map(remote.phrases.map((p) => [p.id, p]));
+  const localIds = new Set(local.phrases.map((p) => p.id));
+  // 同じ ID: あとで直した方の文を残す（別の端末で直した文を、古い文で戻さない）
+  const phrases: UserPhrase[] = local.phrases.map((l) => {
+    const r = remoteById.get(l.id);
+    return r && (r.updatedAt ?? 0) > (l.updatedAt ?? 0) ? r : l;
+  });
+  for (const r of remote.phrases) {
+    if (localIds.has(r.id)) continue;
+    const same = phrases.find((p) => samePhraseText(p.pt, r.pt));
+    if (same) {
+      // 同じ文が別の ID で両方にある（両方の端末で同じ文を足した）→ 1つにまとめ、カードは新しく学習した方
+      const kept = cards[same.id];
+      const other = cards[r.id];
+      if (other && (!kept || compareCards(kept, other) < 0)) cards[same.id] = other;
+      delete cards[r.id];
+      continue;
+    }
+    if (phrases.length < USER_PHRASE_MAX) phrases.push(r);
+  }
 
   const lessons: Record<string, LessonProgress> = { ...local.lessons };
   for (const [id, r] of Object.entries(remote.lessons)) {

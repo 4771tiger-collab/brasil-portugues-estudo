@@ -183,7 +183,7 @@
         { "id": "u5l5p3", "ja": "のども痛いです。", "pt": "Também estou com dor de garganta.", "alt": ["Estou com dor de garganta também.", "Eu também estou com dor de garganta."] },
         { "id": "u5l5p4", "ja": "昨日の夜からです。（いつからかと聞かれて）", "pt": "Desde ontem à noite.", "note": "desde は「〜から（ずっと）」。Desde segunda.（月曜から）" },
         { "id": "u5l5p5", "ja": "医者に行く必要がありますか？", "pt": "Preciso ir ao médico?", "alt": ["Eu preciso ir ao médico?", "Preciso ir no médico?", "Tenho que ir ao médico?"], "note": "precisar ＋動詞の原形で「〜する必要がある」。" },
-        { "id": "u5l5p6", "ja": "せき止めの薬がほしいのですが。", "pt": "Eu queria um remédio para tosse.", "alt": ["Queria um remédio para tosse.", "Eu queria um remédio para a tosse.", "Tem remédio para tosse?"] },
+        { "id": "u5l5p6", "ja": "せき止めの薬がほしいのですが。", "pt": "Eu queria um remédio para tosse.", "alt": ["Queria um remédio para tosse.", "Eu queria um remédio para a tosse."] },
         { "id": "u5l5p7", "ja": "おなかが痛くて、吐き気がします。", "pt": "Estou com dor de barriga e enjoo.", "alt": ["Estou com dor de barriga e com enjoo.", "Eu estou com dor de barriga e enjoo."] },
         { "id": "u5l5p8", "ja": "体調がよくありません。", "pt": "Não estou me sentindo bem.", "alt": ["Eu não estou me sentindo bem.", "Não estou bem.", "Estou me sentindo mal."] }
       ],
@@ -218,7 +218,7 @@
       ],
       "phrases": [
         { "id": "u5l6p1", "ja": "すみません、助けてもらえますか？（係の人に声をかける）", "pt": "Com licença, você pode me ajudar?", "alt": ["Com licença, pode me ajudar?", "Com licença, você poderia me ajudar?", "Com licença, você pode me ajudar, por favor?"] },
-        { "id": "u5l6p2", "ja": "このショッピングモールで携帯電話をなくしました。", "pt": "Perdi meu celular aqui no shopping.", "alt": ["Eu perdi meu celular aqui no shopping.", "Perdi o meu celular aqui no shopping."] },
+        { "id": "u5l6p2", "ja": "ここのショッピングモールで携帯電話をなくしました。", "pt": "Perdi meu celular aqui no shopping.", "alt": ["Eu perdi meu celular aqui no shopping.", "Perdi o meu celular aqui no shopping."] },
         { "id": "u5l6p3", "ja": "どこに置いてきたか分かりません。", "pt": "Não sei onde deixei.", "alt": ["Eu não sei onde deixei.", "Não sei onde eu deixei."] },
         { "id": "u5l6p4", "ja": "黒で、青いケースが付いています。（なくした携帯の説明）", "pt": "É preto, com uma capa azul.", "alt": ["É preto, com uma capinha azul.", "Ele é preto, com uma capa azul."], "note": "物の見た目は É ＋色、com ＋特徴で言える。Como é?（どんな物？）への答え。" },
         { "id": "u5l6p5", "ja": "財布を盗まれました。", "pt": "Roubaram minha carteira.", "alt": ["Roubaram a minha carteira."], "note": "主語なしの roubaram（彼らが盗んだ）で「盗まれた」。犯人が分からないときの言い方。" },

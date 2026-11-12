@@ -27,11 +27,19 @@ export interface VoiceInfo {
   localService: boolean;
 }
 
+/**
+ * 読み上げの結果。ended = 最後まで鳴った / failed = 鳴らなかった・途中で止められた
+ * （エラー・別の読み上げや cancel に割り込まれた・読み上げが始まらないまま時間切れ・非対応）
+ */
+export type SpeakOutcome = "ended" | "failed";
+
 export interface AudioProvider {
   isSupported(): boolean;
   ready(): Promise<void>;
   getVoices(): SpeechSynthesisVoice[];
   speak(text: string, opts?: SpeakOptions): Promise<void>;
+  /** speak と同じだが、最後まで鳴ったかどうかで解決する（任意。聞かせたつもりで先へ進まないために使う） */
+  speakOutcome?(text: string, opts?: SpeakOptions): Promise<SpeakOutcome>;
   speakSequence(texts: string[], opts?: SequenceOptions): Promise<void>;
   cancel(): void;
   // ---- 以下は任意（実装しない Provider もある）----
@@ -232,9 +240,13 @@ class WebSpeechProvider implements AudioProvider {
   }
 
   speak(text: string, opts: SpeakOptions = {}): Promise<void> {
-    if (!this.isSupported()) return Promise.resolve();
+    return this.speakOutcome(text, opts).then(() => undefined);
+  }
+
+  speakOutcome(text: string, opts: SpeakOptions = {}): Promise<SpeakOutcome> {
+    if (!this.isSupported()) return Promise.resolve("failed");
     const clean = cleanForSpeech(text);
-    if (!clean) return Promise.resolve();
+    if (!clean) return Promise.resolve("failed");
     const synth = window.speechSynthesis;
     // 再生中・待ち・遅延中の speak がある、または cancel の直後なら、打ち切って1ティック待つ。
     // 何も鳴っていなければ、その場で話す（クリック処理の中で呼ばれたときの自動再生制限を避ける）
@@ -245,19 +257,23 @@ class WebSpeechProvider implements AudioProvider {
     const lang = opts.lang ?? LANG;
     const rate = opts.rate && opts.rate > 0 ? opts.rate : 1;
 
-    return new Promise<void>((resolve) => {
+    return new Promise<SpeakOutcome>((resolve) => {
       let done = false;
+      /** 読み上げが始まった（onstart）。onend が来ない端末で、時間切れを「鳴った」とみなすかの判定に使う */
+      let started = false;
       let timer: ReturnType<typeof setTimeout> | undefined;
       let u: SpeechSynthesisUtterance | null = null;
-      const finish = () => {
+      const finish = (outcome: SpeakOutcome = "failed") => {
         if (done) return;
         done = true;
         if (timer !== undefined) clearTimeout(timer);
-        if (this.settle === finish) this.settle = null;
+        if (this.settle === settle) this.settle = null;
         if (u && this.utter === u) this.utter = null;
-        resolve();
+        resolve(outcome);
       };
-      this.settle = finish;
+      // cancel・次の speak に割り込まれたとき（鳴り終えていない → failed）
+      const settle = () => finish("failed");
+      this.settle = settle;
 
       const start = () => {
         // 待っている間に cancel・次の speak が来ていたら話さない
@@ -268,12 +284,15 @@ class WebSpeechProvider implements AudioProvider {
         utt.pitch = opts.pitch ?? 1;
         const v = this.pickVoice(opts.voiceURI, lang);
         if (v) utt.voice = v;
-        utt.onend = finish;
-        utt.onerror = finish;
+        utt.onstart = () => {
+          started = true;
+        };
+        utt.onend = () => finish("ended");
+        utt.onerror = () => finish("failed");
         u = utt;
         this.utter = utt;
-        // onend が来ない端末のためのウォッチドッグ
-        timer = setTimeout(finish, watchdogMs(clean, rate));
+        // onend が来ない端末のためのウォッチドッグ（始まっていたなら鳴ったとみなす。始まってもいなければ failed）
+        timer = setTimeout(() => finish(started ? "ended" : "failed"), watchdogMs(clean, rate));
         if (synth.paused) synth.resume();
         synth.speak(utt);
       };

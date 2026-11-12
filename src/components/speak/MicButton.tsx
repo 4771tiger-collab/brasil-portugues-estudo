@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Mic, Square } from "lucide-react";
 import { useSettings } from "../../store/useSettings";
 import { useSpeechInput } from "../../hooks/useSpeechInput";
@@ -39,6 +39,11 @@ export default function MicButton({ onResult, onStart, timeoutMs, disabled = fal
   // 聞き取りの結果は、届いた時点の onResult に渡す（押した時点の関数を覚えたままにしない）
   const onResultRef = useRef(onResult);
   onResultRef.current = onResult;
+  // 説明（同意）の枠が画面の下に隠れていたら、ボタンが見える位置まで送る
+  const consentRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (consent) consentRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, [consent]);
   if (!speechInput.isSupported()) return null;
   const listening = sp.status === "listening";
 
@@ -86,7 +91,7 @@ export default function MicButton({ onResult, onStart, timeoutMs, disabled = fal
         </p>
       )}
       {consent && (
-        <div role="dialog" aria-label="マイクで採点する" className="w-full space-y-2 rounded-xl bg-blue-50 p-3 text-left ring-1 ring-blue-200">
+        <div ref={consentRef} role="dialog" aria-label="マイクで採点する" className="w-full scroll-mb-4 space-y-2 rounded-xl bg-blue-50 p-3 text-left ring-1 ring-blue-200">
           <p className="text-sm font-bold text-brand-ink">🎤 マイクで話して採点しますか？</p>
           <ul className="list-disc space-y-1 pl-4 text-xs leading-relaxed text-slate-600">
             {SPEECH_CONSENT_LINES.map((l) => (

@@ -10,7 +10,7 @@ import { translateJaToPt } from "../../services/translate";
 import { daysUntilDue } from "../../srs/scheduler";
 import type { SrsCard } from "../../data/types";
 import { CAN_SAY_DAYS } from "../../speak/catalog";
-import { PHRASE_TEXT_MAX, USER_PHRASE_MAX, type PhraseSource, type UserPhrase } from "../../speak/speakData";
+import { PHRASE_TEXT_MAX, USER_PHRASE_MAX, samePhraseText, type PhraseSource, type UserPhrase } from "../../speak/speakData";
 import { requestHowToSay } from "../../speak/talk";
 import { useSpeak } from "../../store/useSpeak";
 import PtInput from "../../components/PtInput";
@@ -80,6 +80,10 @@ function AddForm() {
   }
 
   function save() {
+    // 同じポルトガル語の文がもうあるときは、足したことにしない（入力は残す。下の一覧で編集できる）
+    if (useSpeak.getState().phrases.some((p) => samePhraseText(p.pt, pt))) {
+      return setMsg({ kind: "error", text: "同じポルトガル語の文が、もう自分のフレーズにあります（下の一覧で編集できます）" });
+    }
     const id = addPhrase({ ja, pt, note: note || undefined, alt: alt.length ? alt : undefined, from });
     if (!id) return setMsg({ kind: "error", text: "保存できませんでした（日本語とポルトガル語の両方を入れてください）" });
     setJa("");

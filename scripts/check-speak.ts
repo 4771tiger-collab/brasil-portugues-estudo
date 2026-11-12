@@ -242,6 +242,19 @@ console.log("=== 統合インポート（mergeSpeak） ===");
   eq(m.lessons.u1l4, { step: 1, doneAt: null }, "ファイルにだけあるレッスンも残す");
   eq(m.talks.map((t) => t.id), ["u1l1", "free:day"], "会話の記録は両方（同じ記録は1つに・新しい順）");
   ok(mergeSpeak(L, null) === L, "ファイルに speak が無ければ端末のまま");
+  // 同じ ID: あとで直した方（updatedAt）を残す。別の ID の同じ文は1つにまとめる
+  const ph = (id: string, pt: string, updatedAt?: number): UserPhrase => ({ id, ja: "和文", pt, createdAt: TD, from: "manual", ...(updatedAt ? { updatedAt } : {}) });
+  const eL: SpeakExport = { ...emptySpeak(), phrases: [ph("my:a", "Eu vim do Japão.", 100), ph("my:b", "Local novo.", 300), ph("my:c", "Sem data local.")], cards: { "my:same1": card({ last: addDays(TD, -5), intervalDays: 2 }) } };
+  eL.phrases.push(ph("my:same1", "Tudo bem?", 50));
+  const eR: SpeakExport = { ...emptySpeak(), phrases: [ph("my:a", "Eu sou do Japão.", 200), ph("my:b", "Remoto velho.", 100), ph("my:c", "Sem data remoto."), ph("my:same2", "tudo bem", 60), ph("my:new", "Só no arquivo.", 10)], cards: { "my:same2": card({ last: addDays(TD, -1), intervalDays: 9 }), "my:new": card() } };
+  const em = mergeSpeak(eL, eR);
+  eq(em.phrases.map((p) => [p.id, p.pt]), [["my:a", "Eu sou do Japão."], ["my:b", "Local novo."], ["my:c", "Sem data local."], ["my:same1", "Tudo bem?"], ["my:new", "Só no arquivo."]], "同じ ID は、あとで直した方の文（updatedAt が無ければ端末の方）。別の ID の同じ文は足さない");
+  ok(em.cards["my:same1"] === eR.cards["my:same2"] && !("my:same2" in em.cards), "同じ文をまとめたとき、カードは新しく学習した方を残し、消した ID のカードは持たない");
+  ok(em.cards["my:new"] === eR.cards["my:new"], "ファイルにだけある文のカードは残す");
+  const back = mergeSpeak(eR, eL);
+  eq([back.phrases.find((p) => p.id === "my:a")?.pt, back.phrases.find((p) => p.id === "my:b")?.pt], ["Eu sou do Japão.", "Local novo."], "逆向きに統合しても、直した文は同じ結果になる（2台で食い違わない）");
+  eq(readUserPhrase({ id: "my:x", ja: "a", pt: "b", updatedAt: 123 })?.updatedAt, 123, "updatedAt を読む");
+  ok(!("updatedAt" in (readUserPhrase({ id: "my:x", ja: "a", pt: "b", updatedAt: "x" }) ?? {})), "壊れた updatedAt は置かない");
 }
 
 console.log("=== バックアップの形式（speak・設定・学習ログの活動） ===");
@@ -486,6 +499,11 @@ console.log("=== useSpeak（文のカード・自分の文・レッスン・会�
   if (id) {
     S().updatePhrase(id, { pt: "No Japão eu trabalhava com TI." });
     eq(S().phrases[0].pt, "No Japão eu trabalhava com TI.", "updatePhrase: 文を直す");
+    const stamped = S().phrases[0].updatedAt ?? 0;
+    ok(stamped > 0, "addPhrase / updatePhrase: 直した時刻（updatedAt）を持つ");
+    const before = S().phrases;
+    S().updatePhrase(id, { pt: "No Japão eu trabalhava com TI." });
+    ok(S().phrases === before, "updatePhrase: 変わっていなければ何もしない（直した時刻を進めない）");
     S().updatePhrase(id, { pt: "" });
     eq(S().phrases[0].pt, "No Japão eu trabalhava com TI.", "updatePhrase: 空にする変更は無視する");
     const c = buildCatalog(S().phrases);

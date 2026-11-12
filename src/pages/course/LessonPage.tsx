@@ -22,7 +22,7 @@ import MicButton, { micSupported } from "../../components/speak/MicButton";
 import SayRunner, { type SayResult } from "../../components/speak/SayRunner";
 import ScoreView from "../../components/speak/ScoreView";
 import NextMenu from "../../components/speak/NextMenu";
-import { PITCH_PARTNER, PITCH_YOU, speakPt } from "../../components/speak/speakPt";
+import { PITCH_PARTNER, PITCH_YOU, speakPt, speakPtChecked } from "../../components/speak/speakPt";
 
 const STEPS = [
   { label: "聞く", hint: "文字を見ずに、会話を聞いてみる" },
@@ -264,6 +264,12 @@ function RepeatStep({ lesson, onNext }: { lesson: Lesson; onNext: () => void }) 
     return () => audio.cancel();
   }, [t]);
 
+  // 採点が出たら、「次の文」のボタンが画面に入るところまで送る
+  const nextRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (score) nextRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, [score]);
+
   if (!t) return null;
   const answers = [t.pt, ...(t.alt ?? [])];
   function next() {
@@ -309,7 +315,7 @@ function RepeatStep({ lesson, onNext }: { lesson: Lesson; onNext: () => void }) 
       ) : (
         <p className="text-center text-sm text-slate-500">お手本をまねて、声に出して2〜3回言ってみよう。</p>
       )}
-      <button type="button" onClick={next} className="btn-primary min-h-14 w-full text-base">
+      <button ref={nextRef} type="button" onClick={next} className="btn-primary min-h-14 w-full scroll-mb-4 text-base">
         {k + 1 >= targets.length ? "次へ：日本語を見て言う" : "声に出した → 次の文"}
         <ArrowRight size={18} aria-hidden />
       </button>
@@ -353,11 +359,12 @@ function PlayStep({ lesson, onNext }: { lesson: Lesson; onNext: () => void }) {
     setManual(false);
     void (async () => {
       const started = Date.now();
-      await speakPt(line.pt, { pitch: PITCH_PARTNER });
+      const played = await speakPtChecked(line.pt, { pitch: PITCH_PARTNER });
       if (cancelled) return;
-      // 音声がすぐ終わった（オフラインの音声・読み上げが始まらなかった・別の読み上げに割り込まれた）ときは、
-      // 聞かせないまま先へ進めない。文字を出して、自分で「次へ」を押してもらう
-      if (Date.now() - started < MIN_SPOKEN_MS) {
+      // 鳴らなかった（エラー・読み上げが始まらなかった・別の読み上げに割り込まれた）、または一瞬で終わった
+      // （音の出ない音声でも「終わった」と返す端末がある）ときは、聞かせないまま先へ進めない。
+      // 文字を出して、自分で「次へ」を押してもらう
+      if (!played || Date.now() - started < MIN_SPOKEN_MS) {
         setPeek(true);
         setManual(true);
         return;
