@@ -46,6 +46,36 @@ export interface LessonProgress {
   step: number;
   /** はじめて最後まで終えた日（YYYY-MM-DD）。まだなら null */
   doneAt: string | null;
+  /** 場面の復習（終えたあとに、もう一度ロールプレイを通した日。古い順・最大 REPLAY_KEEP 件） */
+  replays?: string[];
+}
+
+/** 残す場面の復習の日付の数 */
+export const REPLAY_KEEP = 12;
+/**
+ * 場面の復習の間隔（日）。終えた日から 3日後 → その 10日後 → その 30日後、以降は 60日ごと。
+ * 口慣らし（日本語を見て言う）だけでは「相手のポルトガル語を聞いて答える」練習にならないので、
+ * 終えた場面のロールプレイを、忘れかけた頃にもう一度通す
+ */
+export const REPLAY_GAPS = [3, 10, 30, 60] as const;
+
+const dayDiff = (a: string, b: string): number => Math.round((Date.parse(`${a}T00:00:00Z`) - Date.parse(`${b}T00:00:00Z`)) / 86400000);
+
+/**
+ * 今日やる場面の復習（終えたレッスンのうち、復習の間隔がいちばん過ぎているもの）。無ければ null。
+ * order = レッスンの ID の並び（同じ過ぎ方なら先のレッスン）。
+ */
+export function replayDue(lessons: Readonly<Record<string, LessonProgress>>, today: string, order: readonly string[]): string | null {
+  let best: { id: string; over: number } | null = null;
+  for (const id of order) {
+    const l = lessons[id];
+    if (!l?.doneAt) continue;
+    const done = l.replays?.length ?? 0;
+    const base = done ? l.replays![done - 1] : l.doneAt;
+    const over = dayDiff(today, base) - REPLAY_GAPS[Math.min(done, REPLAY_GAPS.length - 1)];
+    if (over >= 0 && (!best || over > best.over)) best = { id, over };
+  }
+  return best?.id ?? null;
 }
 
 export interface TalkLog {
@@ -123,11 +153,17 @@ export function readUserPhrase(v: unknown): UserPhrase | null {
   };
 }
 
+/** 場面の復習の日付: 重複を除いて古い順に並べ、新しい方から REPLAY_KEEP 件を残す */
+export function tidyReplays(dates: readonly string[]): string[] {
+  return [...new Set(dates)].sort().slice(-REPLAY_KEEP);
+}
+
 export function readLessonProgress(v: unknown): LessonProgress | null {
   if (!isObj(v)) return null;
   const step = Math.min(LESSON_STEPS, count(v.step));
   const doneAt = isDate(v.doneAt) ? v.doneAt : null;
-  return { step: doneAt ? LESSON_STEPS : step, doneAt };
+  const replays = doneAt && Array.isArray(v.replays) ? tidyReplays(v.replays.filter(isDate)) : [];
+  return { step: doneAt ? LESSON_STEPS : step, doneAt, ...(replays.length ? { replays } : {}) };
 }
 
 export function readTalkLog(v: unknown): TalkLog | null {
@@ -191,7 +227,7 @@ export function readSpeak(v: unknown): SpeakExport | null {
  * - cards: 文ごとに、新しく学習した方（単語と同じ規則。merge.mergeCards）
  * - phrases: 両方の文を残す。同じ ID は、あとで直した方（updatedAt の大きい方。同じ・無ければこの端末の方）。
  *   別の ID で同じポルトガル語の文（samePhraseText）は1つにまとめ、カードは新しく学習した方を残す
- * - lessons: 終えた日は早い方、ステップは進んでいる方
+ * - lessons: 終えた日は早い方、ステップは進んでいる方、場面の復習の日付は両方
  * - talks: 両方の記録（重複は1つに）
  */
 export function mergeSpeak(local: SpeakExport, remote: SpeakExport | null): SpeakExport {
@@ -227,7 +263,8 @@ export function mergeSpeak(local: SpeakExport, remote: SpeakExport | null): Spea
       continue;
     }
     const doneAt = l.doneAt && r.doneAt ? (l.doneAt < r.doneAt ? l.doneAt : r.doneAt) : l.doneAt ?? r.doneAt;
-    lessons[id] = { step: doneAt ? LESSON_STEPS : Math.max(l.step, r.step), doneAt };
+    const replays = doneAt ? tidyReplays([...(l.replays ?? []), ...(r.replays ?? [])]) : [];
+    lessons[id] = { step: doneAt ? LESSON_STEPS : Math.max(l.step, r.step), doneAt, ...(replays.length ? { replays } : {}) };
   }
   return { cards, phrases, lessons, talks: tidyTalks([...local.talks, ...remote.talks]) };
 }

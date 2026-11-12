@@ -10,6 +10,7 @@ import type { SrsCard } from "../src/data/types";
 import { LESSONS, UNITS, buildUnits, nextLesson } from "../src/data/course";
 import {
   CAN_SAY_DAYS,
+  REVIEW_DAY_BACKLOG,
   SAY_GOOD_PERCENT,
   SAY_HARD_PERCENT,
   answersOf,
@@ -17,6 +18,7 @@ import {
   dueCount,
   dueItems,
   extraItems,
+  isReviewDay,
   lessonItems,
   ratingFromPercent,
   speakStats,
@@ -31,7 +33,9 @@ import {
   newPhraseId,
   readSpeak,
   readUserPhrase,
+  replayDue,
   samePhraseText,
+  tidyReplays,
   type SpeakExport,
   type UserPhrase,
 } from "../src/speak/speakData";
@@ -53,6 +57,7 @@ import {
 } from "../src/speak/talk";
 import { AiError, type GenerateJsonOptions, type GenerateJsonResult } from "../src/services/ai/types";
 import { scoreSpeechSentence } from "../src/services/grade";
+import { hasWrongWord, scoreSaid } from "../src/speak/score";
 import { addDays, newCard, review, todayStr } from "../src/srs/scheduler";
 import { composeBackup, describeBackup, parseBackup, pickSettings } from "../src/store/backupFormat";
 import { countsAsStudy, isStudyDay, readDayLog } from "../src/store/history";
@@ -123,8 +128,10 @@ console.log("=== 今日の口慣らし（dueItems / dueCount / extraItems） ===
     fresh: newCard(TD),
   };
   const c = cat("a", "b", "c", "d", "fresh");
-  eq(dueItems(cards, c, TD).map((i) => i.id), ["d", "b", "fresh", "a"], "延滞の大きい順 → 間隔の短い順 → ID 順。教材に無い文・期限前の文は出さない");
-  eq(dueItems(cards, c, TD, 2).map((i) => i.id), ["d", "b"], "今日の残りの枠まで");
+  eq(dueItems(cards, c, TD).map((i) => i.id), ["d", "fresh", "a", "b"], "覚えたての文（間隔3日以下）→ それ以外。それぞれ延滞の大きい順 → 間隔の短い順 → ID 順。教材に無い文・期限前の文は出さない");
+  eq(dueItems(cards, c, TD, 2).map((i) => i.id), ["d", "fresh"], "今日の残りの枠まで（覚えたての文の復習を、古い延滞より先に守る）");
+  ok(!isReviewDay(REVIEW_DAY_BACKLOG, false) && isReviewDay(REVIEW_DAY_BACKLOG + 1, false), "復習の日: 期限の来た文が上限を超えたら、新しいレッスンを勧めない");
+  ok(!isReviewDay(REVIEW_DAY_BACKLOG + 30, true), "復習の日: 今日もうレッスンを終えていれば、済みのまま");
   eq(dueItems(cards, c, TD, 0), [], "枠が 0 なら出さない");
   eq(dueItems(cards, c, TD, -5), [], "枠が負でも出さない");
   eq(dueCount(cards, c, TD), 4, "期限の来ている文の数（枠は見ない）");
@@ -155,6 +162,17 @@ console.log("=== 話す力の数字（speakStats）・おすすめの評価（ra
   eq(ratingFromPercent(SAY_HARD_PERCENT - 1), "again", "それ未満 → 言えなかった");
   eq(ratingFromPercent(100, true), "hard", "ヒントを見たら「言えた」にしない");
   eq(ratingFromPercent(10, true), "again", "ヒントを見ても、言えなければ「言えなかった」");
+  eq(ratingFromPercent(95, false, true), "hard", "別の語に聞こえた語があれば「言えた」にしない");
+  // 動詞の形だけ違う（vou / fui）: 点数は高くても「言えた」を勧めない
+  const tense = scoreSaid(["vou para a praia com uns amigos"], ["Fui para a praia com uns amigos."]);
+  ok(tense.percent >= SAY_GOOD_PERCENT && hasWrongWord(tense), "vou と fui の違いは「別の語」として拾う（点数は 85% 以上になる）");
+  eq(ratingFromPercent(tense.percent, false, hasWrongWord(tense)), "hard", "過去形を現在形で言ったら「惜しい」を勧める");
+  ok(!hasWrongWord(scoreSaid(["fui para a praia com uns amigos"], ["Fui para a praia com uns amigos."])), "正しく言えば「別の語」は無い");
+  // 話し言葉の短縮形で言っても減点しない（教材は estou・está・para と書いてある）
+  eq(scoreSaid(["tô chegando"], ["Estou chegando!"]).percent, 100, "tô chegando は Estou chegando! として満点");
+  eq(scoreSaid(["fica pra próxima"], ["Fica para a próxima!"]).heard, "fica pra próxima", "聞こえた文は、言った形（短縮形）のまま返す");
+  ok(scoreSaid(["tá um pouco caro"], ["Está um pouco caro."]).percent === 100 && scoreSaid(["cadê você"], ["Cadê você?"]).percent === 100, "tá は está として採点。cadê・bora のような語はそのままでも満点");
+  ok(scoreSaid(["bom dia"], ["Bom dia! Tudo bem?"]).percent < SAY_GOOD_PERCENT, "短縮形の扱いを足しても、言えていない文は言えていない");
   // 採点: 別の言い方（alt）で言っても満点・アクセントや句読点の違いは数えない
   const s = scoreSpeechSentence(["tudo otimo obrigada"], ["Tudo ótimo, obrigado.", "Tudo ótimo, obrigada."]);
   eq(s.percent, 100, "alt の言い方（女性形）で言っても満点。アクセント・句読点は数えない");
@@ -213,6 +231,27 @@ console.log("=== 保存データの読み込み（readSpeak / readUserPhrase） 
   const many = { talks: Array.from({ length: TALK_LOG_MAX + 20 }, (_, i) => ({ at: addDays(TD, -i), id: "x", turns: 1, sec: i })) };
   const t = readSpeak(many)?.talks ?? [];
   eq([t.length, t[0].at], [TALK_LOG_MAX, TD], "会話の記録は新しい順に上限まで");
+}
+
+console.log("=== 場面の復習（終えたレッスンのロールプレイを、間隔を空けてもう一度） ===");
+{
+  const order = ["u1l1", "u1l2", "u1l3", "u1l4"];
+  const L = (doneAt: string | null, replays?: string[]) => ({ step: LESSON_STEPS, doneAt, ...(replays ? { replays } : {}) });
+  eq(replayDue({}, TD, order), null, "終えたレッスンが無ければ無い");
+  eq(replayDue({ u1l1: L(addDays(TD, -2)) }, TD, order), null, "終えて2日ではまだ");
+  eq(replayDue({ u1l1: L(addDays(TD, -3)) }, TD, order), "u1l1", "終えて3日たったら復習");
+  eq(replayDue({ u1l1: { step: 2, doneAt: null } }, TD, order), null, "途中のレッスンは対象外");
+  eq(replayDue({ u1l1: L(addDays(TD, -20), [addDays(TD, -9)]) }, TD, order), null, "1回目の復習から9日ではまだ（次は10日後）");
+  eq(replayDue({ u1l1: L(addDays(TD, -20), [addDays(TD, -10)]) }, TD, order), "u1l1", "1回目の復習から10日たったら2回目");
+  eq(replayDue({ u1l1: L(addDays(TD, -90), [addDays(TD, -80), addDays(TD, -60), addDays(TD, -29)]) }, TD, order), null, "3回目の後は60日ごと（29日ではまだ）");
+  eq(replayDue({ u1l1: L(addDays(TD, -4)), u1l2: L(addDays(TD, -9)), u1l3: L(addDays(TD, -3)) }, TD, order), "u1l2", "間隔がいちばん過ぎている場面を先に");
+  eq(replayDue({ u1l2: L(addDays(TD, -5)), u1l1: L(addDays(TD, -5)) }, TD, order), "u1l1", "同じ過ぎ方なら先のレッスン");
+  eq(replayDue({ zzz: L(addDays(TD, -50)) }, TD, order), null, "コースに無いレッスンは出さない");
+  eq(tidyReplays([TD, addDays(TD, -3), TD, addDays(TD, -1)]), [addDays(TD, -3), addDays(TD, -1), TD], "復習の日付は重複を除いて古い順");
+  eq(tidyReplays(Array.from({ length: 30 }, (_, i) => addDays(TD, -i))).length, 12, "復習の日付は新しい方から12件まで");
+  eq(readSpeak({ lessons: { a: { step: 4, doneAt: TD, replays: [TD, "x", 3, TD] }, b: { step: 1, doneAt: null, replays: [TD] } } })?.lessons, { a: { step: LESSON_STEPS, doneAt: TD, replays: [TD] }, b: { step: 1, doneAt: null } }, "読み込み: 壊れた日付は落とし、終えていないレッスンの復習は置かない");
+  const merged = mergeSpeak({ ...emptySpeak(), lessons: { a: L(addDays(TD, -9), [addDays(TD, -5)]) } }, { ...emptySpeak(), lessons: { a: L(addDays(TD, -8), [addDays(TD, -2), addDays(TD, -5)]) } });
+  eq(merged.lessons.a, { step: LESSON_STEPS, doneAt: addDays(TD, -9), replays: [addDays(TD, -5), addDays(TD, -2)] }, "統合: 場面の復習の日付は両方を残す");
 }
 
 console.log("=== 統合インポート（mergeSpeak） ===");
@@ -322,7 +361,8 @@ console.log("=== AI との会話: プロンプト ===");
   ok(sys.includes(sc.role) && sc.missions.every((m, i) => sys.includes(`${i}: ${m}`)), "役と、番号つきのミッションが入る");
   ok(sys.includes(LESSONS[3].phrases[0].pt), "練習した文が入る");
   ok(sys.includes("入門") && !buildTalkSystem(sc, 3).includes("入門"), "むずかしさで話し方のきまりが変わる");
-  ok(!buildTalkSystem(customScenario("x"), 1).includes("練習した文"), "練習した文の無い場面では、その見出しを出さない");
+  ok(!buildTalkSystem(customScenario("x"), 1).includes("練習した文"), "練習した文の無い場面では、その見出しも、それへの言及も出さない");
+  ok(sys.includes("正しくて通じる短い文を、もっと凝った文に書き換えない") && sys.includes("ミッションと、上の「練習した文」に出てくる時制"), "訂正するのは誤りと伝わらないときだけ。場面に出てくる時制はレベルの制限の外");
   const turns: TalkTurn[] = [
     { who: "ai", pt: "Bom dia! O que você vai querer?", ja: "" },
     { who: "me", text: "Um café,\npor favor.", feedback: null },
@@ -471,6 +511,12 @@ console.log("=== useSpeak（文のカード・自分の文・レッスン・会�
   eq(twice.cards.due.due, addDays(today, 1), "言えなかった → 言い直して言えた → 翌日");
   eq(applySpeakRating({ ...base, daily: { date: addDays(today, -1), dueReviewed: 9 } }, "due", "good", today).daily, { date: today, dueReviewed: 1 }, "日付が変わったらカウンタを数え直す");
   eq(speakDailyToday({ date: addDays(today, -1), dueReviewed: 9 }, today).dueReviewed, 0, "前日のカウンタは 0 扱い");
+  // 「惜しい」でも少しずつ間隔を伸ばす（1日のまま毎日出つづけない）
+  const hardBase = (intervalDays: number) => ({ cards: { h: card({ due: today, last: addDays(today, -intervalDays), intervalDays, reps: 2 }) }, daily: { date: today, dueReviewed: 0 } });
+  eq([1, 2, 3, 10].map((d) => applySpeakRating(hardBase(d), "h", "hard", today).cards.h.intervalDays), [2, 3, 4, 12], "惜しい: 1日 → 2日 → 3日…（スケジューラの ×1.2 が伸びないときは +1日）");
+  eq(applySpeakRating(hardBase(1), "h", "hard", today).cards.h.due, addDays(today, 2), "惜しい: 次の復習日も伸びる");
+  eq(applySpeakRating(applySpeakRating(hardBase(1), "h", "again", today), "h", "hard", today).cards.h.intervalDays, 1, "言えなかった直後の言い直しの「惜しい」は翌日（伸ばさない）");
+  eq(applySpeakRating(base, "new", "hard", today).cards.new.intervalDays, 1, "はじめての文の「惜しい」は翌日");
 
   S().rate("u1l1p1", "good");
   eq([S().cards.u1l1p1.intervalDays, S().cards.u1l1p1.last], [1, today], "rate: カードが無ければ作って評価する");
@@ -523,6 +569,11 @@ console.log("=== useSpeak（文のカード・自分の文・レッスン・会�
   S().setLessonStep("u1l1", 0);
   ok(S().lessons === snap, "終えたレッスンは、もう一度終えても・復習しても記録を変えない");
 
+  S().logReplay("u1l1");
+  S().logReplay("u1l1");
+  eq(S().lessons.u1l1.replays, [today], "logReplay: 場面の復習を今日の日付で記録する（同じ日は1回）");
+  S().logReplay("u1l2");
+  ok(!("u1l2" in S().lessons), "logReplay: 終えていないレッスンには記録しない");
   S().logTalk({ id: "u1l1", turns: 4, sec: 120 });
   eq(S().talks[0], { id: "u1l1", turns: 4, sec: 120, at: today }, "logTalk: 日付を付けて先頭に足す（会話の中身は持たない）");
   for (let i = 0; i < TALK_LOG_MAX + 5; i++) S().logTalk({ id: "x", turns: 1, sec: i });

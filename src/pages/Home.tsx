@@ -15,7 +15,7 @@ import BackupNudge from "../components/BackupNudge";
 import { IconBadge, type FeatureKey } from "../components/icons";
 
 /** メニューの種類 → アイコン（色は icons/features.ts） */
-const MENU_FEATURE: Record<MenuKey, FeatureKey> = { speak: "speak", lesson: "course", talk: "talk", words: "flashcards" };
+const MENU_FEATURE: Record<MenuKey, FeatureKey> = { speak: "speak", scene: "shadowing", lesson: "course", talk: "talk", words: "flashcards" };
 
 function Bar({ value, className = "" }: { value: number; className?: string }) {
   return (

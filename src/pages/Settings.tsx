@@ -948,6 +948,19 @@ export default function Settings() {
         <SectionTitle feature="speak" className="px-1 pb-2 text-sm font-bold text-slate-500">
           話す練習
         </SectionTitle>
+        <Row label="再生速度" hint="レッスン・口慣らし・会話・単語の読み上げの速さ">
+          <select
+            value={s.rate}
+            onChange={(e) => s.set({ rate: Number(e.target.value) })}
+            className="rounded-lg border border-slate-200 px-2 py-1.5"
+          >
+            {[0.7, 0.8, 0.9, 1.0, 1.1, 1.2].map((r) => (
+              <option key={r} value={r}>
+                {r.toFixed(1)}x
+              </option>
+            ))}
+          </select>
+        </Row>
         <Row label="口慣らしの1日の上限" hint="日本語を見て言う文の復習。超えた分は翌日に回します">
           <select
             value={s.speakDailyLimit}
@@ -989,19 +1002,6 @@ export default function Settings() {
         <SectionTitle feature="study" className="px-1 pb-2 text-sm font-bold text-slate-500">
           単語の学習
         </SectionTitle>
-        <Row label="再生速度" hint="音声のデフォルト速度">
-          <select
-            value={s.rate}
-            onChange={(e) => s.set({ rate: Number(e.target.value) })}
-            className="rounded-lg border border-slate-200 px-2 py-1.5"
-          >
-            {[0.7, 0.8, 0.9, 1.0, 1.1, 1.2].map((r) => (
-              <option key={r} value={r}>
-                {r.toFixed(1)}x
-              </option>
-            ))}
-          </select>
-        </Row>
         <Row label="1日の新規語数" hint="今日の学習で導入する新語の上限">
           <input
             type="number"

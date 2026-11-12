@@ -71,8 +71,27 @@ export const answersOf = (it: Pick<SayItem, "pt" | "alt">): string[] => [it.pt, 
 /** 1回のセッションで出す文の数の上限（多すぎると最後まで続かない） */
 export const SESSION_MAX = 20;
 
+/** 覚えたての文（復習の間隔がこの日数以下）。最初の数回の復習が遅れると忘れてしまうので、古い延滞より先に出す */
+export const YOUNG_DAYS = 3;
+
 /**
- * 今日やる文（期限の来たカード）。延滞の大きい順 → 間隔の短い順（あやふやな文を先に）→ ID 順。
+ * 期限の来た文がこの数を超えている日は「復習の日」にして、新しいレッスンを勧めない
+ * （1日1課のまま進むと、3週目あたりで復習が1日の上限を超え、覚えたての文の復習が何日も遅れてしまう）
+ */
+export const REVIEW_DAY_BACKLOG = 20;
+
+/** 今日は復習の日か（期限の来た文が多く、今日まだレッスンを終えていない） */
+export function isReviewDay(backlog: number, lessonDoneToday: boolean): boolean {
+  return backlog > REVIEW_DAY_BACKLOG && !lessonDoneToday;
+}
+
+/** 何日か空いたあとの最初の回は、この数だけ出す（戻ってきた日に、山のような復習を見せない） */
+export const COMEBACK_DAYS = 3;
+export const COMEBACK_SESSION = 10;
+
+/**
+ * 今日やる文（期限の来たカード）。覚えたての文（間隔 YOUNG_DAYS 日以下）→ それ以外、の順で、
+ * それぞれ延滞の大きい順 → 間隔の短い順 → ID 順。
  * remaining は今日の残りの枠（1日の上限 − 今日すでに復習した数）。教材から消えた文のカードは出さない。
  */
 export function dueItems(cards: SpeakCards, catalog: Catalog, today: string, remaining: number = Infinity): SayItem[] {
@@ -82,7 +101,9 @@ export function dueItems(cards: SpeakCards, catalog: Catalog, today: string, rem
     const it = catalog.get(id);
     if (it) due.push({ it, c });
   }
-  due.sort((a, b) => (a.c.due < b.c.due ? -1 : a.c.due > b.c.due ? 1 : a.c.intervalDays - b.c.intervalDays || (a.it.id < b.it.id ? -1 : a.it.id > b.it.id ? 1 : 0)));
+  const cmp = (x: string, y: string) => (x < y ? -1 : x > y ? 1 : 0);
+  const young = (c: SrsCard) => (c.intervalDays <= YOUNG_DAYS ? 0 : 1);
+  due.sort((a, b) => young(a.c) - young(b.c) || cmp(a.c.due, b.c.due) || a.c.intervalDays - b.c.intervalDays || cmp(a.it.id, b.it.id));
   return due.slice(0, Math.max(0, Math.floor(remaining))).map((x) => x.it);
 }
 
@@ -141,9 +162,12 @@ export const SAY_GOOD_PERCENT = 85;
 /** この点数以上なら「惜しい」 */
 export const SAY_HARD_PERCENT = 55;
 
-/** 言ってみた点数（0〜100）からのおすすめ。ヒントを見たときは「言えた」にしない */
-export function ratingFromPercent(percent: number, usedHint = false): Rating {
-  if (percent >= SAY_GOOD_PERCENT) return usedHint ? "hard" : "good";
+/**
+ * 言ってみた点数（0〜100）からのおすすめ。ヒントを見たとき・別の語に聞こえた語があるとき（wrongWord。
+ * vou と fui のように、語数は合っていても形が違う）は「言えた」にしない
+ */
+export function ratingFromPercent(percent: number, usedHint = false, wrongWord = false): Rating {
+  if (percent >= SAY_GOOD_PERCENT) return usedHint || wrongWord ? "hard" : "good";
   if (percent >= SAY_HARD_PERCENT) return "hard";
   return "again";
 }

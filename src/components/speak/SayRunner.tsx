@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { Rating, SrsCard } from "../../data/types";
 import { useProgress } from "../../store/useProgress";
 import { useSpeak, type SpeakDaily } from "../../store/useSpeak";
-import type { SayItem } from "../../speak/catalog";
+import { CAN_SAY_DAYS, type SayItem } from "../../speak/catalog";
 import { Undo2 } from "lucide-react";
 import SayCard, { SAY_RATINGS } from "./SayCard";
 
@@ -18,6 +18,8 @@ export interface SayResult {
   again: number;
   /** 最初に言えなかった文 */
   missed: SayItem[];
+  /** この回で「言える文」（復習の間隔 CAN_SAY_DAYS 日以上）になった文 */
+  gained: SayItem[];
 }
 
 interface Entry {
@@ -32,6 +34,8 @@ interface Undo {
   prevDaily: SpeakDaily;
   /** 評価で末尾に足したか（取り消すときに外す） */
   requeued: boolean;
+  /** この評価で「言える文」になったか（取り消すときに外す） */
+  gained: boolean;
   rating: Rating;
   rep: number;
   label: string;
@@ -54,7 +58,7 @@ export default function SayRunner({ items, onDone, hideIntervals }: Props) {
   const [queue, setQueue] = useState<Entry[]>(() => items.map((item) => ({ item, rep: 0 })));
   const [idx, setIdx] = useState(0);
   const [undo, setUndo] = useState<Undo | null>(null);
-  const stats = useRef({ good: 0, hard: 0, again: 0, missed: [] as SayItem[] });
+  const stats = useRef({ good: 0, hard: 0, again: 0, missed: [] as SayItem[], gained: [] as SayItem[] });
   const doneRef = useRef(false);
   const cur = queue[idx];
   const card = useSpeak((s) => (cur ? s.cards[cur.item.id] : undefined));
@@ -63,7 +67,7 @@ export default function SayRunner({ items, onDone, hideIntervals }: Props) {
     if (doneRef.current) return;
     doneRef.current = true;
     const s = stats.current;
-    onDone({ total: items.length, good: s.good, hard: s.hard, again: s.again, missed: s.missed });
+    onDone({ total: items.length, good: s.good, hard: s.hard, again: s.again, missed: s.missed, gained: s.gained });
   }, [items.length, onDone]);
 
   // 文が無いときはすぐ終える
@@ -80,6 +84,10 @@ export default function SayRunner({ items, onDone, hideIntervals }: Props) {
       const prevDaily = sp.daily;
       sp.rate(e.item.id, rating);
       useProgress.getState().logActivity("speak", 1, 0);
+      // 今の評価で「言える文」になった（間隔が CAN_SAY_DAYS 日に届いた）
+      const nowDays = useSpeak.getState().cards[e.item.id]?.intervalDays ?? 0;
+      const becameCanSay = (prevCard?.intervalDays ?? 0) < CAN_SAY_DAYS && nowDays >= CAN_SAY_DAYS;
+      if (becameCanSay) stats.current.gained.push(e.item);
       if (e.rep === 0) {
         stats.current[rating === "easy" ? "good" : rating]++;
         if (rating === "again") stats.current.missed.push(e.item);
@@ -91,6 +99,7 @@ export default function SayRunner({ items, onDone, hideIntervals }: Props) {
         id: e.item.id,
         prevCard,
         prevDaily,
+        gained: becameCanSay,
         requeued,
         rating,
         rep: e.rep,
@@ -112,6 +121,7 @@ export default function SayRunner({ items, onDone, hideIntervals }: Props) {
       s[u.rating === "easy" ? "good" : u.rating]--;
       if (u.rating === "again") s.missed = s.missed.filter((m) => m.id !== u.id);
     }
+    if (u.gained) stats.current.gained = stats.current.gained.filter((m) => m.id !== u.id);
     if (u.requeued) setQueue((q) => q.slice(0, -1));
     setIdx((i) => Math.max(0, i - 1));
   }

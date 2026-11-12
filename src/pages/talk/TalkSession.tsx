@@ -35,7 +35,10 @@ import PtInput from "../../components/PtInput";
 import AiSetupCard from "../../components/speak/AiSetupCard";
 import MicButton, { micSupported } from "../../components/speak/MicButton";
 import NextMenu from "../../components/speak/NextMenu";
+import ScoreView from "../../components/speak/ScoreView";
 import { speakPt } from "../../components/speak/speakPt";
+import type { SpeechSentenceScore } from "../../services/grade";
+import { scoreSaid } from "../../speak/score";
 
 /** 自由に話すときの聞き取りの上限（文の採点より長め） */
 const TALK_LISTEN_MS = 15000;
@@ -113,7 +116,9 @@ function AddToSay({ ja, pt, note, from }: { ja: string; pt: string; note?: strin
 }
 
 /** 学習者の発言へのフィードバック（自然なら ✓、直すなら自然な言い方） */
-function FeedbackView({ fb }: { fb: TalkFeedback | null | undefined }) {
+function FeedbackView({ fb, practice = false }: { fb: TalkFeedback | null | undefined; practice?: boolean }) {
+  // 直された文を、その場で声に出して言い直した結果（practice のときだけ 🎤 を出す）
+  const [score, setScore] = useState<SpeechSentenceScore | null>(null);
   if (fb === undefined) return <p className="mt-1 text-right text-[11px] text-slate-400">…</p>;
   if (fb === null) return null;
   if (fb.ok) return <p className="mt-1 text-right text-[11px] font-bold text-emerald-600">✓ 自然に伝わりました</p>;
@@ -128,7 +133,13 @@ function FeedbackView({ fb }: { fb: TalkFeedback | null | undefined }) {
       </button>
       {fb.ja && <p className="text-xs text-slate-600">{fb.ja}</p>}
       {fb.note && <p className="text-xs leading-relaxed text-slate-500">{fb.note}</p>}
-      <AddToSay ja={fb.ja} pt={fb.better} note={fb.note} from="talk" />
+      {score && <ScoreView score={score} compact />}
+      <div className="flex flex-wrap items-center gap-2">
+        <AddToSay ja={fb.ja} pt={fb.better} note={fb.note} from="talk" />
+        {practice && micSupported() && (
+          <MicButton size="md" timeoutMs={TALK_LISTEN_MS} onResult={(r) => setScore(scoreSaid(r.transcripts, fb.better))} hint="この文を言い直す" className="ml-auto [&>button]:h-11 [&>button]:w-11 [&>p]:min-h-0 [&>p]:text-[11px]" />
+        )}
+      </div>
     </div>
   );
 }
@@ -376,7 +387,7 @@ function Conversation({ sc, onAgain }: { sc: TalkScenario; onAgain: () => void }
                     {t.text}
                   </p>
                 </div>
-                <FeedbackView fb={i === turns.length - 1 && error ? null : t.feedback} />
+                <FeedbackView fb={i === turns.length - 1 && error ? null : t.feedback} practice />
               </div>
             </div>
           )

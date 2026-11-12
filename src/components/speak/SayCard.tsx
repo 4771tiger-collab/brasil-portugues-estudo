@@ -4,12 +4,13 @@ import type { Rating, SrsCard } from "../../data/types";
 import { newCard, previewInterval } from "../../srs/scheduler";
 import { useSettings } from "../../store/useSettings";
 import { audio } from "../../services/audio";
-import { scoreSpeechSentence, hintText, type SpeechSentenceScore } from "../../services/grade";
+import { hintText, type SpeechSentenceScore } from "../../services/grade";
+import { hasWrongWord, scoreSaid } from "../../speak/score";
 import { sentenceListenTimeoutMs, type SpeechResult } from "../../services/speechInput";
-import { toKana } from "../../services/pronunciation";
 import { sentenceContext, useTeacherUi } from "../../services/ai/teacherContext";
 import { answersOf, ratingFromPercent, type SayItem } from "../../speak/catalog";
 import AskTeacherButton from "../teacher/AskTeacherButton";
+import KanaHint from "./KanaHint";
 import MicButton, { micSupported } from "./MicButton";
 import ScoreView from "./ScoreView";
 import { speakPt } from "./speakPt";
@@ -38,7 +39,6 @@ interface Props {
  * キー操作: Space = 答えを見る、1〜3 = 評価、R = お手本をもう一度。
  */
 export default function SayCard({ item, card, onRate, hideIntervals = false }: Props) {
-  const showKana = useSettings((s) => s.showKana);
   const autoPlay = useSettings((s) => s.autoPlayOnReveal);
   const [revealed, setRevealed] = useState(false);
   const [hint, setHint] = useState(0);
@@ -46,7 +46,6 @@ export default function SayCard({ item, card, onRate, hideIntervals = false }: P
   /** 答えを見る前の最初の採点から決めたおすすめ（答えを見た後の言い直しでは変えない） */
   const [suggested, setSuggested] = useState<Rating | undefined>(undefined);
   const answers = useMemo(() => answersOf(item), [item]);
-  const kana = useMemo(() => (showKana ? toKana(item.pt) : ""), [showKana, item.pt]);
   const timeoutMs = useMemo(() => sentenceListenTimeoutMs(answers), [answers]);
   const mic = micSupported();
   const revealedRef = useRef(revealed);
@@ -74,10 +73,10 @@ export default function SayCard({ item, card, onRate, hideIntervals = false }: P
   }
 
   function onHeard(r: SpeechResult) {
-    const s = scoreSpeechSentence(r.transcripts, answers);
+    const s = scoreSaid(r.transcripts, answers);
     setScore(s);
     if (!revealedRef.current) {
-      setSuggested(ratingFromPercent(s.percent, hintRef.current > 0));
+      setSuggested(ratingFromPercent(s.percent, hintRef.current > 0, hasWrongWord(s)));
       reveal();
     }
   }
@@ -127,7 +126,7 @@ export default function SayCard({ item, card, onRate, hideIntervals = false }: P
             <p className="text-2xl font-bold leading-snug text-brand-green" lang="pt-BR">
               {item.pt}
             </p>
-            {kana && <p className="text-sm text-slate-400">{kana}</p>}
+            <KanaHint text={item.pt} />
             <div className="flex items-center justify-center gap-2">
               <button type="button" onClick={() => void speakPt(item.pt)} className="btn-ghost min-h-11 px-3 text-sm" aria-label="お手本を聞く">
                 <Volume2 size={18} aria-hidden />

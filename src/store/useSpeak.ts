@@ -8,7 +8,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { Rating, SrsCard } from "../data/types";
-import { newCard, review, todayStr } from "../srs/scheduler";
+import { addDays, levelFor, newCard, review, todayStr } from "../srs/scheduler";
 import {
   LESSON_STEPS,
   TALK_LOG_MAX,
@@ -18,6 +18,7 @@ import {
   newPhraseId,
   readSpeak,
   samePhraseText,
+  tidyReplays,
   readUserPhrase,
   type LessonProgress,
   type PhraseSource,
@@ -50,6 +51,8 @@ interface SpeakState extends SpeakData {
   /** レッスンのステップを進める（戻さない） */
   setLessonStep: (id: string, step: number) => void;
   completeLesson: (id: string) => void;
+  /** 場面の復習（終えたレッスンのロールプレイをもう一度通した）を今日の日付で記録する */
+  logReplay: (id: string) => void;
   logTalk: (t: Omit<TalkLog, "at">) => void;
   exportData: () => SpeakExport;
   /** バックアップの置き換え */
@@ -76,7 +79,13 @@ export function applySpeakRating(
 ): Pick<SpeakData, "cards" | "daily"> {
   const prev = state.cards[id];
   const wasDue = !!prev && prev.last !== null && prev.last !== today && prev.due <= today;
-  const updated = review(prev ?? newCard(today), rating, today);
+  let updated = review(prev ?? newCard(today), rating, today);
+  // 文のカードは「惜しい」でも少しずつ間隔を伸ばす（スケジューラの hard は 1日 × 1.2 = 1日のままで、
+  // 惜しいが続く文が毎日出つづけて復習が溢れる）。単語のカードは変えない
+  if (rating === "hard" && prev && updated !== prev && prev.reps >= 1 && prev.last !== today && updated.intervalDays <= prev.intervalDays) {
+    const intervalDays = prev.intervalDays + 1;
+    updated = { ...updated, intervalDays, due: addDays(today, intervalDays), level: levelFor(intervalDays, updated.reps) };
+  }
   const base = speakDailyToday(state.daily, today);
   return {
     cards: updated === prev ? state.cards : { ...state.cards, [id]: updated },
@@ -153,6 +162,14 @@ export const useSpeak = create<SpeakState>()(
           const cur = s.lessons[id];
           if (cur?.doneAt) return s;
           return { lessons: { ...s.lessons, [id]: { step: LESSON_STEPS, doneAt: todayStr() } } };
+        }),
+
+      logReplay: (id) =>
+        set((s) => {
+          const cur = s.lessons[id];
+          if (!cur?.doneAt) return s;
+          const replays = tidyReplays([...(cur.replays ?? []), todayStr()]);
+          return { lessons: { ...s.lessons, [id]: { ...cur, replays } } };
         }),
 
       logTalk: (t) => set((s) => ({ talks: [{ ...t, at: todayStr() }, ...s.talks].slice(0, TALK_LOG_MAX) })),

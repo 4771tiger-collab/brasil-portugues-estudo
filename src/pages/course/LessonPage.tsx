@@ -8,7 +8,8 @@ import { useActivityTimer } from "../../hooks/useActivityTimer";
 import { useWakeLock } from "../../hooks/useWakeLock";
 import { useAiProvider } from "../../hooks/useAiProvider";
 import { audio, delay } from "../../services/audio";
-import { scoreSpeechSentence, type SpeechSentenceScore } from "../../services/grade";
+import type { SpeechSentenceScore } from "../../services/grade";
+import { scoreSaid } from "../../speak/score";
 import { sentenceListenTimeoutMs, type SpeechResult } from "../../services/speechInput";
 import { toKana } from "../../services/pronunciation";
 import { sentenceContext } from "../../services/ai/teacherContext";
@@ -18,6 +19,7 @@ import { useProgress } from "../../store/useProgress";
 import { useSettings } from "../../store/useSettings";
 import { useSpeak } from "../../store/useSpeak";
 import AskTeacherButton from "../../components/teacher/AskTeacherButton";
+import KanaHint from "../../components/speak/KanaHint";
 import MicButton, { micSupported } from "../../components/speak/MicButton";
 import SayRunner, { type SayResult } from "../../components/speak/SayRunner";
 import ScoreView from "../../components/speak/ScoreView";
@@ -250,7 +252,6 @@ function ListenStep({ lesson, onNext }: { lesson: Lesson; onNext: () => void }) 
 // ② まねる（この課の文を、お手本のあとに声に出す。次の「言う」で日本語から思い出す文を、先に口に乗せておく）
 // ---------------------------------------------------------------------------
 function RepeatStep({ lesson, onNext }: { lesson: Lesson; onNext: () => void }) {
-  const showKana = useSettings((s) => s.showKana);
   const targets = lesson.phrases;
   const [k, setK] = useState(0);
   const [score, setScore] = useState<SpeechSentenceScore | null>(null);
@@ -277,7 +278,7 @@ function RepeatStep({ lesson, onNext }: { lesson: Lesson; onNext: () => void }) 
     if (k + 1 >= targets.length) onNext();
     else setK(k + 1);
   }
-  const onHeard = (r: SpeechResult) => setScore(scoreSpeechSentence(r.transcripts, answers));
+  const onHeard = (r: SpeechResult) => setScore(scoreSaid(r.transcripts, answers));
 
   return (
     <div className="space-y-4">
@@ -289,7 +290,7 @@ function RepeatStep({ lesson, onNext }: { lesson: Lesson; onNext: () => void }) 
         <p className="text-2xl font-bold leading-snug text-brand-ink" lang="pt-BR">
           {t.pt}
         </p>
-        {showKana && <p className="text-sm text-slate-400">{toKana(t.pt)}</p>}
+        <KanaHint text={t.pt} />
         <div className="flex items-center justify-center gap-2">
           <button type="button" onClick={() => void speakPt(t.pt)} className="btn-ghost min-h-11 px-3 text-sm">
             <Volume2 size={18} aria-hidden />
@@ -326,15 +327,15 @@ function RepeatStep({ lesson, onNext }: { lesson: Lesson; onNext: () => void }) 
 // ---------------------------------------------------------------------------
 // ④ 演じる（相手のセリフは音声で流れ、自分のセリフは日本語のヒントだけを見て言う）
 // ---------------------------------------------------------------------------
-function PlayStep({ lesson, onNext }: { lesson: Lesson; onNext: () => void }) {
+function PlayStep({ lesson, onNext, replay = false }: { lesson: Lesson; onNext: () => void; replay?: boolean }) {
   const lines = lesson.lines;
   const [run, setRun] = useState(0);
   const [pos, setPos] = useState(0);
   /** 自分の番で、答えを見たか */
   const [shown, setShown] = useState(false);
   const [score, setScore] = useState<SpeechSentenceScore | null>(null);
-  /** 自分のセリフに日本語のヒントを出す（2周目は隠して挑戦できる） */
-  const [hintJa, setHintJa] = useState(true);
+  /** 自分のセリフに日本語のヒントを出す（2周目は隠して挑戦できる。場面の復習では最初から隠す） */
+  const [hintJa, setHintJa] = useState(!replay);
   /** 今流れている相手のセリフの文字を出す（既定は隠す＝耳で聞く） */
   const [peek, setPeek] = useState(false);
   /** 相手のセリフの音声がすぐ終わった（音声が出ていない見込み）→ 文字を出して、自分で次へ進む */
@@ -393,7 +394,7 @@ function PlayStep({ lesson, onNext }: { lesson: Lesson; onNext: () => void }) {
     if (play && line) void speakPt(line.pt);
   }
   function onHeard(r: SpeechResult) {
-    const s = scoreSpeechSentence(r.transcripts, answers);
+    const s = scoreSaid(r.transcripts, answers);
     setScore(s);
     // よく言えていれば、お手本は流さずに先へ進める
     if (!shown) reveal(s.percent < 85);
@@ -496,7 +497,7 @@ function PlayStep({ lesson, onNext }: { lesson: Lesson; onNext: () => void }) {
           <p className="text-center text-sm font-bold text-emerald-700">最後まで演じられました！</p>
           <button type="button" onClick={onNext} className="btn-primary min-h-14 w-full text-base">
             <Check size={18} aria-hidden />
-            レッスンを終える
+            {replay ? "場面の復習を終える" : "レッスンを終える"}
           </button>
           <button type="button" onClick={() => restart(false)} className="btn-ghost min-h-12 w-full text-sm">
             <RotateCcw size={16} aria-hidden />
@@ -555,7 +556,11 @@ function DoneStep({ lesson, result }: { lesson: Lesson; result: SayResult | null
 // ---------------------------------------------------------------------------
 export default function LessonPage() {
   const { id = "" } = useParams();
+  const [params] = useSearchParams();
   const lesson = LESSON_BY_ID.get(id);
+  // 場面の復習は、終えたレッスンだけ（まだのレッスンは、ふつうのレッスンとして開く）
+  const done = useSpeak((s) => !!s.lessons[id]?.doneAt);
+  const replay = params.get("replay") === "1" && done;
   if (!lesson) {
     return (
       <div className="card space-y-3 p-6 text-center">
@@ -567,7 +572,54 @@ export default function LessonPage() {
     );
   }
   // レッスンが替わったら、状態ごと作り直す
-  return <LessonRunner key={lesson.id} lesson={lesson} />;
+  return replay ? <ReplayRunner key={`replay-${lesson.id}`} lesson={lesson} /> : <LessonRunner key={lesson.id} lesson={lesson} />;
+}
+
+/** 場面の復習（終えたレッスンのロールプレイを、ヒントなしでもう一度通す。?step=3&replay=1） */
+function ReplayRunner({ lesson }: { lesson: Lesson }) {
+  const back = useBack("/");
+  const [finished, setFinished] = useState(false);
+  useImmersive(!finished);
+  useActivityTimer("lesson", !finished);
+  return (
+    <div className="mx-auto max-w-xl space-y-4">
+      <div className="flex items-center gap-1">
+        <button type="button" onClick={back} aria-label="場面の復習を閉じる" className="-ml-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-slate-500 active:scale-90">
+          <X size={22} aria-hidden />
+        </button>
+        <div className="min-w-0 flex-1">
+          <p className="text-[11px] font-bold text-orange-600">場面の復習（ヒントなし）</p>
+          <h1 className="truncate text-base font-bold text-brand-ink">
+            L{lesson.no} {lesson.title}
+          </h1>
+        </div>
+      </div>
+      {finished ? (
+        <div className="animate-fade-in space-y-4">
+          <div className="card space-y-2 p-6 text-center">
+            <PartyPopper size={36} className="mx-auto text-brand-yellow" aria-hidden />
+            <h2 className="text-xl font-bold text-brand-ink">場面を通して演じられました！</h2>
+            <p className="text-sm leading-relaxed text-slate-600">相手のポルトガル語を聞いて、自分の言葉で返す練習です。この場面は、また忘れかけた頃に出てきます。</p>
+          </div>
+          <NextMenu skip="scene" />
+        </div>
+      ) : (
+        <>
+          <p className="rounded-xl bg-slate-100 px-3 py-2 text-xs leading-relaxed text-slate-600">🎬 {lesson.scene}</p>
+          <PlayStep
+            lesson={lesson}
+            replay
+            onNext={() => {
+              audio.cancel();
+              useSpeak.getState().logReplay(lesson.id);
+              setFinished(true);
+              window.scrollTo({ top: 0 });
+            }}
+          />
+        </>
+      )}
+    </div>
+  );
 }
 
 function LessonRunner({ lesson }: { lesson: Lesson }) {

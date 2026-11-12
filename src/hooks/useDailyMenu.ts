@@ -1,13 +1,16 @@
 // ============================================================================
 // 今日のメニュー（ホームの「今日のトレーニング」と、各練習の完了画面の「次へ」で同じ計算を使う）
-// 話せるようになるための順番: ①口慣らし（覚えた文を声に出して思い出す）→ ②レッスン（新しい場面）→
-// ③会話（AI と自由に話す）→ ④単語（語彙の復習）。
+// 話せるようになるための順番: ①口慣らし（覚えた文を声に出して思い出す）→ ②場面の復習（終えた場面を、
+// 相手のセリフを聞いてヒントなしで演じる。間隔が来た日だけ）→ ③レッスン（新しい場面）→ ④会話（AI と自由に話す）→
+// ⑤単語（語彙の復習）。
+// 復習が溜まっている日（期限の来た文が REVIEW_DAY_BACKLOG を超える）は「復習の日」にして、新しいレッスンを勧めない。
+// 全部のレッスンを終えたあとは、レッスンの代わりに「言いたいことを1文足す」を勧める。
 // ============================================================================
 
 import { useMemo } from "react";
 import { LESSONS, type Lesson } from "../data/course";
-import { buildCatalog, dueItems, speakStats, type Catalog, type SpeakStats } from "../speak/catalog";
-import { LESSON_STEPS } from "../speak/speakData";
+import { REVIEW_DAY_BACKLOG, buildCatalog, dueCount, dueItems, isReviewDay, speakStats, type Catalog, type SpeakStats } from "../speak/catalog";
+import { LESSON_STEPS, replayDue } from "../speak/speakData";
 import { todayCounters, useProgress } from "../store/useProgress";
 import { useSettings } from "../store/useSettings";
 import { speakDailyToday, useSpeak } from "../store/useSpeak";
@@ -15,7 +18,7 @@ import { useAiProvider } from "./useAiProvider";
 import { useToday } from "./useToday";
 import { useTodayPlan } from "./useTodayPlan";
 
-export type MenuKey = "speak" | "lesson" | "talk" | "words";
+export type MenuKey = "speak" | "scene" | "lesson" | "talk" | "words";
 
 export interface MenuItem {
   key: MenuKey;
@@ -55,6 +58,7 @@ export function useDailyMenu(): DailyMenu {
   const cards = useSpeak((s) => s.cards);
   const lessons = useSpeak((s) => s.lessons);
   const talks = useSpeak((s) => s.talks);
+  const phrases = useSpeak((s) => s.phrases);
   const speakDaily = useSpeak((s) => s.daily);
   const limit = useSettings((s) => s.speakDailyLimit);
   const dayLog = useProgress((s) => s.history?.[today]);
@@ -78,6 +82,16 @@ export function useDailyMenu(): DailyMenu {
     const talkedToday = talks.some((t) => t.at === today);
     const wordsLeft = plan.items.length;
 
+    // 復習の日: 期限の来た文が多い日は、新しいレッスンを勧めない（進むことはできる）
+    const backlog = dueCount(cards, catalog, today);
+    const reviewDay = !!next && isReviewDay(backlog, doneToday.length > 0);
+    // 場面の復習: 終えたレッスンのロールプレイを、間隔が来たらヒントなしで通す
+    const sceneId = replayDue(lessons, today, LESSONS.map((l) => l.id));
+    const scene = sceneId ? LESSONS.find((l) => l.id === sceneId) ?? null : null;
+    const replayedToday = LESSONS.find((l) => lessons[l.id]?.replays?.includes(today)) ?? null;
+    // 全部のレッスンを終えたあと: 今日言いたかった文を1つ足す
+    const addedToday = phrases.some((p) => p.createdAt === today);
+
     const items: MenuItem[] = [
       {
         key: "speak",
@@ -94,20 +108,44 @@ export function useDailyMenu(): DailyMenu {
         state: speakDue > 0 ? "todo" : stats.started > 0 ? "done" : "none",
         minutes: Math.max(1, Math.round(speakDue * 0.3)),
       },
-      {
-        key: "lesson",
-        title: "レッスン",
-        detail: next
-          ? doneToday.length
-            ? `今日は L${doneToday[doneToday.length - 1].no} を終えました（次は L${next.no} ${next.title}）`
-            : step > 0 && step < LESSON_STEPS
-              ? `L${next.no} ${next.title}（つづきから）`
-              : `L${next.no} ${next.title}`
-          : "全部のレッスンを終えました。好きな場面を復習しよう",
-        to: next ? `/course/${next.id}` : "/course",
-        state: doneToday.length ? "done" : next ? "todo" : "none",
-        minutes: 10,
-      },
+      ...(scene || replayedToday
+        ? [
+            {
+              key: "scene" as const,
+              title: "場面の復習",
+              detail: replayedToday
+                ? `今日は L${replayedToday.no} ${replayedToday.title} を演じました`
+                : `L${scene!.no} ${scene!.title} を、相手のセリフを聞いてヒントなしで演じる`,
+              to: `/course/${(scene ?? replayedToday)!.id}?step=3&replay=1`,
+              state: replayedToday ? ("done" as const) : ("todo" as const),
+              minutes: 3,
+            },
+          ]
+        : []),
+      next
+        ? {
+            key: "lesson",
+            title: "レッスン",
+            detail: doneToday.length
+              ? `今日は L${doneToday[doneToday.length - 1].no} を終えました（次は L${next.no} ${next.title}）`
+              : reviewDay
+                ? `今日は復習の日（復習が ${REVIEW_DAY_BACKLOG}文以下になったら次の課。先へ進むなら L${next.no} ${next.title}）`
+                : step > 0 && step < LESSON_STEPS
+                  ? `L${next.no} ${next.title}（つづきから）`
+                  : `L${next.no} ${next.title}`,
+            to: `/course/${next.id}`,
+            // 復習の日は「今日やること」に数えない（押せば進める）
+            state: doneToday.length ? "done" : reviewDay ? "none" : "todo",
+            minutes: 10,
+          }
+        : {
+            key: "lesson",
+            title: "言いたいこと",
+            detail: addedToday ? "今日の1文を足しました" : "全部のレッスンを終えました。今日言いたかった文を1つ足そう",
+            to: "/phrases",
+            state: addedToday ? "done" : "todo",
+            minutes: 3,
+          },
       {
         key: "talk",
         title: "会話",
@@ -146,5 +184,5 @@ export function useDailyMenu(): DailyMenu {
       lessonsDone,
       catalog,
     };
-  }, [cards, catalog, limit, speakDaily, today, dayLog, lessons, talks, plan, studied, hasAi]);
+  }, [cards, catalog, limit, speakDaily, today, dayLog, lessons, talks, phrases, plan, studied, hasAi]);
 }

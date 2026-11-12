@@ -9,7 +9,9 @@ import { useWakeLock } from "../../hooks/useWakeLock";
 import { useToday } from "../../hooks/useToday";
 import { useSettings } from "../../store/useSettings";
 import { speakDailyToday, useSpeak } from "../../store/useSpeak";
-import { SESSION_MAX, dueCount, dueItems, extraItems, speakStats, type SayItem } from "../../speak/catalog";
+import { COMEBACK_DAYS, COMEBACK_SESSION, SESSION_MAX, dueCount, dueItems, extraItems, speakStats, type SayItem } from "../../speak/catalog";
+import { diffDays } from "../../srs/scheduler";
+import { useProgress } from "../../store/useProgress";
 import SayRunner, { type SayResult } from "../../components/speak/SayRunner";
 import NextMenu from "../../components/speak/NextMenu";
 import { speakPt } from "../../components/speak/speakPt";
@@ -31,6 +33,11 @@ export default function SpeakReview() {
   const back = useBack("/");
   /** セッションを作り直すための番号（「つづける」で増やす） */
   const [round, setRound] = useState(0);
+  // 何日か空いたあとの最初の回は短くする（開いた時点の記録で決める。1文でも評価すると今日が学習日になる）
+  const [comeback] = useState(() => {
+    const last = useProgress.getState().lastStudyDate;
+    return !!last && diffDays(today, last) >= COMEBACK_DAYS;
+  });
   const [result, setResult] = useState<SayResult | null>(null);
 
   // 開いた時点の記録で、今回出す文を決める（評価のたびに並びを変えない）
@@ -38,7 +45,7 @@ export default function SpeakReview() {
     const sp = useSpeak.getState();
     if (extra) return extraItems(sp.cards, catalog, today, EXTRA_COUNT);
     const remaining = Math.max(0, limit - speakDailyToday(sp.daily, today).dueReviewed);
-    return dueItems(sp.cards, catalog, today, remaining).slice(0, SESSION_MAX);
+    return dueItems(sp.cards, catalog, today, remaining).slice(0, comeback ? COMEBACK_SESSION : SESSION_MAX);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [extra, round, today]);
 
@@ -65,6 +72,11 @@ export default function SpeakReview() {
           <h1 className="text-sm font-bold text-brand-ink">{extra ? "口慣らし（追加練習）" : "口慣らし"}</h1>
           <span className="w-11" />
         </div>
+        {comeback && round === 0 && !extra && (
+          <p className="rounded-xl bg-brand-green/5 px-3 py-2 text-center text-xs leading-relaxed text-emerald-800">
+            おかえりなさい！ まずは {items.length}文だけ。忘れていても大丈夫、言い直せば戻ってきます。
+          </p>
+        )}
         <SayRunner key={`${extra}-${round}`} items={items} onDone={onDone} />
       </div>
     );
@@ -128,6 +140,24 @@ function Finished({ result, extra, onRestart }: { result: SayResult | null; extr
         </p>
         {overLimit && <p className="text-xs text-slate-400">今日の上限（{limit}文）まで復習しました。残りは明日に回します（上限は設定で変えられます）。</p>}
       </div>
+
+      {result && result.gained.length > 0 && (
+        <section className="card space-y-2 p-4">
+          <h2 className="text-sm font-bold text-emerald-700">🎉 今日、言えるようになった文（{result.gained.length}）</h2>
+          <ul className="divide-y divide-slate-100">
+            {result.gained.map((m) => (
+              <li key={m.id}>
+                <button type="button" onClick={() => void speakPt(m.pt)} className="w-full py-2 text-left">
+                  <span className="block text-xs text-slate-500">{m.ja}</span>
+                  <span className="block font-semibold text-brand-ink" lang="pt-BR">
+                    {m.pt}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {result && result.missed.length > 0 && (
         <section className="card space-y-2 p-4">
